@@ -1,6 +1,6 @@
 {
-    "nodes": 1,
-    "cpu": 256,
-    "memory": 512
-
+    "nodes": 2,
+    "cpu": 16384,
+    "memory": 32768,
+    "version": "0.1"
 }
