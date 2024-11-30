@@ -190,7 +190,7 @@ def update_feedback(feedback: FeedbackRequest):
             if feedback.isFeedbackPositive:
                 expression_attribute_values[":FeedbackComment"] = "LikedByUser"
             else:
-                expression_attribute_values[":FeedbackComment"] = = feedback.feedbackComment
+                expression_attribute_values[":FeedbackComment"] = feedback.feedbackComment
             # Prepare the primary key for the update
             key = {
                 'UserId': user_id,
