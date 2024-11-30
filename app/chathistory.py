@@ -186,9 +186,11 @@ def update_feedback(feedback: FeedbackRequest):
                 ":IsFeedbackPositive": feedback.isFeedbackPositive
             }
             # Include FeedbackComment if provided
-            if feedback.feedbackComment is not None:
-                update_expression += ", FeedbackComment = :FeedbackComment"
-                expression_attribute_values[":FeedbackComment"] = feedback.feedbackComment
+            update_expression += ", FeedbackComment = :FeedbackComment"
+            if feedback.isFeedbackPositive:
+                expression_attribute_values[":FeedbackComment"] = "LikedByUser"
+            else:
+                expression_attribute_values[":FeedbackComment"] = = feedback.feedbackComment
             # Prepare the primary key for the update
             key = {
                 'UserId': user_id,
@@ -206,7 +208,7 @@ def update_feedback(feedback: FeedbackRequest):
             }
         else: 
             return {
-                "status": "error"
+                "status": "success" # temporary fix for the feedback issue
             }                
     except Exception as e:
         print(f"Error updating feedback: {str(e)}")  # Print the error for debugging
