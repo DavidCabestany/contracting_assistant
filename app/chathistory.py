@@ -44,9 +44,7 @@ def store_interaction(interaction: ChatInteraction):
         
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):
-    # API Key validation        
-    if validate_api_key(request.apiKey):
-        raise HTTPException(status_code=401, detail="Authentication failed")
+
     try:
         #Extract parameters from the request body
         apiKey = request.apiKey
@@ -128,8 +126,7 @@ def search_chat(request: ChatHistorySearchRequest):
 
 @chat_history_router.post("/session/")
 def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[dict]]:
-    if validate_api_key(request.apiKey):
-        raise HTTPException(status_code=401, detail=f"Authetication failed") 
+
     try:
         response = table.query(
             IndexName="SessionId-index",
