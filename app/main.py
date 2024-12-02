@@ -49,7 +49,7 @@ from data import (
 )
 from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
-    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message
+    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key
 )
 from prompt import retrieve_and_generate
 from chathistory import store_interaction
@@ -90,7 +90,7 @@ def get_user_memory(session_id):
             print(f"File not found in bucket {BUCKET_NAME}. Returning an empty list.")
             return ChatMessageHistory(session_id)
 
-#Root endpoint
+# Root endpoint
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Contracting Assistant API!"}
@@ -98,7 +98,9 @@ async def read_root():
 # POST endpoint for retrieving and generating Q&A answers
 #@app.post("/qna/answer/")
 @app.post("/getqnaanswer/")
-async def ask_question(request: RequestQuery):    
+async def ask_question(request: RequestQuery):   
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed")    
     knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)      
     sessionId = request.user.sessionId
     filepath = ""
@@ -186,7 +188,9 @@ async def generate_summary(
     queryText: Optional[str] = Form(None), 
     transactionCount: Optional[str] = Form(None)    
 ):
-    try:        
+    if validate_api_key(apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
+    try:          
         content = ""
         session_id = sessionId or str(uuid.uuid4())
         file_type = ""
@@ -277,18 +281,4 @@ async def enforce_apikey_validation(request: Request, call_next):
         validate_api_key(request)
     response = await call_next(request)
     return response
-
-# Dependency to validate the API key
-def validate_api_key(request: Request):
-    try:
-        # Parse JSON payload
-        payload = request.json()
-        if "apikey" not in payload:
-            raise HTTPException(status_code=400,detail="API key not provided in request payload.")
-        # Validate API key
-        if payload["apikey"] != API_KEY:
-            raise HTTPException(status_code=403, detail="Invalid API key.")
-    except Exception as e:
-        print(str(e))
-        raise HTTPException(status_code=400, detail="Invalid request format or missing JSON payload.")
 """

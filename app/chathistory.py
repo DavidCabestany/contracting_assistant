@@ -20,12 +20,11 @@ from data import (
 )
 from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
-    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message
+    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key
 )
 from config import *
 
 chat_history_router = APIRouter()
-
 # Initialize FastAPI app
 #router = APIRouter()
 boto_config = Config(retries={'max_attempts': 3}, max_pool_connections=50)
@@ -45,6 +44,8 @@ def store_interaction(interaction: ChatInteraction):
         
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Extract parameters from the request body
         apiKey = request.apiKey
@@ -101,15 +102,21 @@ def search_chat(request: ChatHistorySearchRequest):
             if session_id in seen_sessions:
                 continue            
             # Save only the first message of each session
+            user_message = view_chat_by_session(ChatHistorySearchRequest(session_id=session_id))
+            first_key = list(user_message.keys())[0]
+            first_record = user_message[first_key][0]
+            first_user_message = first_record['UserMessage']
+            if not first_user_message:
+                first_user_message = f"Summary the document - {first_record.get('ChatMetadata', {}).get('FileName', None)    } "
             grouped_conversations[date_str][session_id] = {
-                "UserMessage": item['UserMessage'],
+                "UserMessage": first_user_message,
                 "Timestamp": item['Timestamp'],
                 "SessionId": session_id,
                 "UserId": item['UserId']
             }            
             # Mark this session as processed
             seen_sessions.add(session_id)        
-        # Convert defaultdict to regular dict for JSON serialization
+        #Convert defaultdict to regular dict for JSON serialization
         grouped_conversations = {date: dict(sessions) for date, sessions in grouped_conversations.items()}
         return grouped_conversations
     except Exception as e:
@@ -118,6 +125,8 @@ def search_chat(request: ChatHistorySearchRequest):
 
 @chat_history_router.post("/session/")
 def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[dict]]:
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed")
     try:
         response = table.query(
             IndexName="SessionId-index",
@@ -134,6 +143,8 @@ def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[di
         
 @chat_history_router.post("/download/")
 async def download_chat(request: ChatHistorySearchRequest):
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed")  
     try:
         # Retrieve chat history using the provided request data
         chat_history = search_chat(ChatHistorySearchRequest(
@@ -165,6 +176,8 @@ async def download_chat(request: ChatHistorySearchRequest):
 
 @chat_history_router.post("/feedback/")
 def update_feedback(feedback: FeedbackRequest):
+    if validate_api_key(feedback.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Validate that necessary feedback fields are provided
         if feedback.isFeedbackPositive is None:
@@ -208,7 +221,7 @@ def update_feedback(feedback: FeedbackRequest):
             }
         else: 
             return {
-                "status": "success" # temporary fix for the feedback issue
+                "status": "error"
             }                
     except Exception as e:
         print(f"Error updating feedback: {str(e)}")  # Print the error for debugging
@@ -216,25 +229,44 @@ def update_feedback(feedback: FeedbackRequest):
 
 @chat_history_router.post("/recents/")    
 def get_latest_active_sessions(request: ChatHistorySearchRequest):
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Query using UserId as partition key and filter by active sessions
         response = table.query(
-            KeyConditionExpression=Key('UserId').eq(request.userId),
-            FilterExpression=Attr('SessionStatus').eq('Active') & Attr('ChatMetadata.FlowName').eq('QnA'),
-            ScanIndexForward=False,
-            Limit=3
-        )        
+            KeyConditionExpression=Key('UserId').eq(request.userId),  # Query by UserId
+            FilterExpression=(
+                Attr('SessionStatus').eq('Active') &
+                Attr('ChatMetadata.FlowName').eq('QnA')
+            ),
+            ProjectionExpression='#ts, SessionId',  
+            ExpressionAttributeNames={
+                '#ts': 'Timestamp'  
+            },
+            ScanIndexForward=False, 
+            Limit=10
+        )
+        # Deduplicate session IDs
+        items = response['Items']
+        unique_session_ids = []
+        seen_sessions = set()
+        for item in items:
+            session_id = item['SessionId']
+            if session_id not in seen_sessions:
+                unique_session_ids.append(session_id)
+                seen_sessions.add(session_id)
+            if len(unique_session_ids) == 3:
+                break
         active_sessions = []
         kb_type = ""
-        for item in response['Items']:
-            session_id = item['SessionId']            
+        for session_id in seen_sessions:                        
             # Query to get only the first message for each session, sorted by Timestamp ascending
             session_message_response = table.query(
                 IndexName='SessionId-Timestamp-index',
                 KeyConditionExpression=Key('SessionId').eq(session_id),
                 ScanIndexForward=True,
                 Limit=1
-            )
+            )            
             if session_message_response['Items']:
                 first_item = session_message_response['Items'][0]
                 first_message = first_item.get('UserMessage', None)                
@@ -250,4 +282,4 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
     except Exception as e:
         print(f"Error retrieving latest active sessions: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving latest active sessions")
-        return []
+        return []   
