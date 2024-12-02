@@ -44,22 +44,24 @@ def store_interaction(interaction: ChatInteraction):
         
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):
+    # API Key validation        
     if validate_api_key(request.apiKey):
-        raise HTTPException(status_code=401, detail=f"Authetication failed") 
+        raise HTTPException(status_code=401, detail="Authentication failed")
     try:
-        # Extract parameters from the request body
+        #Extract parameters from the request body
         apiKey = request.apiKey
         userId = request.userId
         keyword = request.keyword
         start_date = request.start_date
         end_date = request.end_date
         sort_order = request.sort_order
+        
         # Parse start and end timestamps if provided
         start_timestamp = datetime.fromisoformat(start_date).isoformat() if start_date else None
         end_timestamp = datetime.fromisoformat(end_date).isoformat() if end_date else None
+        
         # Set up initial query parameters
         query_params = {}
-        # Conditionally set KeyConditionExpression based on UserId and Timestamp range
         if userId:
             key_condition = Key('UserId').eq(userId)
             if start_timestamp and end_timestamp:
@@ -70,8 +72,8 @@ def search_chat(request: ChatHistorySearchRequest):
                 key_condition &= Key('Timestamp').lte(end_timestamp)
             query_params['KeyConditionExpression'] = key_condition
         else:
-            # Use scan if UserId is not provided
             query_params['FilterExpression'] = Attr('Timestamp').between(start_timestamp, end_timestamp) if start_timestamp and end_timestamp else None
+        
         # Add FilterExpression for keyword if provided
         if keyword:
             keyword_filter = (
@@ -81,52 +83,53 @@ def search_chat(request: ChatHistorySearchRequest):
                 query_params['FilterExpression'] &= keyword_filter
             else:
                 query_params['FilterExpression'] = keyword_filter
+
         # Execute query or scan based on UserId presence
         if userId:
             response = table.query(**query_params, Limit=100)
         else:
             response = table.scan(**query_params, Limit=100)
+
         # Sort items based on Timestamp
         response['Items'].sort(
             key=lambda x: datetime.fromisoformat(x['Timestamp']),
             reverse=(sort_order.lower() == "desc")
         )
-        grouped_conversations = defaultdict(lambda: defaultdict(list))        
-        # Track the first message per session
-        seen_sessions = set()        
+        grouped_conversations = defaultdict(lambda: defaultdict(list))
+        seen_sessions = set()
+        
         for item in response['Items']:
-            # Extract the date from the Timestamp field
             date_str = datetime.fromisoformat(item['Timestamp']).date().isoformat()
-            session_id = item['SessionId']            
-            # Skip if we've already processed the first message for this session
+            session_id = item['SessionId']
             if session_id in seen_sessions:
-                continue            
-            # Save only the first message of each session
-            user_message = view_chat_by_session(ChatHistorySearchRequest(session_id=session_id))
+                continue
+            user_message = view_chat_by_session(ChatHistorySearchRequest(session_id=session_id,apiKey=request.apiKey))
             first_key = list(user_message.keys())[0]
             first_record = user_message[first_key][0]
             first_user_message = first_record['UserMessage']
             if not first_user_message:
-                first_user_message = f"Summary the document - {first_record.get('ChatMetadata', {}).get('FileName', None)    } "
+                first_user_message = f"Summary the document - {first_record.get('ChatMetadata', {}).get('FileName', None)}"
             grouped_conversations[date_str][session_id] = {
                 "UserMessage": first_user_message,
                 "Timestamp": item['Timestamp'],
                 "SessionId": session_id,
                 "UserId": item['UserId']
-            }            
-            # Mark this session as processed
-            seen_sessions.add(session_id)        
-        #Convert defaultdict to regular dict for JSON serialization
+            }
+            seen_sessions.add(session_id)
+
         grouped_conversations = {date: dict(sessions) for date, sessions in grouped_conversations.items()}
-        return grouped_conversations
+        return grouped_conversations    
+   
     except Exception as e:
+        # Handle all other exceptions (e.g., DB errors, missing attributes)
         print(f"Error in chat search: {e}")
         return generate_technical_error_message("", 0 , "", "")
+
 
 @chat_history_router.post("/session/")
 def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[dict]]:
     if validate_api_key(request.apiKey):
-        raise HTTPException(status_code=401, detail=f"Authetication failed")
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         response = table.query(
             IndexName="SessionId-index",
@@ -144,7 +147,7 @@ def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[di
 @chat_history_router.post("/download/")
 async def download_chat(request: ChatHistorySearchRequest):
     if validate_api_key(request.apiKey):
-        raise HTTPException(status_code=401, detail=f"Authetication failed")  
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Retrieve chat history using the provided request data
         chat_history = search_chat(ChatHistorySearchRequest(
@@ -282,4 +285,4 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
     except Exception as e:
         print(f"Error retrieving latest active sessions: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving latest active sessions")
-        return []   
+        return []
