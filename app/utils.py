@@ -173,3 +173,12 @@ def extract_text_from_word(byte_array):
         return text
     except Exception as e:
          raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+            
+def validate_api_key(apiKey: str):
+    try:       
+        if not apiKey or apiKey != API_KEY:
+            return True
+        return False
+    except Exception as e:
+        print(str(e))
+        raise HTTPException(status_code=500, detail=f"Authentication verification failed {str(e)}")

@@ -20,12 +20,11 @@ from data import (
 )
 from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
-    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message
+    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key
 )
 from config import *
 
 chat_history_router = APIRouter()
-
 # Initialize FastAPI app
 #router = APIRouter()
 boto_config = Config(retries={'max_attempts': 3}, max_pool_connections=50)
@@ -45,20 +44,22 @@ def store_interaction(interaction: ChatInteraction):
         
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):
+
     try:
-        # Extract parameters from the request body
+        #Extract parameters from the request body
         apiKey = request.apiKey
         userId = request.userId
         keyword = request.keyword
         start_date = request.start_date
         end_date = request.end_date
         sort_order = request.sort_order
+        
         # Parse start and end timestamps if provided
         start_timestamp = datetime.fromisoformat(start_date).isoformat() if start_date else None
         end_timestamp = datetime.fromisoformat(end_date).isoformat() if end_date else None
+        
         # Set up initial query parameters
         query_params = {}
-        # Conditionally set KeyConditionExpression based on UserId and Timestamp range
         if userId:
             key_condition = Key('UserId').eq(userId)
             if start_timestamp and end_timestamp:
@@ -69,8 +70,8 @@ def search_chat(request: ChatHistorySearchRequest):
                 key_condition &= Key('Timestamp').lte(end_timestamp)
             query_params['KeyConditionExpression'] = key_condition
         else:
-            # Use scan if UserId is not provided
             query_params['FilterExpression'] = Attr('Timestamp').between(start_timestamp, end_timestamp) if start_timestamp and end_timestamp else None
+        
         # Add FilterExpression for keyword if provided
         if keyword:
             keyword_filter = (
@@ -80,44 +81,52 @@ def search_chat(request: ChatHistorySearchRequest):
                 query_params['FilterExpression'] &= keyword_filter
             else:
                 query_params['FilterExpression'] = keyword_filter
+
         # Execute query or scan based on UserId presence
         if userId:
             response = table.query(**query_params, Limit=100)
         else:
             response = table.scan(**query_params, Limit=100)
+
         # Sort items based on Timestamp
         response['Items'].sort(
             key=lambda x: datetime.fromisoformat(x['Timestamp']),
             reverse=(sort_order.lower() == "desc")
         )
-        grouped_conversations = defaultdict(lambda: defaultdict(list))        
-        # Track the first message per session
-        seen_sessions = set()        
+        grouped_conversations = defaultdict(lambda: defaultdict(list))
+        seen_sessions = set()
+        
         for item in response['Items']:
-            # Extract the date from the Timestamp field
             date_str = datetime.fromisoformat(item['Timestamp']).date().isoformat()
-            session_id = item['SessionId']            
-            # Skip if we've already processed the first message for this session
+            session_id = item['SessionId']
             if session_id in seen_sessions:
-                continue            
-            # Save only the first message of each session
+                continue
+            user_message = view_chat_by_session(ChatHistorySearchRequest(session_id=session_id,apiKey=request.apiKey))
+            first_key = list(user_message.keys())[0]
+            first_record = user_message[first_key][0]
+            first_user_message = first_record['UserMessage']
+            if not first_user_message:
+                first_user_message = f"Summary the document - {first_record.get('ChatMetadata', {}).get('FileName', None)}"
             grouped_conversations[date_str][session_id] = {
-                "UserMessage": item['UserMessage'],
+                "UserMessage": first_user_message,
                 "Timestamp": item['Timestamp'],
                 "SessionId": session_id,
                 "UserId": item['UserId']
-            }            
-            # Mark this session as processed
-            seen_sessions.add(session_id)        
-        # Convert defaultdict to regular dict for JSON serialization
+            }
+            seen_sessions.add(session_id)
+
         grouped_conversations = {date: dict(sessions) for date, sessions in grouped_conversations.items()}
-        return grouped_conversations
+        return grouped_conversations    
+   
     except Exception as e:
+        # Handle all other exceptions (e.g., DB errors, missing attributes)
         print(f"Error in chat search: {e}")
         return generate_technical_error_message("", 0 , "", "")
 
+
 @chat_history_router.post("/session/")
 def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[dict]]:
+
     try:
         response = table.query(
             IndexName="SessionId-index",
@@ -134,6 +143,8 @@ def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[di
         
 @chat_history_router.post("/download/")
 async def download_chat(request: ChatHistorySearchRequest):
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Retrieve chat history using the provided request data
         chat_history = search_chat(ChatHistorySearchRequest(
@@ -165,6 +176,8 @@ async def download_chat(request: ChatHistorySearchRequest):
 
 @chat_history_router.post("/feedback/")
 def update_feedback(feedback: FeedbackRequest):
+    if validate_api_key(feedback.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Validate that necessary feedback fields are provided
         if feedback.isFeedbackPositive is None:
@@ -186,8 +199,10 @@ def update_feedback(feedback: FeedbackRequest):
                 ":IsFeedbackPositive": feedback.isFeedbackPositive
             }
             # Include FeedbackComment if provided
-            if feedback.feedbackComment is not None:
-                update_expression += ", FeedbackComment = :FeedbackComment"
+            update_expression += ", FeedbackComment = :FeedbackComment"
+            if feedback.isFeedbackPositive:
+                expression_attribute_values[":FeedbackComment"] = "LikedByUser"
+            else:
                 expression_attribute_values[":FeedbackComment"] = feedback.feedbackComment
             # Prepare the primary key for the update
             key = {
@@ -214,25 +229,44 @@ def update_feedback(feedback: FeedbackRequest):
 
 @chat_history_router.post("/recents/")    
 def get_latest_active_sessions(request: ChatHistorySearchRequest):
+    if validate_api_key(request.apiKey):
+        raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:
         # Query using UserId as partition key and filter by active sessions
         response = table.query(
-            KeyConditionExpression=Key('UserId').eq(request.userId),
-            FilterExpression=Attr('SessionStatus').eq('Active') & Attr('ChatMetadata.FlowName').eq('QnA'),
-            ScanIndexForward=False,
-            Limit=3
-        )        
+            KeyConditionExpression=Key('UserId').eq(request.userId),  # Query by UserId
+            FilterExpression=(
+                Attr('SessionStatus').eq('Active') &
+                Attr('ChatMetadata.FlowName').eq('QnA')
+            ),
+            ProjectionExpression='#ts, SessionId',  
+            ExpressionAttributeNames={
+                '#ts': 'Timestamp'  
+            },
+            ScanIndexForward=False, 
+            Limit=10
+        )
+        # Deduplicate session IDs
+        items = response['Items']
+        unique_session_ids = []
+        seen_sessions = set()
+        for item in items:
+            session_id = item['SessionId']
+            if session_id not in seen_sessions:
+                unique_session_ids.append(session_id)
+                seen_sessions.add(session_id)
+            if len(unique_session_ids) == 3:
+                break
         active_sessions = []
         kb_type = ""
-        for item in response['Items']:
-            session_id = item['SessionId']            
+        for session_id in seen_sessions:                        
             # Query to get only the first message for each session, sorted by Timestamp ascending
             session_message_response = table.query(
                 IndexName='SessionId-Timestamp-index',
                 KeyConditionExpression=Key('SessionId').eq(session_id),
                 ScanIndexForward=True,
                 Limit=1
-            )
+            )            
             if session_message_response['Items']:
                 first_item = session_message_response['Items'][0]
                 first_message = first_item.get('UserMessage', None)                
