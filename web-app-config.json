@@ -2,5 +2,5 @@
     "nodes": 2,
     "cpu": 16384,
     "memory": 32768,
-    "version": "0.1"
+    "version": "0.3"
 }
