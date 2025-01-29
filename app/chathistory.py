@@ -7,6 +7,7 @@ import uuid
 import os
 import boto3
 import pandas as pd
+
 from boto3.dynamodb.conditions import Key
 from collections import defaultdict
 from datetime import datetime
