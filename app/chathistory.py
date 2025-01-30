@@ -7,7 +7,7 @@ import uuid
 import os
 import boto3
 import pandas as pd
-
+import re
 from boto3.dynamodb.conditions import Key
 from collections import defaultdict
 from datetime import datetime
@@ -73,15 +73,22 @@ def search_chat(request: ChatHistorySearchRequest):
         else:
             query_params['FilterExpression'] = Attr('Timestamp').between(start_timestamp, end_timestamp) if start_timestamp and end_timestamp else None
         
-        # Add FilterExpression for keyword if provided
         if keyword:
-            keyword_filter = (
-                Attr('UserMessageSearch').contains(keyword) | Attr('BotResponseSearch').contains(keyword)
-            )
-            if 'FilterExpression' in query_params and query_params['FilterExpression']:
-                query_params['FilterExpression'] &= keyword_filter
-            else:
-                query_params['FilterExpression'] = keyword_filter
+            # Remove special characters and split the keyword into separate words
+            words = re.findall(r'\b\w+\b', keyword.lower())
+        keyword_filters = [
+            Attr('UserMessageSearch').contains(word) | Attr('BotResponseSearch').contains(word)
+            for word in words]
+        
+        combined_filter = keyword_filters[0]
+        for kf in keyword_filters[1:]:
+            combined_filter &= kf
+        
+        # Apply the combined filter to query parameters
+        if 'FilterExpression' in query_params and query_params['FilterExpression']:
+            query_params['FilterExpression'] &= combined_filter
+        else:
+            query_params['FilterExpression'] = combined_filter
 
         # Execute query or scan based on UserId presence
         if userId:
