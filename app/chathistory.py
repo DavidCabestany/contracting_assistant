@@ -76,7 +76,7 @@ def search_chat(request: ChatHistorySearchRequest):
         # Add FilterExpression for keyword if provided
         if keyword:
             keyword_filter = (
-                Attr('UserMessage').contains(keyword) | Attr('BotResponse').contains(keyword)
+                Attr('UserMessageSearch').contains(keyword) | Attr('BotResponseSearch').contains(keyword)
             )
             if 'FilterExpression' in query_params and query_params['FilterExpression']:
                 query_params['FilterExpression'] &= keyword_filter

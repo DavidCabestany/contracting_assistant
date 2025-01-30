@@ -77,7 +77,9 @@ class ChatInteraction(BaseModel):
     SessionId: Optional[str] = None    
     MessageId: Optional[str] = None
     UserMessage: Optional[str] = None
-    BotResponse: Optional[str] = None    
+    UserMessageSearch: Optional[str] = None
+    BotResponse: Optional[str] = None 
+    BotResponseSearch: Optional[str] = None    
     IsFeedbackPositive: Optional[bool] = None
     FeedbackComment: Optional[str] = None
     Timestamp: Optional[str] = None
