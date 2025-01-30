@@ -76,19 +76,19 @@ def search_chat(request: ChatHistorySearchRequest):
         if keyword:
             # Remove special characters and split the keyword into separate words
             words = re.findall(r'\b\w+\b', keyword.lower())
-        keyword_filters = [
-            Attr('UserMessageSearch').contains(word) | Attr('BotResponseSearch').contains(word)
-            for word in words]
+            keyword_filters = [
+                Attr('UserMessageSearch').contains(word) | Attr('BotResponseSearch').contains(word)
+                for word in words]
         
-        combined_filter = keyword_filters[0]
-        for kf in keyword_filters[1:]:
-            combined_filter &= kf
+            combined_filter = keyword_filters[0]
+            for kf in keyword_filters[1:]:
+                combined_filter &= kf
         
-        # Apply the combined filter to query parameters
-        if 'FilterExpression' in query_params and query_params['FilterExpression']:
-            query_params['FilterExpression'] &= combined_filter
-        else:
-            query_params['FilterExpression'] = combined_filter
+            # Apply the combined filter to query parameters
+            if 'FilterExpression' in query_params and query_params['FilterExpression']:
+                query_params['FilterExpression'] &= combined_filter
+            else:
+                query_params['FilterExpression'] = combined_filter
 
         # Execute query or scan based on UserId presence
         if userId:
