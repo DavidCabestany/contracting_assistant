@@ -98,7 +98,7 @@ async def read_root():
 # POST endpoint for retrieving and generating Q&A answers
 #@app.post("/qna/answer/")
 @app.post("/getqnaanswer/")
-async def ask_question(request: RequestQuery):   
+async def ask_question(request: RequestQuery):    
     if validate_api_key(request.apiKey):
         raise HTTPException(status_code=401, detail=f"Authetication failed")    
     knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)      
@@ -140,7 +140,9 @@ async def ask_question(request: RequestQuery):
                 UserId=request.user.id,
                 SessionId=sessionId,
                 UserMessage=request.query.text,
+                UserMessageSearch=request.query.text.lower(),
                 BotResponse=answer,
+                BotResponseSearch=answer.lower(),
                 IsFeedbackPositive=True,
                 FeedbackComment="",
                 Timestamp=formatted_timestamp,
@@ -190,7 +192,7 @@ async def generate_summary(
 ):
     if validate_api_key(apiKey):
         raise HTTPException(status_code=401, detail=f"Authetication failed") 
-    try:          
+    try:        
         content = ""
         session_id = sessionId or str(uuid.uuid4())
         file_type = ""
