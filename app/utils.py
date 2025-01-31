@@ -45,8 +45,10 @@ def get_knowledge_base_id(data: str):
     know_base_id = ""
     if (know_base == 'privacy') :
         know_base_id = PRIVACY_KB_ID        
-    elif (know_base == 'rnd') :
-        know_base_id = RND_KB_ID        
+    # elif (know_base == 'rnd') :
+    #     know_base_id = RND_KB_ID   
+    elif (know_base == 'alexion') :
+        know_base_id = ALEXION_ID        
     else:   
         know_base_id = GEN_ENQ_KB_ID
     return know_base_id
