@@ -72,7 +72,8 @@ def search_chat(request: ChatHistorySearchRequest):
         # Add FilterExpression for keyword if provided
         if keyword:
             # Remove special characters and split the keyword into separate words
-            words = re.findall(r'\b\w+\b', keyword.lower())
+            #words = re.findall(r'\b\w+\b', keyword.lower())
+            words = keyword.lower().split()
             keyword_filters = [
                 Attr('UserMessageSearch').contains(word) | Attr('BotResponseSearch').contains(word)
                 for word in words]
