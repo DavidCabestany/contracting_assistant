@@ -255,11 +255,13 @@ async def generate_summary(
         file_location = BUCKET_NAME+ folder_path + file_name
         if userId:
             chat_metadata = ChatMetadata(FileName=file_name,FileLocation=file_location,FlowName=SUMMARY_FLOW_NAME,Department="")
+            user_message = queryText if queryText else "N/A"
+            user_message_search = queryText.lower() if queryText else "n/a"
             chat_interaction = ChatInteraction(
                 UserId=userId,
                 SessionId=session_id,
-                UserMessage=queryText,
-                UserMessageSearch=queryText.lower(),
+                UserMessage=user_message,
+                UserMessageSearch=user_message_search,
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
                 IsFeedbackPositive=True,
