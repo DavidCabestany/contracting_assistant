@@ -219,15 +219,30 @@ def update_feedback(feedback: FeedbackRequest):
 def get_latest_active_sessions(request: ChatHistorySearchRequest):
     try:
         # Query using UserId as partition key and filter by active sessions
-        response = table.query(
-            KeyConditionExpression=Key('UserId').eq(request.userId),
-            FilterExpression=Attr('SessionStatus').eq('Active') & Attr('ChatMetadata.FlowName').eq('QnA'),
-            ScanIndexForward=False,
-            Limit=3
-        )        
+        response = []
+        last_evaluated_key = None
+
+        while len(response) < 3:
+            query_params = {
+                'KeyConditionExpression': Key('UserId').eq(request.userId),
+                'FilterExpression': Attr('SessionStatus').eq('Active') & Attr('ChatMetadata.FlowName').eq('QnA'),
+                'ScanIndexForward': False,
+                'Limit': 10
+            }
+            if last_evaluated_key:
+                query_params['ExclusiveStartKey'] = last_evaluated_key
+
+            output = table.query(**query_params)
+
+            # Extend the top_qna list with items from the response
+            response.extend(output['Items'])  
+            last_evaluated_key = output.get('LastEvaluatedKey')
+            if not last_evaluated_key:
+                break
+
         active_sessions = []
         kb_type = ""
-        for item in response['Items']:
+        for item in response[:3]:
             session_id = item['SessionId']            
             # Query to get only the first message for each session, sorted by Timestamp ascending
             session_message_response = table.query(
