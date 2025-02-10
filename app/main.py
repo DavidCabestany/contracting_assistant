@@ -143,7 +143,7 @@ async def ask_question(request: RequestQuery):
                 UserMessageSearch=request.query.text.lower(),
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
-                IsFeedbackPositive=True,
+                #IsFeedbackPositive=True,
                 FeedbackComment="",
                 Timestamp=formatted_timestamp,
                 SessionStatus=SESSION_STATUS_ACTIVE,
@@ -190,7 +190,7 @@ async def generate_summary(
     queryText: Optional[str] = Form(None), 
     transactionCount: Optional[str] = Form(None)    
 ):
-    if validate_api_key(apiKey):
+    if not validate_api_key(apiKey):
         raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:        
         content = ""
@@ -264,7 +264,7 @@ async def generate_summary(
                 UserMessageSearch=user_message_search,
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
-                IsFeedbackPositive=True,
+                #IsFeedbackPositive=True,
                 FeedbackComment="",
                 Timestamp=formatted_timestamp,
                 SessionStatus=SESSION_STATUS_ACTIVE,
