@@ -99,7 +99,7 @@ async def read_root():
 #@app.post("/qna/answer/")
 @app.post("/getqnaanswer/")
 async def ask_question(request: RequestQuery):    
-    if validate_api_key(request.apiKey):
+    if not validate_api_key(request.apiKey):
         raise HTTPException(status_code=401, detail=f"Authetication failed")    
     knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)      
     sessionId = request.user.sessionId
@@ -143,7 +143,7 @@ async def ask_question(request: RequestQuery):
                 UserMessageSearch=request.query.text.lower(),
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
-                IsFeedbackPositive=True,
+                #IsFeedbackPositive=True,
                 FeedbackComment="",
                 Timestamp=formatted_timestamp,
                 SessionStatus=SESSION_STATUS_ACTIVE,
@@ -264,7 +264,7 @@ async def generate_summary(
                 UserMessageSearch=user_message_search,
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
-                IsFeedbackPositive=True,
+                #IsFeedbackPositive=True,
                 FeedbackComment="",
                 Timestamp=formatted_timestamp,
                 SessionStatus=SESSION_STATUS_ACTIVE,
