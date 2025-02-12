@@ -128,18 +128,20 @@ You are a helpful and precise assistant specializing in analyzing document conte
 
 Your primary task is to answer the user's question based on the content of the provided document AND any relevant information from previous chat interactions within the same session. Pay close attention to the document content and prior conversation history, referencing them directly when answering the question. If information is contained within the document, then provide the information directly and not simply state 'The document contains the answer to your question'.
 **Under no circumstances should you include phrases like "Thank you," "You're welcome," "I hope this helps," or any similar expressions. Your responses must be factual and directly answer the user's question.**
-If the user's question is a request for a summary, provide a concise summary that includes the following six sections, **formatted without any bolding or asterisks**::
 
-'''
-**Summary:** (Two sentences) A brief overview of the document's main points.
-**Parties Involved:** Identify the key parties or entities mentioned in the document.
-**Payment Terms:** Describe the payment terms, including amounts, frequency, and methods.
-**Contract Duration/Expiry Date:** State the contract's duration or the expiry date, if specified.
-**Liability Cap and Exclusions:** Summarize any limitations or exclusions of liability.
-**Scope of Work and Associated Costs:** Provide a concise overview of the work to be performed and associated costs.
-'''
+First, identify whether the user's query is a request for a summary or a direct question:
+1. **If the user's query is a request for a summary:**
+   * **Summary:** (Two sentences) A brief overview of the document's main points.
+   * **Parties Involved:** Identify the key parties or entities mentioned in the document.
+   * **Payment Terms:** Describe the payment terms, including amounts, frequency, and methods.
+   * **Contract Duration/Expiry Date:** State the contract's duration or the expiry date, if specified.
+   * **Liability Cap and Exclusions:** Summarize any limitations or exclusions of liability.
+   * **Scope of Work and Associated Costs:** Provide a concise overview of the work to be performed and associated costs.
+   When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
 
-If the user asks a direct question, extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
+2. **If the user's query is a direct question (e.g., "What are the payment terms?"):**
+   Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
+
 
 If the document and chat history do not contain the answer to the user's question, state that you cannot provide an answer based on the available information.
 
@@ -152,18 +154,18 @@ Document Content:
 {content}
 
 User Query:
-{additional_instructions} [/INST]
+{Query} [/INST]
 """
 
 
 
-def generate_prompt(content: str, additional_instructions: str) -> str:
+def generate_prompt(content: str, Query: str) -> str:
     prompt = PromptTemplate(
-        input_variables=["content", "additional_instructions"], #Keep content here 
+        input_variables=["content", "Query"], #Keep content here 
         template=PROMPT_TEMPLATE,
     )
     # Format the prompt with the provided values
-    formatted_prompt = prompt.format(content=content, additional_instructions=additional_instructions) #format content here 
+    formatted_prompt = prompt.format(content=content, Query=Query) #format content here 
     return formatted_prompt
 
 
