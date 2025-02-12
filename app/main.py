@@ -20,6 +20,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import time
 import pickle
+from botocore.exceptions import BotoCoreError, ClientError
 
 # Third-Party Library Imports
 import PyPDF2
