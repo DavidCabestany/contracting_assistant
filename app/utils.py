@@ -121,29 +121,71 @@ def get_filename_from_path(s3_path):
         print(f"An unexpected error occurred 1: {e}")        
     return filename
 
-    
-def generate_prompt(content: str, additional_instructions: Optional[str]) -> str:
-    """Generate a prompt for the language model based on content and additional instructions."""
-    # Define the base template for the prompt
-    base_template = """
-    %INSTRUCTIONS:
-    Your task is to summarize the document content. Use the content if its already present in the previous chat interactions.The summary should include the following six sections: Summary (two sentences), Parties involved, Payment terms, Contract duration/expiry date, Liability cap and exclusions, Summary of the scope of work and associated costs.Please validate if the USER_QUERY is not relevant to the document content using cosine similarity and append only the keyword, not extra words or phrase - 'IRRELEVANT_TOPIC' at the end of original answer."    
-    """
-    # Add the content of the file to the template
-    if content:
-        base_template += f"\n\n%TEXT:\n{content}\n"
-        
-    # Append the user query (additional instructions) if provided
-    if additional_instructions:
-        base_template += f"\n\n%USER QUERY:\n{additional_instructions}\n"
 
-    # The PromptTemplate can now be created using the combined template
+PROMPT_TEMPLATE = """
+<s>[INST] <<SYS>>
+You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
+
+Your primary task is to answer the user's question based on the content of the provided document AND any relevant information from previous chat interactions within the same session. Pay close attention to the document content and prior conversation history, referencing them directly when answering the question. If information is contained within the document, then provide the information directly and not simply state 'The document contains the answer to your question'.
+
+If the user's question is a request for a summary, provide a concise summary that includes the following six sections:
+
+* **Summary:** (Two sentences) A brief overview of the document's main points.
+* **Parties Involved:** Identify the key parties or entities mentioned in the document.
+* **Payment Terms:** Describe the payment terms, including amounts, frequency, and methods.
+* **Contract Duration/Expiry Date:** State the contract's duration or the expiry date, if specified.
+* **Liability Cap and Exclusions:** Summarize any limitations or exclusions of liability.
+* **Scope of Work and Associated Costs:** Provide a concise overview of the work to be performed and associated costs.
+
+If the user asks a direct question (e.g., "What are the payment terms?"), extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
+
+If the document and chat history do not contain the answer to the user's question, state that you cannot provide an answer based on the available information.
+
+**PLEASE PAY CLOSE ATTENTION**: Validate if the USER_QUERY is not relevant to the document content (including previous chat interactions) using cosine similarity. If the cosine similarity is below the relevance threshold **OR if you have responded with "I cannot answer this question based on the available information.", then append the keyword 'IRRELEVANT_TOPIC' to the end of your answer.** Do not add any extra words or phrases.
+
+<</SYS>>
+
+Document Content:
+{content}
+
+User Query:
+{additional_instructions} [/INST]
+"""
+
+
+
+def generate_prompt(content: str, additional_instructions: str) -> str:
     prompt = PromptTemplate(
-        input_variables=[],  # No need for dynamic variables here as we have formatted the string manually
-        template=base_template,
+        input_variables=["content", "additional_instructions"], #Keep content here 
+        template=PROMPT_TEMPLATE,
     )
-    # Return the final prompt with all components
-    return base_template
+    # Format the prompt with the provided values
+    formatted_prompt = prompt.format(content=content, additional_instructions=additional_instructions) #format content here 
+    return formatted_prompt
+
+
+# def generate_prompt(content: str, additional_instructions: Optional[str]) -> str:
+#     """Generate a prompt for the language model based on content and additional instructions."""
+#     # Define the base template for the prompt
+#     base_template = """
+#     %INSTRUCTIONS:
+#     Your task is to summarize the document content. Use the content if its already present in the previous chat interactions.The summary should include the following six sections: Summary (two sentences), Parties involved, Payment terms, Contract duration/expiry date, Liability cap and exclusions, Summary of the scope of work and associated costs.Please validate if the USER_QUERY is not relevant to the document content using cosine similarity and append only the keyword, not extra words or phrase - 'IRRELEVANT_TOPIC' at the end of original answer."    
+#     """
+#     # Add the content of the file to the template
+#     if content:
+#         base_template += f"\n\n%TEXT:\n{content}\n"
+        
+#     # Append the user query (additional instructions) if provided
+#     if additional_instructions:
+#         base_template += f"\n\n%USER QUERY:\n{additional_instructions}\n"
+
+#     # The PromptTemplate can now be created using the combined template
+#     prompt = PromptTemplate(
+#         input_variables=[],  # No need for dynamic variables here as we have formatted the string manually
+#         template=base_template,
+#     )
+#     # Return the final prompt with all components
+#     return base_template
 
 def extract_pdf_contents(file_bytes: bytes) -> str:
     """Extract text content from a PDF file."""

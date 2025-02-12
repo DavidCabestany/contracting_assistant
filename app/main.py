@@ -230,6 +230,11 @@ async def generate_summary(
                         content = extract_text_from_word(file_contents)
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=f"Failed to extract content from the file: {str(e)}")
+                
+        if not queryText or queryText.strip() == "": #checking if the value exists, or if the value is just white spaces.
+            queryText = "Summarize the document content"
+            print("QueryText was blank.  Initializing with default query.")
+
         #Check if queryText or content is provided        
         if not queryText and not content:
             raise HTTPException(status_code=400, detail="QueryText or content from the file is required")            
