@@ -87,6 +87,14 @@ def search_chat(request: ChatHistorySearchRequest):
                 query_params['FilterExpression'] &= combined_filter
             else:
                 query_params['FilterExpression'] = combined_filter
+        
+        
+        if sort_order and sort_order.lower() == 'desc':
+            query_params['ScanIndexForward'] = False  # Sort descending
+        else:
+            query_params['ScanIndexForward'] = True # Sort ascending (default)
+            
+            
         # Execute query or scan based on UserId presence
         if userId:
             response = table.query(**query_params, Limit=100)
