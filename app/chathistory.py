@@ -42,6 +42,22 @@ def store_interaction(interaction: ChatInteraction):
         return {"message": "User-bot interaction stored successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+def session_history(session_id):
+    try:
+        response = table.query(
+            IndexName="SessionId-index",
+            KeyConditionExpression=Key('SessionId').eq(session_id)
+        )
+        # Sort items by Timestamp in ascending order
+        sorted_items = sorted(response['Items'], key=lambda x: x['Timestamp'])        
+        # Group sorted items by SessionId
+        grouped_conversations = {session_id: sorted_items}        
+        return grouped_conversations
+    except Exception as e:
+        print(f"Error in chat search: {e}")
+        return generate_technical_error_message("", 0 , "", "") 
+
         
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):

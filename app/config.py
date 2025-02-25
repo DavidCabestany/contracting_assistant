@@ -97,3 +97,8 @@ def load_values():
         raise Exception(f"Error in loading required data: {str(e)}")
 
 load_values()
+
+
+##Hardcoded Values
+PRIORITZE_DOCUMENT = 'CAN HANDBOOK Third Edition.pdf'
+GENERAL_QUERIES_DOCUMENT_PATH='s3://azcdi-us-ops-procure-ds-dev/general/'

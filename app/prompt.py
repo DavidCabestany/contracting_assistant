@@ -97,8 +97,10 @@ def retrieve_template(user_query: str):
     return prompt_template
 
 def retrieve_and_generate(query: str, kb_id: str, model_id: str, region_id: str, session_id: str):
-    try:        
-        prompt_template = retrieve_template(query)        
+    try:
+        prompt_template=''
+        if str(retrieve_template(query)) !='nan':     
+            prompt_template = retrieve_template(query)            
         prompt_template += f"""\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
         prompt_template += f"\n\n%USER QUERY:\n{query}\n"
         return bedrock_agent_runtime.retrieve_and_generate(
@@ -134,3 +136,76 @@ def retrieve_and_generate(query: str, kb_id: str, model_id: str, region_id: str,
        )
     except Exception as e:
         raise Exception(f"Error in retrieving q&a answer: {e}")
+    
+
+def retrieve_documents(query: str, kb_id: str, region_id: str, filter_value: str = None):
+    try:
+        bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=region_id)
+
+        # Build the retrieval configuration
+        retrieval_configuration = {
+            'vectorSearchConfiguration': {
+                'overrideSearchType': QNA_SEARCH_TYPE
+            }
+        }
+
+        # Conditionally add the filter
+        if filter_value:
+            retrieval_configuration['vectorSearchConfiguration']['filter'] = {
+                "equals": {
+                    "key": "x-amz-bedrock-kb-source-uri",
+                    "value": filter_value
+                }
+            }
+
+        # Construct the full request
+        request = {
+            'knowledgeBaseId': kb_id,  # Required at the top level
+            'retrievalQuery': {
+                'text': query  # Query goes inside 'retrievalQuery' object
+            },
+            'retrievalConfiguration': retrieval_configuration  # Not 'retrieveConfiguration'
+
+        }
+
+
+        # Invoke the API
+        response = bedrock_agent_runtime.retrieve(**request)
+        return response
+
+    except Exception as e:
+        raise Exception(f"Error during document retrieval: {e}")
+    
+
+
+def generate_answer_with_context(formatted_prompt):
+    try:
+        body = json.dumps({
+            "anthropic_version": "bedrock-2023-05-31", #or "bedrock-2024-05-31", check the docs.
+            "max_tokens": int(QNA_MAX_TOKENS_VALUE),  
+            "messages": [
+                {
+                    "role": "user",
+                    "content": formatted_prompt
+                }
+            ]
+        })
+
+        response = bedrock_client.invoke_model(
+            body=body,
+            modelId=MODEL_ID,
+            accept="application/json",
+            contentType="application/json",
+            guardrailIdentifier=GUARDRAIL_ID,
+            guardrailVersion=GUARDRAIL_VERSION_ID,
+        )
+
+        response_body = json.loads(response['body'].read().decode('utf-8'))
+
+        return response_body
+
+    except Exception as e:
+        raise Exception(f"Error during answer generation: {e}")
+    
+
+

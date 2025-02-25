@@ -102,6 +102,40 @@ def extract_file_locations(data):
             if not is_duplicate:
                 citations_list.append(citation_object)
     return citations_list
+
+
+def extract_file_locations_v2(data):
+    citations_list = []
+
+    for result in data.get("retrievalResults", []):
+        try:
+            # Extract the necessary fields for each citation
+            page_number = result.get("metadata", {}).get("x-amz-bedrock-kb-document-page-number")
+            s3_uri = result.get("location", {}).get("s3Location", {}).get("uri", "")
+            file_path = generate_presigned_url(s3_uri, page_number)
+
+            citation_object = {
+                "filePath": file_path if isinstance(file_path, str) else str(file_path),
+                "pageNumber": int(page_number) if page_number is not None else 0,
+                "fileName": get_filename_from_path(s3_uri)
+            }
+
+            # Check if the citation_object already exists in the list
+            is_duplicate = any(
+                (item["fileName"] == citation_object["fileName"] and
+                 (item["pageNumber"] == citation_object["pageNumber"] or item["pageNumber"] == 0 or citation_object["pageNumber"] == 0))
+                for item in citations_list
+            )
+
+            # Only add the citation_object if it's not a duplicate
+            if not is_duplicate:
+                citations_list.append(citation_object)
+
+        except Exception as e:
+            print(f"Error processing retrieval result: {e}.  Skipping this result.")
+            continue  # Skip to the next result if there's an error
+
+    return citations_list
     
 def get_filename_from_path(s3_path):
     """Extract the filename from an S3 path."""
@@ -238,3 +272,160 @@ def validate_api_key(apiKey: str) -> bool:
     except Exception as e:
         print(str(e))
         raise HTTPException(status_code=500, detail=f"Authentication verification failed: {str(e)}")
+    
+
+def extract_chat_history(data):
+    chat_history = []
+    # Check if the data is in the expected format
+    if not isinstance(data, dict):
+        print("Error: Input data must be a dictionary.")
+        return chat_history
+
+    # Iterate through the dictionary (assuming the keys are session IDs)
+    for session_id, messages in data.items():
+        if not isinstance(messages, list):
+            print(f"Warning: Session {session_id} does not contain a list of messages. Skipping.")
+            continue  # Skip to the next session
+
+        for message in messages:
+            if not isinstance(message, dict):
+                print(f"Warning: Invalid message format in session {session_id}. Skipping.")
+                continue #skip to next message
+
+            try:
+                question = message.get('UserMessageSearch')  # Use get() to handle missing keys
+                answer = message.get('BotResponse')
+
+                if question and answer:  # Only add if both question and answer are present
+                    chat_history.append((question, answer))
+                else:
+                    if not question:
+                        print(f"Warning: Missing 'UserMessageSearch' in message from session {session_id}.")
+                    if not answer:
+                         print(f"Warning: Missing 'BotResponse' in message from session {session_id}.")
+            except Exception as e:
+                print(f"Error processing message in session {session_id}: {e}")
+                continue  # Continue to the next message
+
+    return chat_history
+
+
+def create_context(doc, top_n=3):
+    if 'retrievalResults' not in doc or not doc['retrievalResults']:
+        print("No retrieval results found in the document.")
+        return "No relevant context found."
+
+    prioritized_texts = []
+    other_texts = []
+    count = 0
+
+    for result in doc['retrievalResults']:
+        try:
+            source_uri = result['metadata']['x-amz-bedrock-kb-source-uri']
+            text = result['content']['text']
+
+            if PRIORITZE_DOCUMENT in source_uri:
+                prioritized_texts.append(text)
+            else:
+                other_texts.append(text)
+
+        except KeyError as e:
+            print(f"Missing key in retrieval result: {e}. Skipping this result.  KeyError: {e}")
+            continue  # Skip to the next result if there's a missing key
+        except Exception as e:
+            print(f"An error occurred processing a result: {e}. Skipping this result. Error: {e}")
+            continue #Skip to the next result if there's some other error
+
+    #Construct the full context
+    context = ""
+
+    if prioritized_texts:
+        context += "\n".join(prioritized_texts) #Join the texts from the prioritized document
+        print("Prioritized text found, prioritizing it in context.")
+        count +=1
+    else:
+        print("Prioritized text not found.")
+
+
+    while(len(other_texts) > 0 and count < top_n):
+        if context:
+            context += "\n" #Add a separator if prioritize text was already added
+        context += other_texts.pop(0) 
+        count += 1
+
+    if not context:
+        print("No relevant context found after processing retrieval results.")
+        return "No relevant context found."
+
+    return context.strip() 
+
+
+
+def reorder_retrieval_results(data, PRIORITZE_DOCUMENT):
+    if 'retrievalResults' not in data:
+        return data  # No results to reorder
+
+    # Separate prioritized and non-prioritized results
+    prioritized = []
+    non_prioritized = []
+
+    for result in data['retrievalResults']:
+        if 'metadata' in result and 'x-amz-bedrock-kb-source-uri' in result['metadata']:
+            source_uri = result['metadata']['x-amz-bedrock-kb-source-uri']
+            if PRIORITZE_DOCUMENT in source_uri:
+                prioritized.append(result)
+            else:
+                non_prioritized.append(result)
+        else:
+            non_prioritized.append(result) #Or handle how you want, if keys are missing.  Could also log an error
+
+    # Combine the lists, prioritized first
+    data['retrievalResults'] = prioritized + non_prioritized
+
+    return data
+
+
+def prepare_search_results(data):
+    search_results = []
+
+    if 'retrievalResults' not in data:
+        print("Warning: 'retrievalResults' not found in data.")
+        return search_results
+
+    for result in data['retrievalResults']:
+        if (
+            'content' in result
+            and 'text' in result['content']
+            and 'metadata' in result
+            and 'x-amz-bedrock-kb-source-uri' in result['metadata']
+        ):
+            search_results.append({
+                'context': result['content']['text'],
+                'x-amz-bedrock-kb-source-uri': result['metadata']['x-amz-bedrock-kb-source-uri'],
+            })
+        else:
+            print(
+                "Warning: Incomplete data in retrieval result. "
+                "Skipping this result."
+            )
+            # Optionally, you could log more detailed information about the missing keys.
+            continue
+
+    return search_results
+
+
+
+def filter_l1_by_l2(l1, l2):
+
+
+  filtered_list = []
+  for item_l1 in l1:
+    for s3_path in l2:
+      # Extract filename from S3 path
+      filename = s3_path.split('/')[-1]  # Get the last part of the path
+
+      if item_l1['fileName'] == filename:
+        filtered_list.append(item_l1)
+        break  # Stop searching l2 once a match is found for this item_l1
+
+  return filtered_list

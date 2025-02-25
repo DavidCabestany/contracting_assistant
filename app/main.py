@@ -50,14 +50,15 @@ from data import (
 )
 from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
-    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key
+    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, 
+    validate_api_key,extract_chat_history,create_context,extract_file_locations_v2,reorder_retrieval_results,prepare_search_results,filter_l1_by_l2
 )
-from prompt import retrieve_and_generate
+from prompt import retrieve_and_generate,retrieve_documents,generate_answer_with_context
 from chathistory import store_interaction
 from config import config_router
-from chathistory import chat_history_router
+from chathistory import chat_history_router,session_history
 from chat_message_history import ChatMessageHistory
-
+from prompt_template import *
 
 qna_session_id_store = {}
 
@@ -107,17 +108,50 @@ async def ask_question(request: RequestQuery):
     filepath = ""
     filename = ""
     citations = []   
+    filenames = []
     msg_id = str(uuid.uuid4())
     try:
         current_datetime = datetime.now()       
-        response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
-        answer = response["output"]["text"]
-        sessionId = response["sessionId"]        
-        # Hardcoded values, should be modified as needed
+        #response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
+        #citations = extract_file_locations(response)
+        if sessionId: 
+            history = session_history(sessionId)
+            chat_history= extract_chat_history(history)
+            prompt = ""
+            for question, answer in chat_history:
+                prompt += f"User: {question}\nAssistant: {answer}\n"
+            prompt+=f"User:{request.query.text}"
+        else:
+            prompt =f"User:{request.query.text}"
+    
+        print("\nFormatted for prompt:\n", prompt)
+        doc=retrieve_documents(prompt, knowledge_base_id, REGION_ID,filter_value=None)
+        doc_reorder=reorder_retrieval_results(doc, PRIORITZE_DOCUMENT)
+        search_results=prepare_search_results(doc_reorder)
+        citations_v1= extract_file_locations_v2(doc_reorder)
+
+        formatted_prompt = template.format(search_results_formatted=search_results,prompt=prompt)
+        response3=generate_answer_with_context(formatted_prompt)
+
+        match= response3["content"][0]['text']
+        pattern=re.compile(r"\{[^}]*\}")
+        json_obj=pattern.search(match).group(0)
+
+        res = json_obj.encode('utf-8', 'ignore').decode('utf-8')
+
+
+        clean_res = ''.join(c for c in res if ord(c) >= 32 or ord(c) in [9, 10, 13])
+        response = json.loads(clean_res, strict=False)
+
+
+        answer=response['response']
+        reference=response['reference']
+        citations=filter_l1_by_l2(citations_v1,reference)
+        sessionId = sessionId or str(uuid.uuid4())
+       
         quickreply = QuickReply(text="Rate the overall risk to AZ this contract", payload="Rate the overall risk to AZ this contract")
         quickreplies = [quickreply]        
-        #citation = Citation(fileName=filename, filePath=filepath)
-        citations = extract_file_locations(response)        
+             
         feedbackoptions = FeedbackDisplayOptions(thumbsUp="Y", thumbsDown="Y", feedbackText="Y")
         feedback = Feedback(feedbackDisplayOptions=feedbackoptions)        
         result = Result(
