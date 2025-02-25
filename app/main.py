@@ -53,7 +53,7 @@ from utils import (
     get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, 
     validate_api_key,extract_chat_history,create_context,extract_file_locations_v2,reorder_retrieval_results,prepare_search_results,filter_l1_by_l2
 )
-from prompt import retrieve_and_generate,retrieve_documents,generate_answer_with_context
+from prompt import retrieve_and_generate,retrieve_documents,generate_answer_with_context,retrieve_template
 from chathistory import store_interaction
 from config import config_router
 from chathistory import chat_history_router,session_history
@@ -123,14 +123,21 @@ async def ask_question(request: RequestQuery):
             prompt+=f"User:{request.query.text}"
         else:
             prompt =f"User:{request.query.text}"
-    
+        
         print("\nFormatted for prompt:\n", prompt)
+        if str(retrieve_template(request.query.text)) !='nan':     
+            instruction = retrieve_template(request.query.text)
+            if instruction=='':
+                instruction=default_instruction
+        else:
+            instruction=default_instruction
+        
         doc=retrieve_documents(prompt, knowledge_base_id, REGION_ID,filter_value=None)
         doc_reorder=reorder_retrieval_results(doc, PRIORITZE_DOCUMENT)
         search_results=prepare_search_results(doc_reorder)
         citations_v1= extract_file_locations_v2(doc_reorder)
 
-        formatted_prompt = template.format(search_results_formatted=search_results,prompt=prompt)
+        formatted_prompt = template.format(search_results_formatted=search_results,prompt=prompt,Instruction=instruction)
         response3=generate_answer_with_context(formatted_prompt)
 
         match= response3["content"][0]['text']
@@ -140,13 +147,20 @@ async def ask_question(request: RequestQuery):
         res = json_obj.encode('utf-8', 'ignore').decode('utf-8')
 
 
-        clean_res = ''.join(c for c in res if ord(c) >= 32 or ord(c) in [9, 10, 13])
-        response = json.loads(clean_res, strict=False)
+        #clean_res = ''.join(c for c in res if ord(c) >= 32 or ord(c) in [9, 10, 13])
+        response = json.loads(res, strict=False)
 
 
         answer=response['response']
         reference=response['reference']
-        citations=filter_l1_by_l2(citations_v1,reference)
+        if isinstance(reference, str):     
+            reference = reference.split(",")
+            citations=filter_l1_by_l2(citations_v1,reference)
+        elif isinstance(reference, list): 
+            citations=filter_l1_by_l2(citations_v1,reference)
+        else: 
+            citations=citations_v1
+       
         sessionId = sessionId or str(uuid.uuid4())
        
         quickreply = QuickReply(text="Rate the overall risk to AZ this contract", payload="Rate the overall risk to AZ this contract")
