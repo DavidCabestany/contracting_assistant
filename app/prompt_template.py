@@ -17,6 +17,6 @@ Do not mention 'Here is my response', just provide the response.
 Return your answer as a JSON object with the following format only. 
 ```json
 {{
-  "response": "answer to the user's question.Kindly provide detailed contract clause informations that are related to user question.'",
+  "response": "Provide detailed answer to the user's question",
   "reference": ["Reference of the search text used to answer the question.  If multiple references were used, list them separated by commas.  If no answer was found, leave this field blank."]
 }}```"""
