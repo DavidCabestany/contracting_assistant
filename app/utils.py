@@ -385,14 +385,14 @@ def reorder_retrieval_results(data, PRIORITZE_DOCUMENT):
     return data
 
 
-def prepare_search_results(data):
+def prepare_search_results(data,top_n=3):
     search_results = []
 
     if 'retrievalResults' not in data:
         print("Warning: 'retrievalResults' not found in data.")
         return search_results
 
-    for result in data['retrievalResults']:
+    for result in data['retrievalResults'][:top_n]:
         if (
             'content' in result
             and 'text' in result['content']

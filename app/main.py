@@ -134,7 +134,7 @@ async def ask_question(request: RequestQuery):
         
         doc=retrieve_documents(prompt, knowledge_base_id, REGION_ID,filter_value=None)
         doc_reorder=reorder_retrieval_results(doc, PRIORITZE_DOCUMENT)
-        search_results=prepare_search_results(doc_reorder)
+        search_results=prepare_search_results(doc_reorder,top_n=3)
         citations_v1= extract_file_locations_v2(doc_reorder)
 
         formatted_prompt = template.format(search_results_formatted=search_results,prompt=prompt,Instruction=instruction)
@@ -155,9 +155,9 @@ async def ask_question(request: RequestQuery):
         reference=response['reference']
         if isinstance(reference, str):     
             reference = reference.split(",")
-            citations=filter_l1_by_l2(citations_v1,reference)
+            citations=filter_l1_by_l2(citations_v1[0:3],reference)
         elif isinstance(reference, list): 
-            citations=filter_l1_by_l2(citations_v1,reference)
+            citations=filter_l1_by_l2(citations_v1[0:3],reference)
         else: 
             citations=citations_v1
        
