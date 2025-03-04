@@ -43,6 +43,7 @@ def store_interaction(interaction: ChatInteraction):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+
 def session_history(session_id):
     try:
         response = table.query(
@@ -57,7 +58,7 @@ def session_history(session_id):
     except Exception as e:
         print(f"Error in chat search: {e}")
         return generate_technical_error_message("", 0 , "", "") 
-
+    
         
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):

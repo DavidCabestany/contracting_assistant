@@ -50,15 +50,14 @@ from data import (
 )
 from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
-    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, 
-    validate_api_key,extract_chat_history,create_context,extract_file_locations_v2,reorder_retrieval_results,prepare_search_results,filter_l1_by_l2
+    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key,extract_chat_history
 )
-from prompt import retrieve_and_generate,retrieve_documents,generate_answer_with_context,retrieve_template
-from chathistory import store_interaction
+from prompt import retrieve_and_generate,follow_up_prompt,generate_answer_with_context,retrieve_documents,retrieve_and_generate_prioritized_doc
+from chathistory import store_interaction,session_history
 from config import config_router
-from chathistory import chat_history_router,session_history
+from chathistory import chat_history_router
 from chat_message_history import ChatMessageHistory
-from prompt_template import *
+
 
 qna_session_id_store = {}
 
@@ -108,64 +107,65 @@ async def ask_question(request: RequestQuery):
     filepath = ""
     filename = ""
     citations = []   
-    filenames = []
     msg_id = str(uuid.uuid4())
     try:
-        current_datetime = datetime.now()       
-        #response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
-        #citations = extract_file_locations(response)
+        current_datetime = datetime.now()    
         if sessionId: 
             history = session_history(sessionId)
             chat_history= extract_chat_history(history)
             prompt = ""
             for question, answer in chat_history:
                 prompt += f"User: {question}\nAssistant: {answer}\n"
-            prompt+=f"User:{request.query.text}"
+            formatted_prompt= follow_up_prompt.format(prompt,request.query.text)
+            follow_up = generate_answer_with_context(formatted_prompt)
+            if "follow-up" in follow_up["content"][0]['text'].lower():
+                prompt+=f"User:{request.query.text}"
+            else:
+                prompt =f"User:{request.query.text}"
         else:
             prompt =f"User:{request.query.text}"
-        
-        print("\nFormatted for prompt:\n", prompt)
-        if str(retrieve_template(request.query.text)) !='nan':     
-            instruction = retrieve_template(request.query.text)
-            if instruction=='':
-                instruction=default_instruction
-        else:
-            instruction=default_instruction
-        
+
+       
+        response=None
         doc=retrieve_documents(prompt, knowledge_base_id, REGION_ID,filter_value=None)
-        doc_reorder=reorder_retrieval_results(doc, PRIORITZE_DOCUMENT)
-        search_results=prepare_search_results(doc_reorder,top_n=3)
-        citations_v1= extract_file_locations_v2(doc_reorder)
+        for result in doc['retrievalResults']:
+            if 'metadata' in result and 'x-amz-bedrock-kb-source-uri' in result['metadata']:
+                source_uri = result['metadata']['x-amz-bedrock-kb-source-uri']
+                if PRIORITZE_DOCUMENT in source_uri:
+                    response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
+                    break
+        if response:
+            citations = extract_file_locations(response)
+            answer = response["output"]["text"]
+            print(answer)
+            if citations !=[]:
+                print(citations[0]['fileName'])
+            else:
+                response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
+                citations = extract_file_locations(response)
+                answer = response["output"]["text"]
+                print(answer)   
+                if citations !=[]:
+                 print(citations[0]['fileName'])
+        else:
+            response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
+            citations = extract_file_locations(response)
+            answer = response["output"]["text"]
+            print(answer)
+            if citations !=[]:
+                print(citations[0]['fileName'])
 
-        formatted_prompt = template.format(search_results_formatted=search_results,prompt=prompt,Instruction=instruction)
-        response3=generate_answer_with_context(formatted_prompt)
-
-        match= response3["content"][0]['text']
-        pattern=re.compile(r"\{[^}]*\}")
-        json_obj=pattern.search(match).group(0)
-
-        res = json_obj.encode('utf-8', 'ignore').decode('utf-8')
-
-
-        #clean_res = ''.join(c for c in res if ord(c) >= 32 or ord(c) in [9, 10, 13])
-        response = json.loads(res, strict=False)
-
-
-        answer=response['response']
-        reference=response['reference']
-        if isinstance(reference, str):     
-            reference = reference.split(",")
-            citations=filter_l1_by_l2(citations_v1[0:3],reference)
-        elif isinstance(reference, list): 
-            citations=filter_l1_by_l2(citations_v1[0:3],reference)
-        else: 
-            citations=citations_v1
-       
-        sessionId = sessionId or str(uuid.uuid4())
-       
+        sessionId = response["sessionId"] 
+           
+        #response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
+        #answer = response["output"]["text"]
+        #sessionId = response["sessionId"]        
+        
+        # Hardcoded values, should be modified as needed
         quickreply = QuickReply(text="Rate the overall risk to AZ this contract", payload="Rate the overall risk to AZ this contract")
         quickreplies = [quickreply]        
-             
+        #citation = Citation(fileName=filename, filePath=filepath)
+        citations = extract_file_locations(response)        
         feedbackoptions = FeedbackDisplayOptions(thumbsUp="Y", thumbsDown="Y", feedbackText="Y")
         feedback = Feedback(feedbackDisplayOptions=feedbackoptions)        
         result = Result(

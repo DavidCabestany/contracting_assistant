@@ -97,10 +97,8 @@ def retrieve_template(user_query: str):
     return prompt_template
 
 def retrieve_and_generate(query: str, kb_id: str, model_id: str, region_id: str, session_id: str):
-    try:
-        prompt_template=''
-        if str(retrieve_template(query)) !='nan':     
-            prompt_template = retrieve_template(query)            
+    try:        
+        prompt_template = retrieve_template(query)        
         prompt_template += f"""\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
         prompt_template += f"\n\n%USER QUERY:\n{query}\n"
         return bedrock_agent_runtime.retrieve_and_generate(
@@ -114,6 +112,7 @@ def retrieve_and_generate(query: str, kb_id: str, model_id: str, region_id: str,
                     'retrievalConfiguration': {
                         'vectorSearchConfiguration': {
                             'overrideSearchType': QNA_SEARCH_TYPE,
+                            'numberOfResults': 3
                         }
                     },
                     "generationConfiguration": {
@@ -138,44 +137,17 @@ def retrieve_and_generate(query: str, kb_id: str, model_id: str, region_id: str,
         raise Exception(f"Error in retrieving q&a answer: {e}")
     
 
-def retrieve_documents(query: str, kb_id: str, region_id: str, filter_value: str = None):
-    try:
-        bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=region_id)
 
-        # Build the retrieval configuration
-        retrieval_configuration = {
-            'vectorSearchConfiguration': {
-                'overrideSearchType': QNA_SEARCH_TYPE
-            }
-        }
+follow_up_prompt= """You are an AI assistant helping to understand the flow of conversation in a technical troubleshooting scenario. Your job is to determine if a new question is related to a previous question and its answer
+Here's how to analyze the relationship:
+* **Follow-up:** If the second question is seeking more information,clarification or a specific step related to the first question and its answer, its a FOLLOW-UP.
+* **New Question:** If the second question introduces a different problem, requests information unrelated to the first question,or could be asked independently, its a NEW QUESTION.
+Analyze the relationship between these queries:
+Query 1:{}
+Query 2:{}
 
-        # Conditionally add the filter
-        if filter_value:
-            retrieval_configuration['vectorSearchConfiguration']['filter'] = {
-                "equals": {
-                    "key": "x-amz-bedrock-kb-source-uri",
-                    "value": filter_value
-                }
-            }
+Respond with only one label:follow-up or New Question. """
 
-        # Construct the full request
-        request = {
-            'knowledgeBaseId': kb_id,  # Required at the top level
-            'retrievalQuery': {
-                'text': query  # Query goes inside 'retrievalQuery' object
-            },
-            'retrievalConfiguration': retrieval_configuration  # Not 'retrieveConfiguration'
-
-        }
-
-
-        # Invoke the API
-        response = bedrock_agent_runtime.retrieve(**request)
-        return response
-
-    except Exception as e:
-        raise Exception(f"Error during document retrieval: {e}")
-    
 
 
 def generate_answer_with_context(formatted_prompt):
@@ -208,4 +180,93 @@ def generate_answer_with_context(formatted_prompt):
         raise Exception(f"Error during answer generation: {e}")
     
 
+
+def retrieve_and_generate_prioritized_doc(query: str, kb_id: str, model_id: str, region_id: str, session_id: str):
+    try:
+        prompt_template=''
+        if str(retrieve_template(query)) !='nan':     
+            prompt_template = retrieve_template(query)        
+        prompt_template += f"""\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
+        prompt_template += f"\n\n%USER QUERY:\n{query}\n"
+        return bedrock_agent_runtime.retrieve_and_generate(
+            input={
+                'text': prompt_template
+            },
+            retrieveAndGenerateConfiguration={                
+                'knowledgeBaseConfiguration': {
+                    'knowledgeBaseId': kb_id,
+                    'modelArn': MODEL_ARN,
+                    'retrievalConfiguration': {
+                        'vectorSearchConfiguration': {
+                                'overrideSearchType': QNA_SEARCH_TYPE,
+                                "filter":{"equals":
+                                {"key":"x-amz-bedrock-kb-source-uri","value":GENERAL_QUERIES_DOCUMENT_PATH+PRIORITZE_DOCUMENT
+                                 }
+                                 },
+                                  'numberOfResults': 3,
+                    }
+                    },
+                    "generationConfiguration": {
+                        "guardrailConfiguration": {
+                            "guardrailId": GUARDRAIL_ID,
+                            "guardrailVersion": GUARDRAIL_VERSION_ID
+                        },
+                        "inferenceConfig": { 
+                            "textInferenceConfig": { 
+                                "maxTokens": int(QNA_MAX_TOKENS_VALUE),
+                                "temperature": float(QNA_TEMPRATURE_VALUE),
+                                "topP": float(QNA_TOP_P_VALUE)
+                            }
+                        }                                       
+                    },
+                 },
+                       'type': 'KNOWLEDGE_BASE'
+             },
+                **({'sessionId': session_id} if session_id else {})  # Conditionally add 
+       )
+    except Exception as e:
+        raise Exception(f"Error in retrieving q&a answer: {e}")
+
+
+    
+
+def retrieve_documents(query: str, kb_id: str, region_id: str, filter_value: str = None):
+    try:
+        bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=region_id)
+
+        # Build the retrieval configuration
+        retrieval_configuration = {
+            'vectorSearchConfiguration': {
+                'overrideSearchType': QNA_SEARCH_TYPE,
+                'numberOfResults': 3,
+            }
+        }
+
+        # Conditionally add the filter
+        if filter_value:
+            retrieval_configuration['vectorSearchConfiguration']['filter'] = {
+                "equals": {
+                    "key": "x-amz-bedrock-kb-source-uri",
+                    "value": filter_value
+                }
+            }
+
+        # Construct the full request
+        request = {
+            'knowledgeBaseId': kb_id,  # Required at the top level
+            'retrievalQuery': {
+                'text': query  # Query goes inside 'retrievalQuery' object
+            },
+            'retrievalConfiguration': retrieval_configuration  # Not 'retrieveConfiguration'
+
+        }
+
+
+        # Invoke the API
+        response = bedrock_agent_runtime.retrieve(**request)
+        return response
+
+    except Exception as e:
+        raise Exception(f"Error during document retrieval: {e}")
+    
 
