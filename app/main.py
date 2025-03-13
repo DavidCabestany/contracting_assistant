@@ -137,29 +137,18 @@ async def ask_question(request: RequestQuery):
         if response:
             citations = extract_file_locations(response)
             answer = response["output"]["text"]
-            print(answer)
             if citations !=[]:
-                print(citations[0]['fileName'])
+                print("found citations")
             else:
                 response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
-                print(answer)   
-                if citations !=[]:
-                 print(citations[0]['fileName'])
         else:
             response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
             citations = extract_file_locations(response)
             answer = response["output"]["text"]
-            print(answer)
-            if citations !=[]:
-                print(citations[0]['fileName'])
 
         sessionId = response["sessionId"] 
-           
-        #response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
-        #answer = response["output"]["text"]
-        #sessionId = response["sessionId"]        
         
         # Hardcoded values, should be modified as needed
         quickreply = QuickReply(text="Rate the overall risk to AZ this contract", payload="Rate the overall risk to AZ this contract")

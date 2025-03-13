@@ -180,9 +180,13 @@ def generate_answer_with_context(formatted_prompt):
         raise Exception(f"Error during answer generation: {e}")
     
 
+def get_s3_path(bucket_name, folder_name):
+    return f"s3://{bucket_name}/{folder_name}/"
+
 
 def retrieve_and_generate_prioritized_doc(query: str, kb_id: str, model_id: str, region_id: str, session_id: str):
     try:
+        GENERAL_QUERIES_DOCUMENT_PATH = get_s3_path(BUCKET_NAME, 'general')
         prompt_template=''
         if str(retrieve_template(query)) !='nan':     
             prompt_template = retrieve_template(query)        

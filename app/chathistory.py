@@ -266,9 +266,12 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
                 break
 
         active_sessions = []
+        seen_session_ids = set()
         kb_type = ""
-        for item in response[:3]:
-            session_id = item['SessionId']            
+        for item in response:
+            session_id = item['SessionId'] 
+            if session_id in seen_session_ids:
+                continue  # Skip if session ID has been processed           
             # Query to get only the first message for each session, sorted by Timestamp ascending
             session_message_response = table.query(
                 IndexName='SessionId-Timestamp-index',
@@ -286,7 +289,10 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
                     'SessionId': session_id,
                     'Message': first_message,
                     'KbType': kb_type
-                })        
+                })
+                seen_session_ids.add(session_id) 
+                if len(seen_session_ids) >= 3:
+                        break         
         return active_sessions    
     except Exception as e:
         print(f"Error retrieving latest active sessions: {e}")
