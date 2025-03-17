@@ -27,7 +27,8 @@ class User(BaseModel):
 class Query(BaseModel):
     text: str
     knowledgeType: str
-    transactionCount: int 
+    transactionCount: int
+    files: Optional[List[str]] = None 
 
 class RequestQuery(BaseModel):
     apiKey: str

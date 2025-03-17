@@ -183,13 +183,17 @@ def generate_answer_with_context(formatted_prompt):
 def get_s3_path(bucket_name, folder_name):
     return f"s3://{bucket_name}/{folder_name}/"
 
+def add_s3_prefix_to_files(files, bucket_name, folder_name):
+    s3_prefix = get_s3_path(bucket_name, folder_name)
+    updated_files = [s3_prefix + file for file in files]
+    return updated_files
 
-def retrieve_and_generate_prioritized_doc(query: str, kb_id: str, model_id: str, region_id: str, session_id: str):
+def retrieve_and_generate_prioritized_doc(query: str, kb_id: str, model_id: str, region_id: str, session_id: str,files:list):
     try:
-        GENERAL_QUERIES_DOCUMENT_PATH = get_s3_path(BUCKET_NAME, 'general')
         prompt_template=''
         if str(retrieve_template(query)) !='nan':     
-            prompt_template = retrieve_template(query)        
+            prompt_template = retrieve_template(query) 
+        GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(files,BUCKET_NAME, 'general')       
         prompt_template += f"""\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
         prompt_template += f"\n\n%USER QUERY:\n{query}\n"
         return bedrock_agent_runtime.retrieve_and_generate(
@@ -203,8 +207,8 @@ def retrieve_and_generate_prioritized_doc(query: str, kb_id: str, model_id: str,
                     'retrievalConfiguration': {
                         'vectorSearchConfiguration': {
                                 'overrideSearchType': QNA_SEARCH_TYPE,
-                                "filter":{"equals":
-                                {"key":"x-amz-bedrock-kb-source-uri","value":GENERAL_QUERIES_DOCUMENT_PATH+PRIORITZE_DOCUMENT
+                                "filter":{"in":
+                                {"key":"x-amz-bedrock-kb-source-uri","value":GENERAL_QUERIES_DOCUMENT_PATH
                                  }
                                  },
                                   'numberOfResults': 3,

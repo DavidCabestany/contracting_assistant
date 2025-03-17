@@ -108,6 +108,7 @@ async def ask_question(request: RequestQuery):
     filename = ""
     citations = []   
     msg_id = str(uuid.uuid4())
+    files= request.query.files
     try:
         current_datetime = datetime.now()    
         if sessionId: 
@@ -127,26 +128,36 @@ async def ask_question(request: RequestQuery):
 
        
         response=None
-        doc=retrieve_documents(prompt, knowledge_base_id, REGION_ID,filter_value=None)
-        for result in doc['retrievalResults']:
-            if 'metadata' in result and 'x-amz-bedrock-kb-source-uri' in result['metadata']:
-                source_uri = result['metadata']['x-amz-bedrock-kb-source-uri']
-                if PRIORITZE_DOCUMENT in source_uri:
-                    response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
-                    break
-        if response:
-            citations = extract_file_locations(response)
+        if files:
+            response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId,files)
             answer = response["output"]["text"]
+            print(answer)
+            citations = extract_file_locations(response)
             if citations !=[]:
-                print("found citations")
+                print(citations[0]['fileName'])
+
+
+        if response==None :
+            doc=retrieve_documents(prompt, knowledge_base_id, REGION_ID,filter_value=None)
+            for result in doc['retrievalResults']:
+                if 'metadata' in result and 'x-amz-bedrock-kb-source-uri' in result['metadata']:
+                    source_uri = result['metadata']['x-amz-bedrock-kb-source-uri']
+                    if PRIORITZE_DOCUMENT in source_uri:
+                        response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId,[PRIORITZE_DOCUMENT])
+                        break
+            if response:
+                citations = extract_file_locations(response)
+                answer = response["output"]["text"]
+                if citations !=[]:
+                    print("found citations")
+                else:
+                    response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
+                    citations = extract_file_locations(response)
+                    answer = response["output"]["text"]
             else:
                 response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
-        else:
-            response = retrieve_and_generate(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId)
-            citations = extract_file_locations(response)
-            answer = response["output"]["text"]
 
         sessionId = response["sessionId"] 
         
