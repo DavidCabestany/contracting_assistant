@@ -188,12 +188,12 @@ def add_s3_prefix_to_files(files, bucket_name, folder_name):
     updated_files = [s3_prefix + file for file in files]
     return updated_files
 
-def retrieve_and_generate_prioritized_doc(query: str, kb_id: str, model_id: str, region_id: str, session_id: str,files:list):
+def retrieve_and_generate_prioritized_doc(query: str, kb_id: str,knowledge_base_folder:str, model_id: str, region_id: str, session_id: str,files:list):
     try:
         prompt_template=''
         if str(retrieve_template(query)) !='nan':     
             prompt_template = retrieve_template(query) 
-        GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(files,BUCKET_NAME, 'general')       
+        GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(files,BUCKET_NAME, knowledge_base_folder)       
         prompt_template += f"""\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
         prompt_template += f"\n\n%USER QUERY:\n{query}\n"
         return bedrock_agent_runtime.retrieve_and_generate(

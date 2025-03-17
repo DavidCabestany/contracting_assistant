@@ -50,7 +50,7 @@ from data import (
 )
 from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
-    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key,extract_chat_history
+    get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message, validate_api_key,extract_chat_history,get_knowledge_base_folder
 )
 from prompt import retrieve_and_generate,follow_up_prompt,generate_answer_with_context,retrieve_documents,retrieve_and_generate_prioritized_doc
 from chathistory import store_interaction,session_history
@@ -102,7 +102,8 @@ async def read_root():
 async def ask_question(request: RequestQuery):    
     if not validate_api_key(request.apiKey):
         raise HTTPException(status_code=401, detail=f"Authetication failed")    
-    knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)      
+    knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)    
+    knowledge_base_folder = get_knowledge_base_folder(request.query.knowledgeType)  
     sessionId = request.user.sessionId
     filepath = ""
     filename = ""
@@ -129,7 +130,7 @@ async def ask_question(request: RequestQuery):
        
         response=None
         if files:
-            response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId,files)
+            response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id,knowledge_base_folder, MODEL_ID, REGION_ID, sessionId,files)
             answer = response["output"]["text"]
             print(answer)
             citations = extract_file_locations(response)
@@ -143,7 +144,7 @@ async def ask_question(request: RequestQuery):
                 if 'metadata' in result and 'x-amz-bedrock-kb-source-uri' in result['metadata']:
                     source_uri = result['metadata']['x-amz-bedrock-kb-source-uri']
                     if PRIORITZE_DOCUMENT in source_uri:
-                        response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id, MODEL_ID, REGION_ID, sessionId,[PRIORITZE_DOCUMENT])
+                        response = retrieve_and_generate_prioritized_doc(request.query.text, knowledge_base_id,knowledge_base_folder, MODEL_ID, REGION_ID, sessionId,[PRIORITZE_DOCUMENT])
                         break
             if response:
                 citations = extract_file_locations(response)

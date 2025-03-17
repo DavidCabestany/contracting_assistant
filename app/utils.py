@@ -44,7 +44,7 @@ def get_knowledge_base_id(data: str):
     know_base = data.lower()
     know_base_id = ""
     if (know_base == 'privacy') :
-        know_base_id = PRIVACY_KB_ID        
+        know_base_id = PRIVACY_KB_ID     
     # elif (know_base == 'rnd') :
     #     know_base_id = RND_KB_ID   
     elif (know_base == 'alexion') :
@@ -52,6 +52,19 @@ def get_knowledge_base_id(data: str):
     else:   
         know_base_id = GEN_ENQ_KB_ID
     return know_base_id
+
+
+def get_knowledge_base_folder(data: str):
+    know_base = data.lower()
+    know_base_id = ""
+    if (know_base == 'privacy') :
+         know_base_folder = know_base      
+    elif (know_base == 'alexion') :
+         know_base_folder = know_base       
+    else:   
+        know_base_folder = 'general' 
+    return know_base_folder
+
 
 def generate_presigned_url(s3_url: str, page_number:int, expiration=3600):
     # Initialize the S3 client    
