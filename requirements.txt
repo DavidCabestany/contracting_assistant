@@ -21,3 +21,4 @@ python-docx
 scikit-learn
 apscheduler
 pycryptodome
+python-jose[cryptography]==3.3.0

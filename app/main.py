@@ -21,6 +21,8 @@ from apscheduler.triggers.cron import CronTrigger
 import time
 import pickle
 from botocore.exceptions import BotoCoreError, ClientError
+from auth.auth import auth_router
+from auth.utils import verify_token
 
 # Third-Party Library Imports
 import PyPDF2
@@ -59,13 +61,15 @@ from chathistory import chat_history_router
 from chat_message_history import ChatMessageHistory
 
 
+
 qna_session_id_store = {}
 
 s3 = boto3.client('s3')
 
 app = FastAPI()
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(config_router, prefix="/load", tags=["Config"]) 
-app.include_router(chat_history_router, prefix="/chat", tags=["Chat history"])
+app.include_router(chat_history_router, prefix="/chat", tags=["Chat history"],dependencies=[Depends(verify_token)])
 
 #TODO - set the allowed URLs for CORS
 #cors_allowed_origins=["*"]
@@ -99,9 +103,10 @@ async def read_root():
 # POST endpoint for retrieving and generating Q&A answers
 #@app.post("/qna/answer/")
 @app.post("/getqnaanswer/")
-async def ask_question(request: RequestQuery):    
-    if not validate_api_key(request.apiKey):
-        raise HTTPException(status_code=401, detail=f"Authetication failed")    
+
+async def ask_question(request: RequestQuery, token :str = Depends(verify_token)):   
+    # if not validate_api_key(request.apiKey):
+    #     raise HTTPException(status_code=401, detail=f"Authetication failed")    
     knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)    
     knowledge_base_folder = get_knowledge_base_folder(request.query.knowledgeType)  
     sessionId = request.user.sessionId
