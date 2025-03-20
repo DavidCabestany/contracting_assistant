@@ -243,10 +243,10 @@ async def generate_summary(
     language: Optional[str] = Form(None),
     platform: Optional[str] = Form(None),
     queryText: Optional[str] = Form(None), 
-    transactionCount: Optional[str] = Form(None)    
+    transactionCount: Optional[str] = Form(None),token :str = Depends(verify_token)
 ):
-    if not validate_api_key(apiKey):
-        raise HTTPException(status_code=401, detail=f"Authetication failed") 
+    # if not validate_api_key(apiKey):
+    #     raise HTTPException(status_code=401, detail=f"Authetication failed") 
     try:        
         content = ""
         session_id = sessionId or str(uuid.uuid4())
