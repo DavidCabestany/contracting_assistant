@@ -65,7 +65,8 @@ def load_values():
         global BUCKET_NAME, EMBEDDING_MODEL_ID, GEN_ENQ_KB_ID, GUARDRAIL_ID, GUARDRAIL_VERSION_ID
         global IRRELEVANT_KEYWORD, MODEL_ARN, MODEL_ID, PRIVACY_KB_ID, QNA_FLOW_NAME, REGION_ID
         global RND_KB_ID,ALEXION_ID, SESSION_STATUS_ACTIVE, SUMMARY_FLOW_NAME, TABLE_NAME, QNA_TEMPRATURE_VALUE
-        global QNA_SEARCH_TYPE, QNA_TOP_P_VALUE, QNA_TOP_K_VALUE, QNA_MAX_TOKENS_VALUE, API_KEY,SECRET_KEY
+        global QNA_SEARCH_TYPE, QNA_TOP_P_VALUE, QNA_TOP_K_VALUE, QNA_MAX_TOKENS_VALUE, API_KEY
+        global SECRET_KEY,TOKEN_EXPIRE_MINUTES,TOKEN_GRACE_PERIOD_MINUTES,ALGORITHM
 
         BUCKET_NAME = secret.get("BUCKET_NAME")
         EMBEDDING_MODEL_ID = secret.get("EMBEDDING_MODEL_ID")
@@ -91,7 +92,10 @@ def load_values():
         QNA_MAX_TOKENS_VALUE = secret.get("QNA_MAX_TOKENS_VALUE")
         QNA_COSINE_SIMILARITY_SCORE = secret.get("QNA_COSINE_SIMILARITY_SCORE")
         API_KEY = secret.get("API_KEY")
-        SECRET_KEY=secret.get("SECRET_KEY")
+        SECRET_KEY = secret.get("SECRET_KEY")
+        TOKEN_EXPIRE_MINUTES = secret.get("TOKEN_EXPIRE_MINUTES")
+        TOKEN_GRACE_PERIOD_MINUTES = secret.get("TOKEN_GRACE_PERIOD_MINUTES")
+        ALGORITHM = secret.get("ALGORITHM") ##(Hash-based Message Authentication Code)
         print("Configuration values loaded successfully")
 
     except Exception as e:
@@ -102,7 +106,3 @@ load_values()
 
 ##Hardcoded Values
 PRIORITZE_DOCUMENT = 'CAN HANDBOOK Third Edition.pdf'
-TOKEN_EXPIRE_MINUTES = 30
-TOKEN_GRACE_PERIOD_MINUTES = 5
-# SECRET_KEY = ""
-ALGORITHM = "HS256"  ##(Hash-based Message Authentication Code)

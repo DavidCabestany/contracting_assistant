@@ -19,7 +19,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         exp_time = datetime.fromtimestamp(payload['exp'], tz=timezone.utc)
         
         # Check if the token is within its normal validity period or grace period
-        if current_time <= exp_time + timedelta(minutes=TOKEN_GRACE_PERIOD_MINUTES):
+        if current_time <= exp_time + timedelta(minutes=int(TOKEN_GRACE_PERIOD_MINUTES)):
             return payload
         else:
             raise HTTPException(status_code=401, detail="Verify Token has expired")
@@ -32,7 +32,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
 
 def create_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=int(TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -70,7 +70,7 @@ def renew_token(current_token: str):
             raise HTTPException(status_code=401, detail="Renew Token has expired")
         
         # Allow renewal if token is still valid but close to expiring
-        if (exp_time - current_time) < timedelta(minutes=TOKEN_GRACE_PERIOD_MINUTES):
+        if (exp_time - current_time) < timedelta(minutes=int(TOKEN_GRACE_PERIOD_MINUTES)):
             # # Carry over all claims except 'exp'
             # new_payload = {k: v for k, v in payload.items() if k != 'exp'}
             new_token = create_token(data={"sub": "user-UI"})
