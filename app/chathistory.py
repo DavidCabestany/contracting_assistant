@@ -15,6 +15,8 @@ from typing import Optional, List, Dict
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.config import Config
 
+# TODO: Clean the unused imports
+
 from data import (
     QueryRequest, QnaAnswer, AnswerRequest, User, Query, RequestQuery, Citation, 
     QuickReply, Result, QueryResponse, FeedbackDisplayOptions, Feedback, ChatInteraction, ChatMetadata, ChatHistorySearchRequest, FeedbackRequest
@@ -23,7 +25,11 @@ from utils import (
     get_knowledge_base_id, generate_presigned_url, extract_file_locations, 
     get_filename_from_path, generate_prompt, extract_pdf_contents, extract_text_from_word, get_file_type, generate_technical_error_message
 )
+
+# TODO: change the way we import the config functions
+
 from config import *
+
 
 chat_history_router = APIRouter()
 # Initialize FastAPI app
@@ -31,7 +37,16 @@ chat_history_router = APIRouter()
 boto_config = Config(retries={'max_attempts': 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 dynamodb = boto3.resource('dynamodb', region_name=REGION_ID)
+
+
+# TODO: change the TABLE_NAME to something less generic
+
+
 table = dynamodb.Table(TABLE_NAME)
+
+
+# TODO: autoassignation of variable is wrong
+
 BUCKET_NAME=BUCKET_NAME
 
 #@chat_history_router.post("/store_interaction/")
