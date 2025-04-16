@@ -1,4 +1,4 @@
-from config import TOKEN_EXPIRE_MINUTES, API_KEY,SECRET_KEY
+from config import get_config_value 
 from auth.utils import create_token, renew_token
 from fastapi import APIRouter, Header, HTTPException
 import logging
@@ -6,6 +6,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 auth_router = APIRouter()
+
+SECRET_KEY = get_config_value("SECRET_KEY")
+TOKEN_EXPIRE_MINUTES = get_config_value("TOKEN_EXPIRE_MINUTES")
+
 
 @auth_router.post("/loadconfig")
 async def load_config(api_key: str = Header(None)):

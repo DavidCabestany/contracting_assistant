@@ -1,5 +1,4 @@
-from config import ALGORITHM, TOKEN_EXPIRE_MINUTES, TOKEN_GRACE_PERIOD_MINUTES
-from config import SECRET_KEY
+from config import get_config_value
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt, JWTError, ExpiredSignatureError
@@ -10,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
+ALGORITHM = get_config_value("ALGORITHM")
+SECRET_KEY = get_config_value("SECRET_KEY")
+TOKEN_GRACE_PERIOD_MINUTES = get_config_value("TOKEN_GRACE_PERIOD_MINUTES")
+TOKEN_EXPIRE_MINUTES = get_config_value("TOKEN_EXPIRE_MINUTES")
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     try:
@@ -55,7 +58,7 @@ def decode_token(token: str):
         elif "Invalid issuer" in str(e):
             raise HTTPException(status_code=401, detail="Decode Invalid token issuer")
         else:
-            print(f"Unexpected JWT error: {str(e)}")
+            logger.info(f"Unexpected JWT error: {str(e)}")
             raise HTTPException(status_code=401, detail="Decode Invalid authentication credentials")
 
 

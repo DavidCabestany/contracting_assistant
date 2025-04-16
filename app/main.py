@@ -1,4 +1,5 @@
 import datetime
+import logging
 import pickle
 import uuid
 from typing import Optional
@@ -43,6 +44,7 @@ from utils import (
     get_knowledge_base_id,
 )
 
+logger = logging.getLogger(__name__)
 qna_session_id_store = {}
 
 s3 = boto3.client("s3")
@@ -92,20 +94,22 @@ def get_user_memory(session_id):
         if e.response and "Error" in e.response:
             # Check specific error code
             if e.response["Error"]["Code"] == "NoSuchKey":
-                print(f"File not found in bucket {BUCKET_NAME}. Returning an empty chat history.")
+                logger.info(
+                    f"File not found in bucket {BUCKET_NAME}. Returning an empty chat history."
+                )
                 return ChatMessageHistory(session_id)
             else:
-                print(f"ClientError: {str(e)}")
+                logger.info(f"ClientError: {str(e)}")
         else:
             # ClientError but unknown or missing response
-            print(f"Unhandled ClientError: {str(e)}")
+            logger.info(f"Unhandled ClientError: {str(e)}")
         # Fallback: return empty chat history on error
         return ChatMessageHistory(session_id)
     except BotoCoreError as e:
-        print(f"BotoCoreError encountered: {str(e)}")
+        logger.info(f"BotoCoreError encountered: {str(e)}")
         return ChatMessageHistory(session_id)
     except Exception as e:
-        print(f"Unknown error retrieving user memory: {str(e)}")
+        logger.info(f"Unknown error retrieving user memory: {str(e)}")
         return ChatMessageHistory(session_id)
 
 
@@ -160,7 +164,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 citations = extract_file_locations(response)
             except Exception as e:
                 # If something goes wrong, let’s log it and continue with normal retrieval
-                print(f"Error in retrieve_and_generate_prioritized_doc: {str(e)}")
+                logger.info(f"Error in retrieve_and_generate_prioritized_doc: {str(e)}")
 
         # Fallback if we didn't get an answer from the files logic
         if response is None or not answer:
@@ -175,7 +179,8 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 if (
                     "metadata" in result
                     and "x-amz-bedrock-kb-source-uri" in result["metadata"]
-                    and PRIORITZE_DOCUMENT in result["metadata"]["x-amz-bedrock-kb-source-uri"]
+                    and PRIORITZE_DOCUMENT
+                    in result["metadata"]["x-amz-bedrock-kb-source-uri"]
                 ):
                     # If found, we do a prioritized retrieval:
                     response = retrieve_and_generate_prioritized_doc(
@@ -269,24 +274,24 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
 
     except (ClientError, BotoCoreError) as e:
         # These are AWS-specific errors
-        print(f"AWS error occurred: {str(e)}")
+        logger.info(f"AWS error occurred: {str(e)}")
         return generate_technical_error_message(
-            msg_id, request.query.transactionCount, request.query.text, sessionId
+            msg_id, request.query.transactionCount, request.query.text, sessionId, exc=e
         )
     except HTTPException as e:
         # If any FastAPI exceptions are raised
-        print(f"HTTP exception: {str(e)}")
+        logger.info(f"HTTP exception: {str(e)}")
         raise  # Re-raise so FastAPI can handle it
     except Exception as e:
-        print(f"Unknown error in ask_question: {str(e)}")
+        logger.info(f"Unknown error in ask_question: {str(e)}")
         return generate_technical_error_message(
-            msg_id, request.query.transactionCount, request.query.text, sessionId
+            msg_id, request.query.transactionCount, request.query.text, sessionId, exc=e
         )
 
 
 def check_qna(queryText: str, answer: str, session_id: str):
     """
-    Checks if the IRRELEVANT_KEYWORD is present in the 'answer' 
+    Checks if the IRRELEVANT_KEYWORD is present in the 'answer'
     and, if so, attempts to retrieve a fallback answer from GEN_ENQ_KB_ID.
     """
     qna_answer = answer
@@ -307,11 +312,11 @@ def check_qna(queryText: str, answer: str, session_id: str):
                 # remove IRRELEVANT_KEYWORD if the fallback didn't help
                 qna_answer = qna_answer.replace(IRRELEVANT_KEYWORD, "")
     except (ClientError, BotoCoreError) as e:
-        print(f"AWS error in check_qna: {str(e)}")
+        logger.info(f"AWS error in check_qna: {str(e)}")
         # Optionally raise or just return original
         return qna_answer
     except Exception as e:
-        print(f"Unknown error in check_qna: {str(e)}")
+        logger.info(f"Unknown error in check_qna: {str(e)}")
     return qna_answer
 
 
@@ -328,7 +333,7 @@ async def generate_summary(
     token: str = Depends(verify_token),
 ):
     """
-    Summarizes the content of an uploaded file (PDF or Word) or performs 
+    Summarizes the content of an uploaded file (PDF or Word) or performs
     a summary on given text (queryText).
     """
     msg_id = str(uuid.uuid4())
@@ -346,12 +351,16 @@ async def generate_summary(
                 file_contents = await file.read()
                 file_type = get_file_type(file.filename)
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+                raise HTTPException(
+                    status_code=400, detail=f"Error reading file: {str(e)}"
+                )
 
             # Attempt to upload file to S3
             try:
                 folder_path = f"contracts/{userId}/{session_id}"
-                s3.put_object(Bucket=BUCKET_NAME, Key=f"{folder_path}/")  # ensure folder
+                s3.put_object(
+                    Bucket=BUCKET_NAME, Key=f"{folder_path}/"
+                )  # ensure folder
                 file_name = file.filename
                 s3.put_object(
                     Bucket=BUCKET_NAME,
@@ -360,7 +369,7 @@ async def generate_summary(
                     ContentType=file.content_type,
                 )
             except (BotoCoreError, ClientError) as e:
-                print(f"Error uploading to S3: {str(e)}")
+                logger.info(f"Error uploading to S3: {str(e)}")
                 raise HTTPException(status_code=500, detail="S3 upload failed.")
 
             # Extract PDF/Word contents
@@ -379,7 +388,7 @@ async def generate_summary(
         # Default query if none is provided
         if not queryText or queryText.strip() == "":
             queryText = "Summarize the document content"
-            print("QueryText was blank. Initializing with default summary query.")
+            logger.info("QueryText was blank. Initializing with default summary query.")
 
         # If no content is available at all, raise error
         if not content and not queryText:
@@ -455,17 +464,17 @@ async def generate_summary(
         return queryResponse
 
     except HTTPException as http_exc:
-        print(f"HTTPException: {str(http_exc)}")
+        logger.info(f"HTTPException: {str(http_exc)}")
         return generate_technical_error_message(
-            msg_id, transactionCount, queryText, sessionId
+            msg_id, transactionCount, queryText, sessionId, exc=http_exc
         )
     except (ClientError, BotoCoreError) as e:
-        print(f"AWS error in generate_summary: {str(e)}")
+        logger.info(f"AWS error in generate_summary: {str(e)}")
         return generate_technical_error_message(
-            msg_id, transactionCount, queryText, sessionId
+            msg_id, transactionCount, queryText, sessionId, exc=e
         )
     except Exception as e:
-        print(f"Unknown error in generate_summary: {str(e)}")
+        logger.info(f"Unknown error in generate_summary: {str(e)}")
         return generate_technical_error_message(
-            msg_id, transactionCount, queryText, sessionId
+            msg_id, transactionCount, queryText, sessionId, exc=e
         )

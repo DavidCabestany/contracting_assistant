@@ -1,4 +1,5 @@
 import io
+import logging
 import re
 from io import BytesIO
 from pathlib import Path
@@ -17,6 +18,7 @@ from docx import Document
 from fastapi import HTTPException
 from langchain_core.prompts import PromptTemplate
 
+logger = logging.getLogger(__name__)
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 
@@ -31,16 +33,22 @@ GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
 API_KEY = get_config_value("API_KEY")
 
 
-def generate_technical_error_message(msg_id, transaction_count, user_query, sessionId):
+def generate_technical_error_message(
+    msg_id, transaction_count, user_query, sessionId, exc: Exception = None
+):
+    if exc:
+        error_message = str(exc)
+    else:
+        error_message = "An unexpected error occurred. Please try again later."
+
     feedbackoptions = FeedbackDisplayOptions(
         thumbsUp="N", thumbsDown="N", feedbackText="N"
     )
     feedback = Feedback(feedbackDisplayOptions=feedbackoptions)
     result = Result(
         messageId=str(msg_id),
-        answer=ERROR_MESSAGE,
+        answer=error_message,
         transactionCount=transaction_count,
-        # citations=citations,
         feedback=feedback,
     )
     queryResponse = QueryResponse(
@@ -80,13 +88,13 @@ def generate_presigned_url(s3_url: str, page_number: int, expiration=3600):
     try:
         expiration = int(expiration)  # Expiration time in seconds
     except ValueError:
-        print("Invalid expiration time: must be an integer.")
+        logger.info("Invalid expiration time: must be an integer.")
         return None
     # Parse the S3 URL to extract the bucket and key
     pattern = r"s3://([^/]+)/(.+)"
     match = re.match(pattern, s3_url)
     if not match:
-        print("Invalid S3 URL format. Must start with 's3://'.")
+        logger.info("Invalid S3 URL format. Must start with 's3://'.")
         return None
     bucket_name = str(match.group(1)).strip()
     object_key = str(match.group(2)).strip()
@@ -99,7 +107,7 @@ def generate_presigned_url(s3_url: str, page_number: int, expiration=3600):
         )
         return presigned_url + "#page=" + str(page_number)
     except Exception as e:
-        print(f"Error generating presigned URL: {e}")
+        logger.info(f"Error generating presigned URL: {e}")
         return None
 
 
@@ -153,9 +161,9 @@ def get_filename_from_path(s3_path):
         # Extract the file name using Path
         filename = Path(s3_path).name
     except ValueError as ve:
-        print(f"ValueError: {ve}")
+        logger.info(f"ValueError: {ve}")
     except Exception as e:
-        print(f"An unexpected error occurred 1: {e}")
+        logger.info(f"An unexpected error occurred 1: {e}")
     return filename
 
 
@@ -269,7 +277,7 @@ def extract_text_from_word(byte_array):
 #             return True
 #         return False
 #     except Exception as e:
-#         print(str(e))
+#         logger.info(str(e))
 #         raise HTTPException(status_code=500, detail=f"Authentication verification failed {str(e)}")
 
 
@@ -280,7 +288,7 @@ def validate_api_key(apiKey: str) -> bool:
         else:
             return False
     except Exception as e:
-        print(str(e))
+        logger.info(str(e))
         raise HTTPException(
             status_code=500, detail=f"Authentication verification failed: {str(e)}"
         )
@@ -290,20 +298,20 @@ def extract_chat_history(data):
     chat_history = []
     # Check if the data is in the expected format
     if not isinstance(data, dict):
-        print("Error: Input data must be a dictionary.")
+        logger.info("Error: Input data must be a dictionary.")
         return chat_history
 
     # Iterate through the dictionary (assuming the keys are session IDs)
     for session_id, messages in data.items():
         if not isinstance(messages, list):
-            print(
+            logger.info(
                 f"Warning: Session {session_id} does not contain a list of messages. Skipping."
             )
             continue  # Skip to the next session
 
         for message in messages:
             if not isinstance(message, dict):
-                print(
+                logger.info(
                     f"Warning: Invalid message format in session {session_id}. Skipping."
                 )
                 continue  # skip to next message
@@ -320,15 +328,15 @@ def extract_chat_history(data):
                     chat_history.append((question, answer))
                 else:
                     if not question:
-                        print(
+                        logger.info(
                             f"Warning: Missing 'UserMessageSearch' in message from session {session_id}."
                         )
                     if not answer:
-                        print(
+                        logger.info(
                             f"Warning: Missing 'BotResponse' in message from session {session_id}."
                         )
             except Exception as e:
-                print(f"Error processing message in session {session_id}: {e}")
+                logger.info(f"Error processing message in session {session_id}: {e}")
                 continue  # Continue to the next message
 
     return chat_history

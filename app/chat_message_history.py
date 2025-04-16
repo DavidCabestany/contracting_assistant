@@ -1,12 +1,14 @@
-import boto3
+import logging
 import pickle
 from typing import Sequence
-from langchain.schema import BaseMessage
-from langchain.schema import BaseChatMessageHistory
-from fastapi import HTTPException
 
+import boto3
 from config import get_config_value
+from fastapi import HTTPException
+from langchain.schema import BaseChatMessageHistory, BaseMessage
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 BUCKET_NAME = get_config_value("BUCKET_NAME")
 
 s3 = boto3.client("s3")
@@ -28,7 +30,7 @@ class ChatMessageHistory(BaseChatMessageHistory):
                 Body=updated_pickle_data,
             )
         except Exception as e:
-            print(str(e))
+            logger.info(str(e))
             raise HTTPException(
                 status_code=500,
                 detail=f"Error while {self.session_id} storing the memory pkl file qna answer: {str(e)}",

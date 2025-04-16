@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from datetime import datetime
 
@@ -16,6 +17,8 @@ from utils import (
     generate_presigned_url,
     generate_technical_error_message,
 )
+
+logger = logging.getLogger(__name__)
 
 REGION_ID = get_config_value("REGION_ID")
 TABLE_NAME = get_config_value("TABLE_NAME")
@@ -57,8 +60,10 @@ def session_history(session_id):
         grouped_conversations = {session_id: sorted_items}
         return grouped_conversations
     except Exception as e:
-        print(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", "")
+        logger.info(f"Error in chat search: {e}")
+        generate_technical_error_message(
+            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
+        )
 
 
 @chat_history_router.post("/search/")
@@ -154,8 +159,10 @@ def search_chat(request: ChatHistorySearchRequest):
         }
         return grouped_conversations
     except Exception as e:
-        print(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", "")
+        logger.info(f"Error in chat search: {e}")
+        return generate_technical_error_message(
+            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
+        )
 
 
 @chat_history_router.post("/session/")
@@ -171,8 +178,10 @@ def view_chat_by_session(request: ChatHistorySearchRequest) -> dict[str, list[di
         grouped_conversations = {request.session_id: sorted_items}
         return grouped_conversations
     except Exception as e:
-        print(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", "")
+        logger.info(f"Error in chat search: {e}")
+        generate_technical_error_message(
+            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
+        )
 
 
 @chat_history_router.post("/download/")
@@ -205,8 +214,10 @@ async def download_chat(request: ChatHistorySearchRequest):
         # Return the presigned URL in a JSON response
         return {"status": "success", "downloadUrl": presigned_url}
     except Exception as e:
-        print(f"Error in downloading chat: {e}")
-        return generate_technical_error_message("", 0, "", "")
+        logger.info(f"Error in downloading chat: {e}")
+        generate_technical_error_message(
+            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
+        )
 
 
 @chat_history_router.post("/feedback/")
@@ -252,7 +263,9 @@ def update_feedback(feedback: FeedbackRequest):
         else:
             return {"status": "error"}
     except Exception as e:
-        print(f"Error updating feedback: {str(e)}")  # Print the error for debugging
+        logger.info(
+            f"Error updating feedback: {str(e)}"
+        )  # Print the error for debugging
         return generate_technical_error_message(
             feedback.messageId, 0, "", feedback.sessionId
         )
@@ -316,7 +329,7 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
                     break
         return active_sessions
     except Exception as e:
-        print(f"Error retrieving latest active sessions: {e}")
+        logger.info(f"Error retrieving latest active sessions: {e}")
         raise HTTPException(
             status_code=500, detail="Error retrieving latest active sessions"
         )

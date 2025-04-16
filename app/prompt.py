@@ -65,7 +65,7 @@ def compare_similarity(input_embeddings: str, prompt_template_question: str):
         )[0][0]
         return similarity_score
     except Exception as e:
-        print(f"ERROR: Can't invoke '{EMBEDDING_MODEL_ID}'. Reason: {e}")
+        logger.info(f"ERROR: Can't invoke '{EMBEDDING_MODEL_ID}'. Reason: {e}")
         raise Exception(f"Error in compare similarity: {e}")
 
 
@@ -80,7 +80,7 @@ def get_mapping_list():
         question_category_ls = df_mapping["Question"].tolist()
         map_prompt_ls = df_mapping["Prompt"].tolist()
     except Exception as e:
-        print(f"ERROR: Error in retrieving template. Reason: {e}")
+        logger.info(f"ERROR: Error in retrieving template. Reason: {e}")
         raise Exception(f"Error in retrieving template: {e}")
     return {"question_ls": question_category_ls, "prompt_ls": map_prompt_ls}
 
