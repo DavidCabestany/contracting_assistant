@@ -78,47 +78,59 @@ app.add_middleware(
 
 
 def get_user_memory(session_id):
+    """
+    Fetches the chat memory object from S3.
+    Returns a ChatMessageHistory object if not found or on error.
+    """
     try:
         response = s3.get_object(Bucket=BUCKET_NAME, Key=f"cache/{session_id}.pkl")
-        # Load the content of the pickle file
         with response["Body"] as file:
             my_object = pickle.load(file)
         return my_object
+    except ClientError as e:
+        # Make sure e.response is defined before checking inside it
+        if e.response and "Error" in e.response:
+            # Check specific error code
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                print(f"File not found in bucket {BUCKET_NAME}. Returning an empty chat history.")
+                return ChatMessageHistory(session_id)
+            else:
+                print(f"ClientError: {str(e)}")
+        else:
+            # ClientError but unknown or missing response
+            print(f"Unhandled ClientError: {str(e)}")
+        # Fallback: return empty chat history on error
+        return ChatMessageHistory(session_id)
+    except BotoCoreError as e:
+        print(f"BotoCoreError encountered: {str(e)}")
+        return ChatMessageHistory(session_id)
     except Exception as e:
-        # Handle the case where the file doesn't exist
-        if e.response["Error"]["Code"] == "NoSuchKey":
-            print(f"File not found in bucket {BUCKET_NAME}. Returning an empty list.")
-            return ChatMessageHistory(session_id)
+        print(f"Unknown error retrieving user memory: {str(e)}")
+        return ChatMessageHistory(session_id)
 
 
-# Root endpoint
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Contracting Assistant API!"}
 
 
-# POST endpoint for retrieving and generating Q&A answers
-# @app.post("/qna/answer/")
 @app.post("/getqnaanswer/")
 async def ask_question(request: RequestQuery, token: str = Depends(verify_token)):
-    # if not validate_api_key(request.apiKey):
-    #     raise HTTPException(status_code=401, detail=f"Authetication failed")
-    knowledge_base_id = get_knowledge_base_id(request.query.knowledgeType)
-    knowledge_base_folder = get_knowledge_base_folder(request.query.knowledgeType)
-    sessionId = request.user.sessionId
-    filepath = ""
-    filename = ""
-    citations = []
+    """
+    Endpoint to retrieve and generate Q&A answers based on the user's query.
+    """
     msg_id = str(uuid.uuid4())
     files = request.query.files
+    sessionId = request.user.sessionId
     try:
-        current_datetime = datetime.now()
+        # Build conversation prompt from previous messages if sessionId is given
+        prompt = ""
         if sessionId:
             history = session_history(sessionId)
             chat_history = extract_chat_history(history)
-            prompt = ""
             for question, answer in chat_history:
                 prompt += f"User: {question}\nAssistant: {answer}\n"
+            # Then format the new question
             formatted_prompt = follow_up_prompt.format(prompt, request.query.text)
             follow_up = generate_answer_with_context(formatted_prompt)
             if "follow-up" in follow_up["content"][0]["text"].lower():
@@ -129,52 +141,63 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             prompt = f"User:{request.query.text}"
 
         response = None
-        if files:
-            response = retrieve_and_generate_prioritized_doc(
-                request.query.text,
-                knowledge_base_id,
-                knowledge_base_folder,
-                MODEL_ID,
-                REGION_ID,
-                sessionId,
-                files,
-            )
-            answer = response["output"]["text"]
-            print(answer)
-            citations = extract_file_locations(response)
-            if citations != []:
-                print(citations[0]["fileName"])
+        answer = None
+        citations = []
 
-        if response is None:
+        # Attempt retrieving docs from prioritized file(s)
+        if files:
+            try:
+                response = retrieve_and_generate_prioritized_doc(
+                    request.query.text,
+                    get_knowledge_base_id(request.query.knowledgeType),
+                    get_knowledge_base_folder(request.query.knowledgeType),
+                    MODEL_ID,
+                    REGION_ID,
+                    sessionId,
+                    files,
+                )
+                answer = response["output"]["text"]
+                citations = extract_file_locations(response)
+            except Exception as e:
+                # If something goes wrong, let’s log it and continue with normal retrieval
+                print(f"Error in retrieve_and_generate_prioritized_doc: {str(e)}")
+
+        # Fallback if we didn't get an answer from the files logic
+        if response is None or not answer:
             doc = retrieve_documents(
-                prompt, knowledge_base_id, REGION_ID, filter_value=None
+                prompt,
+                get_knowledge_base_id(request.query.knowledgeType),
+                REGION_ID,
+                filter_value=None,
             )
-            for result in doc["retrievalResults"]:
+            # Attempt to see if the prioritized doc is in the retrieval results
+            for result in doc.get("retrievalResults", []):
                 if (
                     "metadata" in result
                     and "x-amz-bedrock-kb-source-uri" in result["metadata"]
+                    and PRIORITZE_DOCUMENT in result["metadata"]["x-amz-bedrock-kb-source-uri"]
                 ):
-                    source_uri = result["metadata"]["x-amz-bedrock-kb-source-uri"]
-                    if PRIORITZE_DOCUMENT in source_uri:
-                        response = retrieve_and_generate_prioritized_doc(
-                            request.query.text,
-                            knowledge_base_id,
-                            knowledge_base_folder,
-                            MODEL_ID,
-                            REGION_ID,
-                            sessionId,
-                            [PRIORITZE_DOCUMENT],
-                        )
-                        break
+                    # If found, we do a prioritized retrieval:
+                    response = retrieve_and_generate_prioritized_doc(
+                        request.query.text,
+                        get_knowledge_base_id(request.query.knowledgeType),
+                        get_knowledge_base_folder(request.query.knowledgeType),
+                        MODEL_ID,
+                        REGION_ID,
+                        sessionId,
+                        [PRIORITZE_DOCUMENT],
+                    )
+                    break
+
+            # If we found a response from the prioritized doc
             if response:
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
-                if citations != []:
-                    print("found citations")
-                else:
+                if not citations:
+                    # If no citations found, fallback to normal retrieval
                     response = retrieve_and_generate(
                         request.query.text,
-                        knowledge_base_id,
+                        get_knowledge_base_id(request.query.knowledgeType),
                         MODEL_ID,
                         REGION_ID,
                         sessionId,
@@ -182,9 +205,10 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                     citations = extract_file_locations(response)
                     answer = response["output"]["text"]
             else:
+                # If the doc is not found or not relevant, do normal retrieval
                 response = retrieve_and_generate(
                     request.query.text,
-                    knowledge_base_id,
+                    get_knowledge_base_id(request.query.knowledgeType),
                     MODEL_ID,
                     REGION_ID,
                     sessionId,
@@ -192,22 +216,19 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
 
-        sessionId = response["sessionId"]
+        sessionId = response["sessionId"]  # Make sure to store the final session ID
 
-        # Hardcoded values, should be modified as needed
+        # Build final result
         quickreply = QuickReply(
             text="Rate the overall risk to AZ this contract",
             payload="Rate the overall risk to AZ this contract",
         )
-        quickreplies = [quickreply]
-        # citation = Citation(fileName=filename, filePath=filepath)
-        citations = extract_file_locations(response)
         feedbackoptions = FeedbackDisplayOptions(
             thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
         )
         feedback = Feedback(feedbackDisplayOptions=feedbackoptions)
         result = Result(
-            messageId=str(msg_id),
+            messageId=msg_id,
             answer=answer,
             transactionCount=request.query.transactionCount,
             citations=citations,
@@ -219,12 +240,13 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             userQuery=request.query.text,
             result=result,
         )
-        current_datetime = datetime.now()
-        formatted_timestamp = current_datetime.isoformat()
+
+        # Log interaction if userId is provided
         if request.user.id:
+            current_datetime = datetime.datetime.now().isoformat()
             chat_metadata = ChatMetadata(
-                FileName=filename,
-                FileLocation=filepath,
+                FileName="",  # you can fill in if you know the file name
+                FileLocation="",
                 FlowName=QNA_FLOW_NAME,
                 KbType=request.query.knowledgeType,
             )
@@ -235,32 +257,42 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 UserMessageSearch=request.query.text.lower(),
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
-                # IsFeedbackPositive=True,
                 FeedbackComment="",
-                Timestamp=formatted_timestamp,
+                Timestamp=current_datetime,
                 SessionStatus=SESSION_STATUS_ACTIVE,
-                MessageId=str(msg_id),
+                MessageId=msg_id,
                 ChatMetadata=chat_metadata,
             )
             store_interaction(chat_interaction)
+
         return queryResponse
-    except Exception as e:
-        print(str(e))
+
+    except (ClientError, BotoCoreError) as e:
+        # These are AWS-specific errors
+        print(f"AWS error occurred: {str(e)}")
         return generate_technical_error_message(
-            str(msg_id), request.query.transactionCount, request.query.text, sessionId
+            msg_id, request.query.transactionCount, request.query.text, sessionId
+        )
+    except HTTPException as e:
+        # If any FastAPI exceptions are raised
+        print(f"HTTP exception: {str(e)}")
+        raise  # Re-raise so FastAPI can handle it
+    except Exception as e:
+        print(f"Unknown error in ask_question: {str(e)}")
+        return generate_technical_error_message(
+            msg_id, request.query.transactionCount, request.query.text, sessionId
         )
 
 
 def check_qna(queryText: str, answer: str, session_id: str):
+    """
+    Checks if the IRRELEVANT_KEYWORD is present in the 'answer' 
+    and, if so, attempts to retrieve a fallback answer from GEN_ENQ_KB_ID.
+    """
     qna_answer = answer
-    if session_id in qna_session_id_store:
-        session_qna_id = qna_session_id_store[session_id]
-    else:
-        session_qna_id = ""
+    session_qna_id = qna_session_id_store.get(session_id, "")
     try:
-        # Check if the irrelevant keyword is in the answer
         if IRRELEVANT_KEYWORD in answer:
-            # Call the retrieve_and_generate method
             response = retrieve_and_generate(
                 queryText, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id
             )
@@ -272,17 +304,17 @@ def check_qna(queryText: str, answer: str, session_id: str):
             ):
                 qna_answer = response["output"]["text"]
             else:
+                # remove IRRELEVANT_KEYWORD if the fallback didn't help
                 qna_answer = qna_answer.replace(IRRELEVANT_KEYWORD, "")
+    except (ClientError, BotoCoreError) as e:
+        print(f"AWS error in check_qna: {str(e)}")
+        # Optionally raise or just return original
+        return qna_answer
     except Exception as e:
-        print(str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Error fetching qna answer: {str(e)}"
-        )
+        print(f"Unknown error in check_qna: {str(e)}")
     return qna_answer
 
 
-# POST endpoint for summarization
-# @app.post("/summary/answer")
 @app.post("/getsummary/")
 async def generate_summary(
     file: UploadFile = File(None),
@@ -295,30 +327,31 @@ async def generate_summary(
     transactionCount: Optional[str] = Form(None),
     token: str = Depends(verify_token),
 ):
-    # if not validate_api_key(apiKey):
-    #     raise HTTPException(status_code=401, detail=f"Authetication failed")
+    """
+    Summarizes the content of an uploaded file (PDF or Word) or performs 
+    a summary on given text (queryText).
+    """
+    msg_id = str(uuid.uuid4())
     try:
         content = ""
         session_id = sessionId or str(uuid.uuid4())
         file_type = ""
-        msg_id = uuid.uuid4()
         answer = ""
         file_name = ""
         folder_path = ""
-        # Check if a file is provided
+
         if file:
-            # Read the uploaded file as bytes (async)
+            # Try reading file
             try:
-                file_contents = await file.read()  # Corrected to async
+                file_contents = await file.read()
                 file_type = get_file_type(file.filename)
             except Exception as e:
-                raise HTTPException(
-                    status_code=400, detail=f"Error reading file: {str(e)}"
-                )
-            # Upload file to S3
+                raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+
+            # Attempt to upload file to S3
             try:
-                folder_path = "contracts/" + f"{userId}/{session_id}"
-                s3.put_object(Bucket=BUCKET_NAME, Key=f"{folder_path}/")
+                folder_path = f"contracts/{userId}/{session_id}"
+                s3.put_object(Bucket=BUCKET_NAME, Key=f"{folder_path}/")  # ensure folder
                 file_name = file.filename
                 s3.put_object(
                     Bucket=BUCKET_NAME,
@@ -327,10 +360,10 @@ async def generate_summary(
                     ContentType=file.content_type,
                 )
             except (BotoCoreError, ClientError) as e:
-                raise HTTPException(
-                    status_code=500, detail=f"S3 upload failed: {str(e)}"
-                )
-            # Extract content from the PDF or Word file if applicable
+                print(f"Error uploading to S3: {str(e)}")
+                raise HTTPException(status_code=500, detail="S3 upload failed.")
+
+            # Extract PDF/Word contents
             if file_contents:
                 try:
                     if file_type == ".pdf":
@@ -340,26 +373,27 @@ async def generate_summary(
                 except ValueError as e:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Failed to extract content from the file: {str(e)}",
+                        detail=f"Failed to extract content: {str(e)}",
                     )
 
-        if (
-            not queryText or queryText.strip() == ""
-        ):  # checking if the value exists, or if the value is just white spaces.
+        # Default query if none is provided
+        if not queryText or queryText.strip() == "":
             queryText = "Summarize the document content"
-            print("QueryText was blank.  Initializing with default query.")
+            print("QueryText was blank. Initializing with default summary query.")
 
-        # Check if queryText or content is provided
-        if not queryText and not content:
+        # If no content is available at all, raise error
+        if not content and not queryText:
             raise HTTPException(
-                status_code=400, detail="QueryText or content from the file is required"
+                status_code=400,
+                detail="No content found. Provide a file or queryText to summarize.",
             )
-        prompt = generate_prompt(
-            content, queryText
-        )  # Generate the prompt based on queryText and content
+
+        # Generate the prompt
+        prompt = generate_prompt(content, queryText)
         llm = ChatBedrock(model_id=MODEL_ID)
         chain = RunnableWithMessageHistory(llm, get_user_memory)
-        # Run the model with the prompt
+
+        # Invoke model
         try:
             summary = chain.invoke(
                 prompt,
@@ -367,10 +401,13 @@ async def generate_summary(
             )
         except Exception as e:
             raise HTTPException(
-                status_code=500, detail=f"Error invoking model: {str(e)}"
+                status_code=500, detail=f"Error invoking the LLM: {str(e)}"
             )
+
+        # Possibly refine answer if IRRELEVANT_KEYWORD is present
         answer = check_qna(queryText, summary.content, session_id)
-        # Construct the feedback and result objects
+
+        # Build final result
         feedbackoptions = FeedbackDisplayOptions(
             thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
         )
@@ -382,22 +419,24 @@ async def generate_summary(
             feedback=feedback,
         )
         queryResponse = QueryResponse(
-            status="success", sessionId=session_id, userQuery=queryText, result=result
+            status="success",
+            sessionId=session_id,
+            userQuery=queryText,
+            result=result,
         )
-        current_datetime = datetime.now()
-        formatted_timestamp = current_datetime.isoformat()
-        file_location = BUCKET_NAME + folder_path + file_name
+
+        # Store interaction if userId is known
         if userId:
+            current_datetime = datetime.datetime.now().isoformat()
+            file_location = f"{BUCKET_NAME}{folder_path}{file_name}"
             chat_metadata = ChatMetadata(
                 FileName=file_name,
                 FileLocation=file_location,
                 FlowName=SUMMARY_FLOW_NAME,
-                Department="",
+                Department="",  # fill if needed
             )
             user_message = queryText if queryText else chat_metadata.FileName
-            user_message_search = (
-                queryText.lower() if queryText else chat_metadata.FileName.lower()
-            )
+            user_message_search = user_message.lower()
             chat_interaction = ChatInteraction(
                 UserId=userId,
                 SessionId=session_id,
@@ -405,32 +444,28 @@ async def generate_summary(
                 UserMessageSearch=user_message_search,
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
-                # IsFeedbackPositive=True,
                 FeedbackComment="",
-                Timestamp=formatted_timestamp,
+                Timestamp=current_datetime,
                 SessionStatus=SESSION_STATUS_ACTIVE,
                 MessageId=str(msg_id),
                 ChatMetadata=chat_metadata,
             )
             store_interaction(chat_interaction)
+
         return queryResponse
+
     except HTTPException as http_exc:
-        print(str(http_exc))
+        print(f"HTTPException: {str(http_exc)}")
         return generate_technical_error_message(
-            str(msg_id), transactionCount, queryText, sessionId
+            msg_id, transactionCount, queryText, sessionId
+        )
+    except (ClientError, BotoCoreError) as e:
+        print(f"AWS error in generate_summary: {str(e)}")
+        return generate_technical_error_message(
+            msg_id, transactionCount, queryText, sessionId
         )
     except Exception as e:
-        print(str(e))
+        print(f"Unknown error in generate_summary: {str(e)}")
         return generate_technical_error_message(
-            str(msg_id), transactionCount, queryText, sessionId
+            msg_id, transactionCount, queryText, sessionId
         )
-
-
-"""
-@app.middleware("http")
-async def enforce_apikey_validation(request: Request, call_next):
-    if request.method == "POST":  # Exclude specific endpoints if needed
-        validate_api_key(request)
-    response = await call_next(request)
-    return response
-"""

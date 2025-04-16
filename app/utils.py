@@ -1,37 +1,21 @@
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict
-from fastapi import HTTPException
-import boto3
+import io
 import re
-from pathlib import Path
-from langchain_core.prompts import PromptTemplate
-import PyPDF2
 from io import BytesIO
 from pathlib import Path
-from PyPDF2 import PdfReader
-from docx import Document
-from botocore.config import Config
-import io
-from data import (
-    QueryRequest,
-    QnaAnswer,
-    AnswerRequest,
-    User,
-    Query,
-    RequestQuery,
-    Citation,
-    QuickReply,
-    Result,
-    QueryResponse,
-    FeedbackDisplayOptions,
-    Feedback,
-    ChatInteraction,
-    ChatMetadata,
-    ChatHistorySearchRequest,
-    FeedbackRequest,
-)
 
+import boto3
+import PyPDF2
+from botocore.config import Config
 from config import get_config_value
+from data import (
+    Feedback,
+    FeedbackDisplayOptions,
+    QueryResponse,
+    Result,
+)
+from docx import Document
+from fastapi import HTTPException
+from langchain_core.prompts import PromptTemplate
 
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
