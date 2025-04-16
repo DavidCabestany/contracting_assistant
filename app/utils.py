@@ -197,6 +197,24 @@ def get_filename_from_path(s3_path):
         logger.info(f"An unexpected error occurred 1: {e}")
     return filename
 
+# PROMPT_TEMPLATE_RISK = """Your task is to identify below clauses from the content - 
+# Termination Clause - Depending upon the penalties , whether its severe , moderate or minimal
+# Liability Clause - High, moderate or low liability caps.
+# Compliance Requirements - find out the compliance based upon regulations.
+# Sustainability Terms - Find out the sustainability commitments based upon environmental practices
+# Spend Under Contract - based upon budget or financial thresholds
+# Payment Terms - find out whether the payment terms are balanced,favourable or unfavourable"""
+
+PROMPT_TEMPLATE_RISK  = """Your task is provide various clauses mentioned in the contract and cater them on the basis of High, Medium and Low Risk based on the Clauses definition given below - 
+Contract: {contract} 
+
+Clauses: {clauses}
+
+Now answer the query
+User Query:
+{Query}
+"""
+
 
 PROMPT_TEMPLATE = """
 
@@ -231,11 +249,35 @@ User Query:
 {Query}
 """
 
+clause_file_path = "mappings/risk_matrix.txt"
 
-def generate_prompt(content: str, Query: str) -> str:
+
+def get_clause_details():
+    try:
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=clause_file_path)
+        txt_file_content = response["Body"].read().decode('utf-8') 
+    except Exception as e:
+        print(f"ERROR: Error in retrieving template. Reason: {e}")
+        raise Exception(f"Error in retrieving template: {e}")
+    return txt_file_content
+
+
+def generate_prompt(contract: str, clauses: str,query: str,template:str) -> str:
     prompt = PromptTemplate(
-        input_variables=["content", "Query"],  # Keep content here
-        template=PROMPT_TEMPLATE,
+        input_variables=["contract", "clauses","query"],  # Keep content here
+        template=template,
+    )
+    # Format the prompt with the provided values
+    formatted_prompt = prompt.format(
+        contract=contract,Clauses=clauses, Query=query
+    )  # format content here
+    return formatted_prompt
+
+
+def generate_prompt_risk(content: str, Query: str,template:str) -> str:
+    prompt = PromptTemplate(
+        input_variables=["contract", "clauses", "Query"],  # Keep content here
+        template=template,
     )
     # Format the prompt with the provided values
     formatted_prompt = prompt.format(
@@ -243,29 +285,6 @@ def generate_prompt(content: str, Query: str) -> str:
     )  # format content here
     return formatted_prompt
 
-
-# def generate_prompt(content: str, additional_instructions: Optional[str]) -> str:
-#     """Generate a prompt for the language model based on content and additional instructions."""
-#     # Define the base template for the prompt
-#     base_template = """
-#     %INSTRUCTIONS:
-#     Your task is to summarize the document content. Use the content if its already present in the previous chat interactions.The summary should include the following six sections: Summary (two sentences), Parties involved, Payment terms, Contract duration/expiry date, Liability cap and exclusions, Summary of the scope of work and associated costs.Please validate if the USER_QUERY is not relevant to the document content using cosine similarity and append only the keyword, not extra words or phrase - 'IRRELEVANT_TOPIC' at the end of original answer."
-#     """
-#     # Add the content of the file to the template
-#     if content:
-#         base_template += f"\n\n%TEXT:\n{content}\n"
-
-#     # Append the user query (additional instructions) if provided
-#     if additional_instructions:
-#         base_template += f"\n\n%USER QUERY:\n{additional_instructions}\n"
-
-#     # The PromptTemplate can now be created using the combined template
-#     prompt = PromptTemplate(
-#         input_variables=[],  # No need for dynamic variables here as we have formatted the string manually
-#         template=base_template,
-#     )
-#     # Return the final prompt with all components
-#     return base_template
 
 
 def extract_pdf_contents(file_bytes: bytes) -> str:
