@@ -17,7 +17,7 @@ from data import (
 from docx import Document
 from fastapi import HTTPException
 from langchain_core.prompts import PromptTemplate
-
+from langchain_aws import ChatBedrock
 logger = logging.getLogger(__name__)
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
@@ -32,6 +32,37 @@ ALEXION_ID = get_config_value("ALEXION_ID")
 GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
 API_KEY = get_config_value("API_KEY")
 
+keyword_llm = ChatBedrock(
+    model_id="anthropic.claude-3-haiku-20240307-v1:0",
+    model_kwargs={"temperature": 0},
+)
+
+def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
+    """
+    Extracts a compact set of keywords from the user's query for indexing.
+    Returns a comma-separated, lowercase string of keywords.
+    """
+    if not query or not query.strip():
+        return ""
+
+    prompt = f"""
+    Extract the most meaningful keywords up to {max_char} characters from the following user query to help with document search indexing.
+    - Use lowercase only
+    - Exclude stopwords and punctuation
+    - Return keywords as a comma-separated list
+
+    Query:
+    {query}
+    """
+
+    try:
+        response = keyword_llm.invoke(prompt)
+        keywords = response.content.strip()
+        logger.info(f"[Keyword Extractor] Extracted keywords: {keywords}")
+        return keywords
+    except Exception as e:
+        logger.warning(f"[Keyword Extractor] Claude failed to extract keywords: {e}")
+        return query[:2046].lower()
 
 def generate_technical_error_message(
     msg_id, transaction_count, user_query, sessionId, exc: Exception = None

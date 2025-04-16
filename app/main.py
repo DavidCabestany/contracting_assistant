@@ -33,6 +33,7 @@ from prompt import (
     retrieve_documents,
 )
 from utils import (
+    extract_keywords_from_query,
     extract_chat_history,
     extract_file_locations,
     extract_pdf_contents,
@@ -249,6 +250,12 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         # Log interaction if userId is provided
         if request.user.id:
             current_datetime = datetime.datetime.now().isoformat()
+            if len(request.query.text) > 2046:
+                user_message_search = extract_keywords_from_query(
+                    request.query.text.lower()
+                )
+            else:
+                user_message_search = request.query.text.lower()
             chat_metadata = ChatMetadata(
                 FileName="",  # you can fill in if you know the file name
                 FileLocation="",
@@ -259,7 +266,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 UserId=request.user.id,
                 SessionId=sessionId,
                 UserMessage=request.query.text,
-                UserMessageSearch=request.query.text.lower(),
+                UserMessageSearch=user_message_search,
                 BotResponse=answer,
                 BotResponseSearch=answer.lower(),
                 FeedbackComment="",
@@ -445,7 +452,11 @@ async def generate_summary(
                 Department="",  # fill if needed
             )
             user_message = queryText if queryText else chat_metadata.FileName
-            user_message_search = user_message.lower()
+            if len(user_message) > 2046:
+                user_message_search = extract_keywords_from_query(user_message.lower())
+            else:
+                user_message_search = user_message
+
             chat_interaction = ChatInteraction(
                 UserId=userId,
                 SessionId=session_id,
