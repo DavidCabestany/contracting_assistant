@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
+from fastapi import HTTPException
 import boto3
 import re
 from pathlib import Path
@@ -29,12 +30,21 @@ from data import (
     ChatHistorySearchRequest,
     FeedbackRequest,
 )
-from config import *
+
+from config import get_config_value
 
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 
 ERROR_MESSAGE = "Oops! It seems there’s a network issue. Please check your connection and try again in a moment."
+
+REGION_ID = get_config_value("REGION_ID")
+TABLE_NAME = get_config_value("TABLE_NAME")
+BUCKET_NAME = get_config_value("BUCKET_NAME")
+PRIVACY_KB_ID = get_config_value("PRIVACY_KB_ID")
+ALEXION_ID = get_config_value("ALEXION_ID")
+GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
+API_KEY = get_config_value("API_KEY")
 
 
 def generate_technical_error_message(msg_id, transaction_count, user_query, sessionId):

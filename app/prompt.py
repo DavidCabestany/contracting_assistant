@@ -16,7 +16,7 @@ from botocore.config import Config
 
 # TODO: change the way we import the config functions
 
-from config import *
+from config import get_config_value
 
 # TODO: Clean the unused imports
 
@@ -41,8 +41,23 @@ from data import (
 
 # TODO: remove unwantef f string format
 
+
+REGION_ID = get_config_value("REGION_ID")
+TABLE_NAME = get_config_value("TABLE_NAME")
+MODEL_ARN = get_config_value("MODEL_ARN")
+EMBEDDING_MODEL_ID = get_config_value("EMBEDDING_MODEL_ID")
+BUCKET_NAME = get_config_value("BUCKET_NAME")
+QNA_SEARCH_TYPE = get_config_value("QNA_SEARCH_TYPE")
+GUARDRAIL_ID = get_config_value("GUARDRAIL_ID")
+GUARDRAIL_VERSION_ID = get_config_value("GUARDRAIL_VERSION_ID")
+QNA_MAX_TOKENS_VALUE = get_config_value("QNA_MAX_TOKENS_VALUE")
+QNA_TEMPRATURE_VALUE = get_config_value("QNA_TEMPRATURE_VALUE")
+QNA_TOP_P_VALUE = get_config_value("QNA_TOP_P_VALUE")
+MODEL_ID = get_config_value("MODEL_ID")
+
 EXCEL_FILE_PATH = f"mappings/prompt_map.xlsx"
 AZ_MAPPING_SHEET_NAME = "Sheet1"
+
 # Initialize an empty dictionary to store embeddings
 embeddings_map = {}
 

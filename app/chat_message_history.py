@@ -7,8 +7,9 @@ from fastapi import HTTPException
 
 # TODO: change the way we import the config functions
 
-from config import *
+from config import get_config_value
 
+BUCKET_NAME = get_config_value("BUCKET_NAME")
 
 s3 = boto3.client("s3")
 

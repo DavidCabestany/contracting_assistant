@@ -1,99 +1,61 @@
-# Standard Library Imports
-from config import *
-import io
-import os
-import uuid
-import boto3
-import re
-import asyncio
-from datetime import datetime, timezone, timedelta
-from io import BytesIO
-from pathlib import Path
-import pandas as pd
-import json
-from datetime import datetime
-from boto3.dynamodb.conditions import Key
-from collections import defaultdict
-from typing import Optional, List, Dict, Sequence
-from boto3.dynamodb.conditions import Key, Attr
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-import time
+import datetime
 import pickle
-from botocore.exceptions import BotoCoreError, ClientError
+import uuid
+from typing import Optional
+
+import boto3
 from auth.auth import auth_router
 from auth.utils import verify_token
-
-# Third-Party Library Imports
-import PyPDF2
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
-# LangChain and related imports
-from langchain_aws import ChatBedrock
-from langchain_core.prompts import PromptTemplate
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationChain
-from fastapi.responses import StreamingResponse
-from langchain_community.llms import Bedrock
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import START, MessagesState, StateGraph
-from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain.schema import BaseMessage
-from langchain.schema import BaseChatMessageHistory
-
-
-# Local Application Imports
+from botocore.exceptions import BotoCoreError, ClientError
+from chat_message_history import ChatMessageHistory
+from chathistory import chat_history_router, session_history, store_interaction
+from config import config_router, get_config_value
 from data import (
-    QueryRequest,
-    QnaAnswer,
-    AnswerRequest,
-    User,
-    Query,
-    RequestQuery,
-    Citation,
-    QuickReply,
-    Result,
-    QueryResponse,
-    FeedbackDisplayOptions,
-    Feedback,
     ChatInteraction,
     ChatMetadata,
-    ChatHistorySearchRequest,
-    FeedbackRequest,
+    Feedback,
+    FeedbackDisplayOptions,
+    QueryResponse,
+    QuickReply,
+    RequestQuery,
+    Result,
 )
-from utils import (
-    get_knowledge_base_id,
-    generate_presigned_url,
-    extract_file_locations,
-    get_filename_from_path,
-    generate_prompt,
-    extract_pdf_contents,
-    extract_text_from_word,
-    get_file_type,
-    generate_technical_error_message,
-    validate_api_key,
-    extract_chat_history,
-    get_knowledge_base_folder,
-)
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from langchain_aws import ChatBedrock
+from langchain_core.runnables.history import RunnableWithMessageHistory
 from prompt import (
-    retrieve_and_generate,
     follow_up_prompt,
     generate_answer_with_context,
-    retrieve_documents,
+    retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
+    retrieve_documents,
 )
-from chathistory import store_interaction, session_history
-from config import config_router
-from chathistory import chat_history_router
-from chat_message_history import ChatMessageHistory
-
+from utils import (
+    extract_chat_history,
+    extract_file_locations,
+    extract_pdf_contents,
+    extract_text_from_word,
+    generate_prompt,
+    generate_technical_error_message,
+    get_file_type,
+    get_knowledge_base_folder,
+    get_knowledge_base_id,
+)
 
 qna_session_id_store = {}
 
 s3 = boto3.client("s3")
+
+BUCKET_NAME = get_config_value("BUCKET_NAME")
+QNA_FLOW_NAME = get_config_value("QNA_FLOW_NAME")
+MODEL_ID = get_config_value("MODEL_ID")
+REGION_ID = get_config_value("REGION_ID")
+SESSION_STATUS_ACTIVE = get_config_value("SESSION_STATUS_ACTIVE")
+IRRELEVANT_KEYWORD = get_config_value("IRRELEVANT_KEYWORD")
+GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
+SUMMARY_FLOW_NAME = get_config_value("SUMMARY_FLOW_NAME")
+PRIORITZE_DOCUMENT = "CAN HANDBOOK Third Edition.pdf"
 
 app = FastAPI()
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
@@ -105,8 +67,6 @@ app.include_router(
     dependencies=[Depends(verify_token)],
 )
 
-# TODO - set the allowed URLs for CORS
-# cors_allowed_origins=["*"]
 # Configure CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -185,7 +145,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             if citations != []:
                 print(citations[0]["fileName"])
 
-        if response == None:
+        if response is None:
             doc = retrieve_documents(
                 prompt, knowledge_base_id, REGION_ID, filter_value=None
             )
