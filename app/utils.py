@@ -205,14 +205,29 @@ def get_filename_from_path(s3_path):
 # Spend Under Contract - based upon budget or financial thresholds
 # Payment Terms - find out whether the payment terms are balanced,favourable or unfavourable"""
 
-PROMPT_TEMPLATE_RISK  = """Your task is provide various clauses mentioned in the contract and cater them on the basis of High, Medium and Low Risk based on the Clauses definition given below - 
-Contract: {contract} 
+# PROMPT_TEMPLATE_RISK  = """Your task is provide various clauses mentioned in the contract and cater them firstly on the basis of High, Medium and Low Importance and then tell the High, medium , low Risks for tha particular importance based on the Clauses definition given below - 
+# Contract: {Contract} 
+# Clauses: {Clauses}
+# Now answer the query
+# User Query:
+# {Query}
+# """
 
-Clauses: {clauses}
 
-Now answer the query
-User Query:
-{Query}
+PROMPT_TEMPLATE_RISK  = """You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks. 
+Instructions:
+-Extract Clauses: Begin by thoroughly analyzing the entire contract to identify and extract relevant clauses.
+-Risk Evaluation: Utilize the provided risk rules checklist to evaluate each clause for potential risks.
+-Risk Classification: Assign a risk level to each clause — High, Medium, or Low — based on your assessment.
+-Addressing Ambiguities: If you encounter any ambiguities regarding the risk level, clearly inform the user of the uncertainty.
+-Prioritized Results: Present the assessment results in the order of priority, starting with High-risk clauses, followed by Medium and Low-risk ones.
+-Accuracy Compliance: Ensure all information is factual; avoid fabricating any details.
+
+Context Information:
+Contract: {Contract} 
+Clauses: {Clauses}
+User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
+User Query: {Query}
 """
 
 
@@ -262,27 +277,25 @@ def get_clause_details():
     return txt_file_content
 
 
-def generate_prompt(contract: str, clauses: str,query: str,template:str) -> str:
+def generate_prompt(content: str, Query: str,template:str) -> str:
     prompt = PromptTemplate(
-        input_variables=["contract", "clauses","query"],  # Keep content here
+        input_variables=["content", "Query"], #Keep content here 
         template=template,
     )
     # Format the prompt with the provided values
-    formatted_prompt = prompt.format(
-        contract=contract,Clauses=clauses, Query=query
-    )  # format content here
+    formatted_prompt = prompt.format(content=content, Query=Query) #format content here 
     return formatted_prompt
 
 
-def generate_prompt_risk(content: str, Query: str,template:str) -> str:
+
+def generate_prompt_risk(contract: str,clauses: str, Query: str,template:str) -> str:
+    """prompt template to find the risks involved in the contract"""
     prompt = PromptTemplate(
         input_variables=["contract", "clauses", "Query"],  # Keep content here
         template=template,
     )
     # Format the prompt with the provided values
-    formatted_prompt = prompt.format(
-        content=content, Query=Query
-    )  # format content here
+    formatted_prompt = prompt.format(Contract=contract,Clauses=clauses,Query=Query)  # format content here
     return formatted_prompt
 
 

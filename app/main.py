@@ -407,7 +407,7 @@ async def generate_summary(
             )
 
         # Generate the prompt
-        if "risk" or "clause" in queryText.lower():
+        if "risk" in queryText.lower() or "clause" in queryText.lower() or "risks" in queryText.lower() or "clauses" in queryText.lower():
             clauses= get_clause_details()
             prompt = generate_prompt_risk(content,clauses,queryText,PROMPT_TEMPLATE_RISK)
         else :
