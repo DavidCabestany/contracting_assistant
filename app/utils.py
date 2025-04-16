@@ -176,6 +176,7 @@ def get_filename_from_path(s3_path):
 
 
 PROMPT_TEMPLATE = """
+
 You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
 
 Your primary task is to answer the user's question based on the content of the provided document AND any relevant information from previous chat interactions within the same session. Pay close attention to the document content and prior conversation history, referencing them directly when answering the question. If information is contained within the document, then provide the information directly and not simply state 'The document contains the answer to your question'.
