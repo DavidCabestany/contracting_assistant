@@ -8,15 +8,15 @@ from fastapi import APIRouter, HTTPException
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Optional: Add console handler if this isn't being logged elsewhere
 if not logger.hasHandlers():
     ch = logging.StreamHandler()
-    ch.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    ch.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(ch)
 
 config_router = APIRouter()
 
 _secret_values = {}
+
 
 def _load_values():
     """
@@ -42,12 +42,14 @@ def _load_values():
         logger.error(f"Failed to load configuration: {str(e)}")
         raise Exception(f"Error loading config data: {str(e)}")
 
+
 def get_config_value(key: str, default=None):
     """
     Public helper to retrieve a single config value.
     Returns default if not found.
     """
     return _secret_values.get(key, default)
+
 
 @config_router.get("/config")
 async def reload_config():
@@ -59,6 +61,7 @@ async def reload_config():
         return {"message": "Config reloaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @config_router.get("/config/{key}")
 async def get_config_item(key: str):
@@ -73,11 +76,13 @@ async def get_config_item(key: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @config_router.get("/config/keys")
 async def list_config_keys():
     """
     API endpoint to list all available config keys.
     """
     return {"keys": list(_secret_values.keys())}
+
 
 _load_values()

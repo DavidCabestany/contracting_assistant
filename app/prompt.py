@@ -1,46 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import boto3
-import openpyxl
-import pandas as pd
-import numpy as np
-
-# TODO: remove duplicates
-from sklearn.metrics.pairwise import cosine_similarity
 import json
 import warnings
-from sklearn.metrics.pairwise import cosine_similarity
-import json
-from datetime import datetime
+
+import boto3
+import numpy as np
+import pandas as pd
 from botocore.config import Config
-
-# TODO: change the way we import the config functions
-
 from config import get_config_value
-
-# TODO: Clean the unused imports
-
-from data import (
-    QueryRequest,
-    QnaAnswer,
-    AnswerRequest,
-    User,
-    Query,
-    RequestQuery,
-    Citation,
-    QuickReply,
-    Result,
-    QueryResponse,
-    FeedbackDisplayOptions,
-    Feedback,
-    ChatInteraction,
-    ChatMetadata,
-    ChatHistorySearchRequest,
-    FeedbackRequest,
-)
-
-# TODO: remove unwantef f string format
-
+from sklearn.metrics.pairwise import cosine_similarity
 
 REGION_ID = get_config_value("REGION_ID")
 TABLE_NAME = get_config_value("TABLE_NAME")
@@ -55,7 +21,7 @@ QNA_TEMPRATURE_VALUE = get_config_value("QNA_TEMPRATURE_VALUE")
 QNA_TOP_P_VALUE = get_config_value("QNA_TOP_P_VALUE")
 MODEL_ID = get_config_value("MODEL_ID")
 
-EXCEL_FILE_PATH = f"mappings/prompt_map.xlsx"
+EXCEL_FILE_PATH = "mappings/prompt_map.xlsx"
 AZ_MAPPING_SHEET_NAME = "Sheet1"
 
 # Initialize an empty dictionary to store embeddings
@@ -236,9 +202,6 @@ def add_s3_prefix_to_files(files, bucket_name, folder_name):
     return updated_files
 
 
-# TODO: remove unwantef f string format
-
-
 def retrieve_and_generate_prioritized_doc(
     query: str,
     kb_id: str,
@@ -255,7 +218,7 @@ def retrieve_and_generate_prioritized_doc(
         GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(
             files, BUCKET_NAME, knowledge_base_folder
         )
-        prompt_template += f"""\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
+        prompt_template += """\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
         prompt_template += f"\n\n%USER QUERY:\n{query}\n"
         return bedrock_agent_runtime.retrieve_and_generate(
             input={"text": prompt_template},

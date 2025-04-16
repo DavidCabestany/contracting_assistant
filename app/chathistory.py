@@ -1,55 +1,21 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from datetime import datetime
-from fastapi import APIRouter
-import uuid
-import os
-import boto3
-import pandas as pd
-import re
-from boto3.dynamodb.conditions import Key
 from collections import defaultdict
 from datetime import datetime
-from typing import Optional, List, Dict
-from boto3.dynamodb.conditions import Key, Attr
+
+import boto3
+import pandas as pd
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
-
-# TODO: Clean the unused imports
-
+from config import get_config_value
 from data import (
-    QueryRequest,
-    QnaAnswer,
-    AnswerRequest,
-    User,
-    Query,
-    RequestQuery,
-    Citation,
-    QuickReply,
-    Result,
-    QueryResponse,
-    FeedbackDisplayOptions,
-    Feedback,
-    ChatInteraction,
-    ChatMetadata,
     ChatHistorySearchRequest,
+    ChatInteraction,
     FeedbackRequest,
 )
+from fastapi import APIRouter, HTTPException
 from utils import (
-    get_knowledge_base_id,
     generate_presigned_url,
-    extract_file_locations,
-    get_filename_from_path,
-    generate_prompt,
-    extract_pdf_contents,
-    extract_text_from_word,
-    get_file_type,
     generate_technical_error_message,
 )
-
-# TODO: change the way we import the config functions
-
-from config import get_config_value
 
 REGION_ID = get_config_value("REGION_ID")
 TABLE_NAME = get_config_value("TABLE_NAME")
@@ -67,11 +33,6 @@ dynamodb = boto3.resource("dynamodb", region_name=REGION_ID)
 
 
 table = dynamodb.Table(TABLE_NAME)
-
-
-# TODO: autoassignation of variable is wrong
-
-BUCKET_NAME = BUCKET_NAME
 
 
 # @chat_history_router.post("/store_interaction/")
@@ -198,7 +159,7 @@ def search_chat(request: ChatHistorySearchRequest):
 
 
 @chat_history_router.post("/session/")
-def view_chat_by_session(request: ChatHistorySearchRequest) -> Dict[str, List[dict]]:
+def view_chat_by_session(request: ChatHistorySearchRequest) -> dict[str, list[dict]]:
     try:
         response = table.query(
             IndexName="SessionId-index",
