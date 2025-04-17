@@ -4,6 +4,7 @@ import re
 from io import BytesIO
 from pathlib import Path
 
+import json
 import boto3
 import PyPDF2
 from botocore.config import Config
@@ -21,6 +22,10 @@ from langchain_aws import ChatBedrock
 logger = logging.getLogger(__name__)
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
+
+
+risk_rules_file_path = "docs/risk_rules.json"
+
 
 ERROR_MESSAGE = "Oops! It seems there’s a network issue. Please check your connection and try again in a moment."
 
@@ -197,38 +202,41 @@ def get_filename_from_path(s3_path):
         logger.info(f"An unexpected error occurred 1: {e}")
     return filename
 
-PROMPT_TEMPLATE_RISK="""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks. 
-Your Task: Analyze the provided Contract using the Risk Rules Checklist.Identify specified clauses within the contract, assess their risk level based on the contract's specific wording compared to the checklist descriptions, and report the findings strictly following the specified output format. 
+PROMPT_TEMPLATE_RISK="""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
+Your Task: Analyze the provided Contract using the Risk Rules Checklist. Identify specified clauses within the contract, assess the risk level (High, Medium, Low) and their clause level importance based on the contract's specific wording compared to the checklist descriptions, and report the findings strictly following the specified output format.
 Instructions:
--Extract Clauses: Begin by thoroughly analyzing the entire contract to identify and extract relevant clauses. Clauses:Termination Clause,Liability Clause,Compliance Requirements,Sustainability Terms,Spend Under Contract,Payment Terms,Performance Metrics,Confidentiality Clause,Dispute Resolution,Force Majeure Clause,Renewal Terms
--Risk Evaluation: Utilize the provided risk rules checklist to evaluate each clause for potential risks.
--Risk Classification: Assign a risk level to each clause — High, Medium, or Low — based on your assessment.
--Addressing Ambiguities: If you encounter any ambiguities regarding the risk level, clearly inform the user of the uncertainty.
--Accuracy Compliance: Ensure all information is factual; avoid fabricating any details.
--Output Format: Group the clauses first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low).Ensure all relevant clauses identified are included in the report.
-#Format of Output - ```
-High Risks Clauses in Contract:
-#High Importance Risks : All Risks with High Importance 
-#Medium Importance Risks : Followed by Risks with Medium Importance 
-#Low Importance Risks : Followed by Risks with Low Importance
+1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
+2.  **Risk Assessment (Description Matching First):**
+    *   For each clause, iterate through the `risks` array.
+    *   **Prioritize Description Matching:** For each risk within the `risks` array, *first* compare the `risk_description` to the specific wording in the contract. If there's a strong match, proceed to the next step. If there's no clear match to contract wording, skip to the next risk in the `risks` array.
+    *   **Assess Risk Attributes (After Description Match):** Once a matching `risk_description` is found, note the `importance` (High, Medium, or Low) associated with that specific risk. *Use the `importance` value to determine the specific risk categorization*.
+3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
+4.  **Addressing Ambiguities:** If you encounter any ambiguities regarding matching contract wording or the meaning of a `risk_description`, clearly inform the user of the uncertainty and why a definitive classification cannot be made.
+5.  **Accuracy Compliance:** Ensure all information is factual; avoid fabricating any details. Use only the provided context (Contract and Risk Rules Checklist).
+6.  **Output Format:** Group the clauses first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report. Use the following structure:
+    ```
+    High Risks Clauses in Contract:
+    #High Importance Risks : All Risks with High Importance
+    #Medium Importance Risks : Followed by Risks with Medium Importance
+    #Low Importance Risks : Followed by Risks with Low Importance
 
-Medium Risks Clauses in a contract: 
-#High Importance Risks : All Risks with High Importance 
-#Medium Importance Risks : Followed by Risks with Medium Importance 
-#Low Importance Risks : Followed by Risks with Low Importance
+    Medium Risks Clauses in a contract:
+    #High Importance Risks : All Risks with High Importance
+    #Medium Importance Risks : Followed by Risks with Medium Importance
+    #Low Importance Risks : Followed by Risks with Low Importance
 
-Low Risks Clauses in a contract: 
-#High Importance Risks : All Risks with High Importance 
-#Medium Importance Risks : Followed by Risks with Medium Importance 
-#Low Importance Risks : Followed by Risks with Low Importance```
- 
-
+    Low Risks Clauses in a contract:
+    #High Importance Risks : All Risks with High Importance
+    #Medium Importance Risks : Followed by Risks with Medium Importance
+    #Low Importance Risks : Followed by Risks with Low Importance
+    ```
+7.  **Risk Identification:** Always return the risk classification *with the associated Risk\_ID* and a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
+8.  **Sample Output Example:** "Termination Clause: High Risk, risk\_id:risk\_001 - The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
 Context Information:
 Contract: {Contract} 
-Risk rules checklist: {Clauses}
+Risk rules checklist: {risk_rules}  
 User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
-User Query: {Query}
-
+User Query:{Query} (User question entered in the Contracting Assistant, e.g., "What are the risks in this contract?")
 """
 
 PROMPT_TEMPLATE = """
@@ -264,18 +272,29 @@ User Query:
 {Query}
 """
 
-clause_file_path = "mappings/risk_matrix.txt"
+def get_risk_matrix_details() -> dict:
+    """Returns risk rules from a JSON file.
 
+    Args:
+        file_path (str): The file path to the JSON file containing risk rules.
 
-def get_clause_details():
+    Returns:
+        dict: Risk rules data as a dictionary.
+    """
     try:
-        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=clause_file_path)
-        txt_file_content = response["Body"].read().decode('utf-8') 
+        with open(risk_rules_file_path, 'r', encoding='utf-8') as file:
+            risk_rules = json.load(file)
+    except FileNotFoundError:
+        print(f"ERROR: File not found: {risk_rules_file_path}")
+        raise FileNotFoundError(f"File not found: {risk_rules_file_path}")
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON format in file: {risk_rules_file_path}. Reason: {e}")
+        raise json.JSONDecodeError(f"Invalid JSON format in file: {risk_rules_file_path}", e.doc, e.pos)
     except Exception as e:
-        print(f"ERROR: Error in retrieving template. Reason: {e}")
-        raise Exception(f"Error in retrieving template: {e}")
-    return txt_file_content
+        print(f"ERROR: Error reading risk rules from file: {risk_rules_file_path}. Reason: {e}")
+        raise Exception(f"Error reading risk rules from file: {e}")
 
+    return risk_rules
 
 def generate_prompt(content: str, Query: str,template:str) -> str:
     prompt = PromptTemplate(
@@ -288,14 +307,14 @@ def generate_prompt(content: str, Query: str,template:str) -> str:
 
 
 
-def generate_prompt_risk(contract: str,clauses: str, Query: str,template:str) -> str:
+def generate_prompt_risk(contract: str,risk_rules: str, Query: str,template:str) -> str:
     """prompt template to find the risks involved in the contract"""
     prompt = PromptTemplate(
-        input_variables=["contract", "clauses", "Query"],  # Keep content here
+        input_variables=["contract", "risk_rules", "Query"],  # Keep content here
         template=template,
     )
     # Format the prompt with the provided values
-    formatted_prompt = prompt.format(Contract=contract,Clauses=clauses,Query=Query)  # format content here
+    formatted_prompt = prompt.format(Contract=contract,risk_rules=risk_rules,Query=Query)  # format content here
     return formatted_prompt
 
 

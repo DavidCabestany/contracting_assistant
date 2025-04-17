@@ -60,7 +60,7 @@ GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
 SUMMARY_FLOW_NAME = get_config_value("SUMMARY_FLOW_NAME")
 PRIORITZE_DOCUMENT = "CAN HANDBOOK Third Edition.pdf"
 
-from utils import PROMPT_TEMPLATE,PROMPT_TEMPLATE_RISK,generate_prompt_risk,get_clause_details
+from utils import PROMPT_TEMPLATE,PROMPT_TEMPLATE_RISK,generate_prompt_risk,get_risk_matrix_details
 
 app = FastAPI()
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
@@ -408,8 +408,8 @@ async def generate_summary(
 
         # Generate the prompt
         if "risk" in queryText.lower() or "clause" in queryText.lower() or "risks" in queryText.lower() or "clauses" in queryText.lower():
-            clauses= get_clause_details()
-            prompt = generate_prompt_risk(content,clauses,queryText,PROMPT_TEMPLATE_RISK)
+            risk_rules = get_risk_matrix_details()
+            prompt = generate_prompt_risk(content,risk_rules,queryText,PROMPT_TEMPLATE_RISK)
         else :
             prompt = generate_prompt(content, queryText,PROMPT_TEMPLATE)
         llm = ChatBedrock(model_id=MODEL_ID)
