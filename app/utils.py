@@ -197,39 +197,21 @@ def get_filename_from_path(s3_path):
         logger.info(f"An unexpected error occurred 1: {e}")
     return filename
 
-# PROMPT_TEMPLATE_RISK = """Your task is to identify below clauses from the content - 
-# Termination Clause - Depending upon the penalties , whether its severe , moderate or minimal
-# Liability Clause - High, moderate or low liability caps.
-# Compliance Requirements - find out the compliance based upon regulations.
-# Sustainability Terms - Find out the sustainability commitments based upon environmental practices
-# Spend Under Contract - based upon budget or financial thresholds
-# Payment Terms - find out whether the payment terms are balanced,favourable or unfavourable"""
-
-# PROMPT_TEMPLATE_RISK  = """Your task is provide various clauses mentioned in the contract and cater them firstly on the basis of High, Medium and Low Importance and then tell the High, medium , low Risks for tha particular importance based on the Clauses definition given below - 
-# Contract: {Contract} 
-# Clauses: {Clauses}
-# Now answer the query
-# User Query:
-# {Query}
-# """
-
-
-PROMPT_TEMPLATE_RISK  = """You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks. 
+"""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks. 
 Instructions:
 -Extract Clauses: Begin by thoroughly analyzing the entire contract to identify and extract relevant clauses.
 -Risk Evaluation: Utilize the provided risk rules checklist to evaluate each clause for potential risks.
 -Risk Classification: Assign a risk level to each clause — High, Medium, or Low — based on your assessment.
 -Addressing Ambiguities: If you encounter any ambiguities regarding the risk level, clearly inform the user of the uncertainty.
--Prioritized Results: Present the assessment results in the order of priority, starting with High-risk clauses, followed by Medium and Low-risk ones.
+-Prioritized Results: Present the assessment results in the order of priority, starting with High Important clauses, followed by Medium and Low-risk ones.
 -Accuracy Compliance: Ensure all information is factual; avoid fabricating any details.
 
 Context Information:
 Contract: {Contract} 
-Clauses: {Clauses}
+Risk rules checklist: {Clauses}
 User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
 User Query: {Query}
 """
-
 
 PROMPT_TEMPLATE = """
 
