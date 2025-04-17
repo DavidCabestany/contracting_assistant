@@ -197,20 +197,44 @@ def get_filename_from_path(s3_path):
         logger.info(f"An unexpected error occurred 1: {e}")
     return filename
 
-"""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks. 
+PROMPT_TEMPLATE_RISK="""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks. 
+Your Task: Analyze the provided Contract using the Risk Rules Checklist.
+Identify specified clauses within the contract, assess their risk level based on the contract's specific wording compared to the checklist descriptions, and report the findings strictly following the specified output format.
 Instructions:
--Extract Clauses: Begin by thoroughly analyzing the entire contract to identify and extract relevant clauses.
+-Extract Clauses: Begin by thoroughly analyzing the entire contract to identify and extract relevant clauses-Termination Clause,Liability Clause,Compliance Requirements,Sustainability Terms,Spend Under Contract,Payment Terms,Performance Metrics,Confidentiality Clause,Dispute Resolution,Force Majeure Clause,Renewal Terms
 -Risk Evaluation: Utilize the provided risk rules checklist to evaluate each clause for potential risks.
 -Risk Classification: Assign a risk level to each clause — High, Medium, or Low — based on your assessment.
 -Addressing Ambiguities: If you encounter any ambiguities regarding the risk level, clearly inform the user of the uncertainty.
--Prioritized Results: Present the assessment results in the order of priority, starting with High Important clauses, followed by Medium and Low-risk ones.
+-Prioritized Results: Present the assessment results in the order of priority, starting with High risk and its importance followed by Medium and Low-risk ones.
 -Accuracy Compliance: Ensure all information is factual; avoid fabricating any details.
+-Output Format: Group the results first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low)
+#Example - ```
+High Risks Involved:
+#High Importance Risks : All Risks with High Importance 
+#Medium Importance Risks : Followed by Risks with Medium Importance 
+#Low Importance Risks : Followed by Risks with Low Importance
+
+Medium Risks Involved: 
+#High Importance Risks : All Risks with High Importance 
+#Medium Importance Risks : Followed by Risks with Medium Importance 
+#Low Importance Risks : Followed by Risks with Low Importance
+
+Low Risks Involved: 
+#High Importance Risks : All Risks with High Importance 
+#Medium Importance Risks : Followed by Risks with Medium Importance 
+#Low Importance Risks : Followed by Risks with Low Importance```
+ 
 
 Context Information:
 Contract: {Contract} 
 Risk rules checklist: {Clauses}
+# The checklist format provided is a multi-line text where each line follows the structure:Importance,Clause/Term,High Risk Description,Medium Risk Description,Low Risk Description
+# Example line: High,Termination Clause,Difficult or costly to terminate...,Moderate penalties...,Easy to terminate...
+
 User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
 User Query: {Query}
+
+Ensure all clauses are analyzed.
 """
 
 PROMPT_TEMPLATE = """
