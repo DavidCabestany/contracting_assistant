@@ -1,6 +1,7 @@
 import io
 import logging
 import re
+import os
 from io import BytesIO
 from pathlib import Path
 
@@ -23,8 +24,8 @@ logger = logging.getLogger(__name__)
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 
-
-risk_rules_file_path = "docs/risk_rules.json"
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+risk_rules_file_path = os.path.join(MODULE_DIR, r"docs","risk_rules.json")
 
 
 ERROR_MESSAGE = "Oops! It seems there’s a network issue. Please check your connection and try again in a moment."
