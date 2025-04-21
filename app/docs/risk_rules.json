@@ -6,17 +6,17 @@
         {
           "risk_description": "Difficult or costly to terminate, with severe penalties",
           "importance": "High",
-          "Risk_ID": "risk_001"
+          "risk_ID": "risk_001"
         },
         {
           "risk_description": "Moderate penalties for termination",
           "importance": "Medium",
-          "Risk_ID": "risk_002"
+          "risk_ID": "risk_002"
         },
         {
           "risk_description": "Easy to terminate with minimal penalties",
           "importance": "Low",
-          "Risk_ID": "risk_003"
+          "risk_ID": "risk_003"
         }
       ]
     },
@@ -27,17 +27,17 @@
         {
           "risk_description": "Unlimited liability or high liability caps",
           "importance": "High",
-          "Risk_ID": "risk_004"
+          "risk_ID": "risk_004"
         },
         {
           "risk_description": "Moderate liability caps",
           "importance": "Medium",
-          "Risk_ID": "risk_005"
+          "risk_ID": "risk_005"
         },
         {
           "risk_description": "Low liability caps or limited liability",
           "importance": "Low",
-          "Risk_ID": "risk_006"
+          "risk_ID": "risk_006"
         }
       ]
     },
@@ -48,17 +48,17 @@
         {
           "risk_description": "High likelihood of non-compliance with critical regulations",
           "importance": "High",
-          "Risk_ID": "risk_007"
+          "risk_ID": "risk_007"
         },
         {
           "risk_description": "Some compliance requirements with moderate risk",
           "importance": "Medium",
-          "Risk_ID": "risk_008"
+          "risk_ID": "risk_008"
         },
         {
           "risk_description": "Low likelihood of non-compliance with minimal regulatory impact",
           "importance": "Low",
-          "Risk_ID": "risk_009"
+          "risk_ID": "risk_009"
         }
       ]
     },
@@ -69,17 +69,17 @@
         {
           "risk_description": "No sustainability commitments or poor environmental practices",
           "importance": "High",
-          "Risk_ID": "risk_010"
+          "risk_ID": "risk_010"
         },
         {
           "risk_description": "Some sustainability commitments with moderate impact",
           "importance": "Medium",
-          "Risk_ID": "risk_011"
+          "risk_ID": "risk_011"
         },
         {
           "risk_description": "Strong sustainability commitments and excellent environmental practices",
           "importance": "Low",
-          "Risk_ID": "risk_012"
+          "risk_ID": "risk_012"
         }
       ]
     },
@@ -90,17 +90,17 @@
         {
           "risk_description": "Exceeds budget or financial thresholds",
           "importance": "High",
-          "Risk_ID": "risk_013"
+          "risk_ID": "risk_013"
         },
         {
           "risk_description": "Within budget but close to financial thresholds",
           "importance": "Medium",
-          "Risk_ID": "risk_014"
+          "risk_ID": "risk_014"
         },
         {
           "risk_description": "Well within budget and financial thresholds",
           "importance": "Low",
-          "Risk_ID": "risk_015"
+          "risk_ID": "risk_015"
         }
       ]
     },
@@ -111,17 +111,17 @@
         {
           "risk_description": "Unfavorable payment terms, such as advance payments or long payment period",
           "importance": "High",
-          "Risk_ID": "risk_016"
+          "risk_ID": "risk_016"
         },
         {
           "risk_description": "Balanced payment terms",
           "importance": "Medium",
-          "Risk_ID": "risk_017"
+          "risk_ID": "risk_017"
         },
         {
           "risk_description": "Favorable payment terms, such as prompt payments",
           "importance": "Low",
-          "Risk_ID": "risk_018"
+          "risk_ID": "risk_018"
         }
       ]
     },
@@ -132,17 +132,17 @@
         {
           "risk_description": "Strict performance metrics with severe penalties for non-compliance",
           "importance": "High",
-          "Risk_ID": "risk_019"
+          "risk_ID": "risk_019"
         },
         {
           "risk_description": "Moderate performance metrics with reasonable penalties",
           "importance": "Medium",
-          "Risk_ID": "risk_020"
+          "risk_ID": "risk_020"
         },
         {
           "risk_description": "Flexible performance metrics with minimal penalties",
           "importance": "Low",
-          "Risk_ID": "risk_021"
+          "risk_ID": "risk_021"
         }
       ]
     },
@@ -153,17 +153,17 @@
         {
           "risk_description": "Weak confidentiality protections",
           "importance": "High",
-          "Risk_ID": "risk_022"
+          "risk_ID": "risk_022"
         },
         {
           "risk_description": "Standard confidentiality protections",
           "importance": "Medium",
-          "Risk_ID": "risk_023"
+          "risk_ID": "risk_023"
         },
         {
           "risk_description": "Strong confidentiality protections",
           "importance": "Low",
-          "Risk_ID": "risk_024"
+          "risk_ID": "risk_024"
         }
       ]
     },
@@ -174,17 +174,17 @@
         {
           "risk_description": "Complex and costly dispute resolution mechanisms",
           "importance": "High",
-          "Risk_ID": "risk_025"
+          "risk_ID": "risk_025"
         },
         {
           "risk_description": "Standard dispute resolution mechanisms",
           "importance": "Medium",
-          "Risk_ID": "risk_026"
+          "risk_ID": "risk_026"
         },
         {
           "risk_description": "Simple and cost-effective dispute resolution mechanisms",
           "importance": "Low",
-          "Risk_ID": "risk_027"
+          "risk_ID": "risk_027"
         }
       ]
     },
@@ -195,17 +195,17 @@
         {
           "risk_description": "Limited or no force majeure protections",
           "importance": "High",
-          "Risk_ID": "risk_028"
+          "risk_ID": "risk_028"
         },
         {
           "risk_description": "Standard force majeure protections",
           "importance": "Medium",
-          "Risk_ID": "risk_029"
+          "risk_ID": "risk_029"
         },
         {
           "risk_description": "Comprehensive force majeure protections",
           "importance": "Low",
-          "Risk_ID": "risk_030"
+          "risk_ID": "risk_030"
         }
       ]
     },
@@ -216,17 +216,17 @@
         {
           "risk_description": "Automatic renewal with unfavorable terms",
           "importance": "High",
-          "Risk_ID": "risk_031"
+          "risk_ID": "risk_031"
         },
         {
           "risk_description": "Standard renewal terms",
           "importance": "Medium",
-          "Risk_ID": "risk_032"
+          "risk_ID": "risk_032"
         },
         {
           "risk_description": "Favorable renewal terms",
           "importance": "Low",
-          "Risk_ID": "risk_033"
+          "risk_ID": "risk_033"
         }
       ]
     }

@@ -214,30 +214,32 @@ Instructions:
 3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
 4.  **Addressing Ambiguities:** If you encounter any ambiguities regarding matching contract wording or the meaning of a `risk_description`, clearly inform the user of the uncertainty and why a definitive classification cannot be made.
 5.  **Accuracy Compliance:** Ensure all information is factual; avoid fabricating any details. Use only the provided context (Contract and Risk Rules Checklist).
-6.  **Output Format:** Group the clauses first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report. Use the following structure:
+6.  **Output Format:** Group the clauses first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report.If *none* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance), EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases.  Only output subsections where risks are actually present. After the risk assessment sections, provide a separate list of any clauses from the Risk Rules Checklist that are *not* explicitly addressed or mentioned in the provided contract.
+Use the following structure:
     ```
     High Risks Clauses in Contract:
-    #High Importance Risks : All Risks with High Importance
-    #Medium Importance Risks : Followed by Risks with Medium Importance
+    #High Importance Risks : All Risks with High Importance . 
+    #Medium Importance Risks : Followed by Risks with Medium Importance 
     #Low Importance Risks : Followed by Risks with Low Importance
 
     Medium Risks Clauses in a contract:
     #High Importance Risks : All Risks with High Importance
     #Medium Importance Risks : Followed by Risks with Medium Importance
     #Low Importance Risks : Followed by Risks with Low Importance
-
+    
     Low Risks Clauses in a contract:
     #High Importance Risks : All Risks with High Importance
     #Medium Importance Risks : Followed by Risks with Medium Importance
     #Low Importance Risks : Followed by Risks with Low Importance
     ```
+    
 7.  **Risk Identification:** Always return the risk classification *with the associated Risk\_ID* and a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
 8.  **Sample Output Example:** "Termination Clause: High Risk, risk\_id:risk\_001 - The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
 Context Information:
 Contract: {Contract} 
 Risk rules checklist: {risk_rules}  
 User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
-User Query:{Query} (User question entered in the Contracting Assistant, e.g., "What are the risks in this contract?")
+User Query:{Query} (User question entered in the Contracting Assistant, e.g., "What are the risks in this contract?")    
 """
 
 PROMPT_TEMPLATE = """
