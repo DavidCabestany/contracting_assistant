@@ -218,7 +218,7 @@ Instructions:
 Use the following structure:
     ```
     High Risks Clauses in Contract:
-    #High Importance Risks : All Risks with High Importance . 
+    #High Importance Risks : All Risks with High Importance
     #Medium Importance Risks : Followed by Risks with Medium Importance 
     #Low Importance Risks : Followed by Risks with Low Importance
 
