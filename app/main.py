@@ -43,6 +43,7 @@ from utils import (
     get_file_type,
     get_knowledge_base_folder,
     get_knowledge_base_id,
+    prompt_query_cat
 )
 
 logger = logging.getLogger(__name__)
@@ -298,7 +299,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         )
 
 
-def check_qna(queryText: str, answer: str, session_id: str):
+def check_qna(queryText: str, answer: str, session_id: str,history:str):
     """
     Checks if the IRRELEVANT_KEYWORD is present in the 'answer'
     and, if so, attempts to retrieve a fallback answer from GEN_ENQ_KB_ID.
@@ -307,8 +308,9 @@ def check_qna(queryText: str, answer: str, session_id: str):
     session_qna_id = qna_session_id_store.get(session_id, "")
     try:
         if IRRELEVANT_KEYWORD in answer:
+            prompt=history+"\n\nUser:"+queryText
             response = retrieve_and_generate(
-                queryText, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id
+                prompt, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id
             )
             qna_session_id_store[session_id] = response["sessionId"]
             if (
@@ -406,14 +408,36 @@ async def generate_summary(
                 detail="No content found. Provide a file or queryText to summarize.",
             )
 
+
         # Generate the prompt
-        if "risk" in queryText.lower() or "clause" in queryText.lower() or "risks" in queryText.lower() or "clauses" in queryText.lower():
+        prompt_category = prompt_query_cat(queryText.lower())
+        
+        def query_category(prompt_category):
+            llm = ChatBedrock(model_id=MODEL_ID)
+            try:
+                category = llm.invoke(prompt_category)
+            except Exception as e:
+                raise HTTPException(
+            status_code=500, detail=f"Error invoking the LLM: {str(e)}")
+            return category.content
+
+        category=query_category(prompt_category)
+    
+        #if "risk" in queryText.lower() or "clause" in queryText.lower() or "risks" in queryText.lower() or "clauses" in queryText.lower():
+        if category =="1":
             risk_rules = get_risk_matrix_details()
             prompt = generate_prompt_risk(content,risk_rules,queryText,PROMPT_TEMPLATE_RISK)
         else :
             prompt = generate_prompt(content, queryText,PROMPT_TEMPLATE)
         llm = ChatBedrock(model_id=MODEL_ID)
         chain = RunnableWithMessageHistory(llm, get_user_memory)
+        
+        user_history=""
+        if sessionId:
+            history = session_history(sessionId)
+            chat_history = extract_chat_history(history)
+            for question, answer in chat_history:
+                user_history += f"User: {question}\nAssistant: {answer}\n"
 
         # Invoke model
         try:
@@ -427,7 +451,7 @@ async def generate_summary(
             )
 
         # Possibly refine answer if IRRELEVANT_KEYWORD is present
-        answer = check_qna(queryText, summary.content, session_id)
+        answer = check_qna(queryText, summary.content, session_id,user_history)
 
         # Build final result
         feedbackoptions = FeedbackDisplayOptions(

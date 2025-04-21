@@ -203,6 +203,23 @@ def get_filename_from_path(s3_path):
         logger.info(f"An unexpected error occurred 1: {e}")
     return filename
 
+
+CATEGORY_TEMPLATE ="""
+    You are an expert in understanding user queries related to contracts.
+    Your task is to determine the category of a given query. The categories are:
+
+    1.  **Risk Assessment:** The query asks about identifying risks, clauses, liabilities, or potential problems within the contract.
+    2.  **Risk Mitigation:** The query asks about strategies to reduce, minimize, avoid, or manage risks associated with the contract.
+    3.  **General Contract Inquiry:** The query is a general question about the contract that doesn't fall into the above categories.
+
+    Given the following user query, determine which category it belongs to:
+
+    User Query: {Query}
+
+    Respond with ONLY the category number (1, 2, or 3). Do not include any other text or explanation.
+    """
+
+
 PROMPT_TEMPLATE_RISK="""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
 Your Task: Analyze the provided Contract using the Risk Rules Checklist. Identify specified clauses within the contract, assess the risk level (High, Medium, Low) and their clause level importance based on the contract's specific wording compared to the checklist descriptions, and report the findings strictly following the specified output format.
 Instructions:
@@ -321,6 +338,10 @@ def generate_prompt_risk(contract: str,risk_rules: str, Query: str,template:str)
     return formatted_prompt
 
 
+def prompt_query_cat(Query):
+    prompt = PromptTemplate(input_variables=["Query"],template=CATEGORY_TEMPLATE)
+    formatted_prompt = prompt.format(Query=Query) 
+    return formatted_prompt
 
 def extract_pdf_contents(file_bytes: bytes) -> str:
     """Extract text content from a PDF file."""
