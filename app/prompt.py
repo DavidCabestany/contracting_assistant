@@ -213,7 +213,7 @@ def retrieve_and_generate_prioritized_doc(
 ):
     try:
         prompt_template = ""
-        if str(retrieve_template(query)) != "nan":
+        if len(query)<2000 and str(retrieve_template(query)) != "nan" :
             prompt_template = retrieve_template(query)
         GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(
             files, BUCKET_NAME, knowledge_base_folder

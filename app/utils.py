@@ -20,6 +20,9 @@ from docx import Document
 from fastapi import HTTPException
 from langchain_core.prompts import PromptTemplate
 from langchain_aws import ChatBedrock
+
+from prompt_template import BUSINESS_UNIT_TEMPLATE,CATEGORY_TEMPLATE
+
 logger = logging.getLogger(__name__)
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
@@ -204,93 +207,50 @@ def get_filename_from_path(s3_path):
     return filename
 
 
-CATEGORY_TEMPLATE ="""
-    You are an expert in understanding user queries related to contracts.
-    Your task is to determine the category of a given query. The categories are:
 
-    1.  **Risk Assessment:** The query asks about identifying risks, clauses, liabilities, or potential problems within the contract.
-    2.  **Risk Mitigation:** The query asks about strategies to reduce, minimize, avoid, or manage risks associated with the contract.
-    3.  **General Contract Inquiry:** The query is a general question about the contract that doesn't fall into the above categories.
+def business_unit_prompt(query: str) -> str:
+    """
+    Formats a prompt template for determining the business unit based on the user's query.
 
-    Given the following user query, determine which category it belongs to:
+    Args:
+        query: The user's query string.
+        business_unit_template: The prompt template for determining the business unit.
 
-    User Query: {Query}
+    Returns:
+        The formatted prompt string.
 
-    Respond with ONLY the category number (1, 2, or 3). Do not include any other text or explanation.
+    Raises:
+        TypeError: If query or business_unit_template is not a string.
+        ValueError: If query or business_unit_template is empty.
+        Exception: If an unexpected error occurs during processing.
+                   it will return the string "Business Unit unable to be classified"
+
+    Example:
+        formatted_prompt = get_business_unit("What are the risks of termination?", BUSINESS_UNIT_TEMPLATE)
     """
 
+    # Input validation
+    if not isinstance(query, str):
+        raise TypeError("Query must be a string.")
+    if not isinstance(BUSINESS_UNIT_TEMPLATE, str):
+        raise TypeError("Business_unit_template must be a string.")
+    if not query:
+        raise ValueError("Query cannot be empty.")
+    if not BUSINESS_UNIT_TEMPLATE:
+        raise ValueError("Business_unit_template cannot be empty.")
 
-PROMPT_TEMPLATE_RISK="""You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
-Your Task: Analyze the provided Contract using the Risk Rules Checklist. Identify specified clauses within the contract, assess the risk level (High, Medium, Low) and their clause level importance based on the contract's specific wording compared to the checklist descriptions, and report the findings strictly following the specified output format.
-Instructions:
-1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
-2.  **Risk Assessment (Description Matching First):**
-    *   For each clause, iterate through the `risks` array.
-    *   **Prioritize Description Matching:** For each risk within the `risks` array, *first* compare the `risk_description` to the specific wording in the contract. If there's a strong match, proceed to the next step. If there's no clear match to contract wording, skip to the next risk in the `risks` array.
-    *   **Assess Risk Attributes (After Description Match):** Once a matching `risk_description` is found, note the `importance` (High, Medium, or Low) associated with that specific risk. *Use the `importance` value to determine the specific risk categorization*.
-3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
-4.  **Addressing Ambiguities:** If you encounter any ambiguities regarding matching contract wording or the meaning of a `risk_description`, clearly inform the user of the uncertainty and why a definitive classification cannot be made.
-5.  **Accuracy Compliance:** Ensure all information is factual; avoid fabricating any details. Use only the provided context (Contract and Risk Rules Checklist).
-6.  **Output Format:** Group the clauses first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report.If *none* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance), EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases.  Only output subsections where risks are actually present. After the risk assessment sections, provide a separate list of any clauses from the Risk Rules Checklist that are *not* explicitly addressed or mentioned in the provided contract.
-Use the following structure:
-    ```
-    High Risks Clauses in Contract:
-    #High Importance Risks : All Risks with High Importance
-    #Medium Importance Risks : Followed by Risks with Medium Importance 
-    #Low Importance Risks : Followed by Risks with Low Importance
+    try:
+        prompt = PromptTemplate(
+            input_variables=["Query"],
+            template=BUSINESS_UNIT_TEMPLATE,
+        )
+        formatted_prompt = prompt.format(Query=query)
+        return formatted_prompt
 
-    Medium Risks Clauses in a contract:
-    #High Importance Risks : All Risks with High Importance
-    #Medium Importance Risks : Followed by Risks with Medium Importance
-    #Low Importance Risks : Followed by Risks with Low Importance
-    
-    Low Risks Clauses in a contract:
-    #High Importance Risks : All Risks with High Importance
-    #Medium Importance Risks : Followed by Risks with Medium Importance
-    #Low Importance Risks : Followed by Risks with Low Importance
-    ```
-    
-7.  **Risk Identification:** Always return the risk classification *with the associated Risk\_ID* and a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
-8.  **Sample Output Example:** "Termination Clause: High Risk, risk\_id:risk\_001 - The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
-Context Information:
-Contract: {Contract} 
-Risk rules checklist: {risk_rules}  
-User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
-User Query:{Query} (User question entered in the Contracting Assistant, e.g., "What are the risks in this contract?")    
-"""
+    except Exception as e:
+        logger.exception(f"An error occurred while formatting the prompt: {e}")
+        return "Business Unit unable to be classified"
 
-PROMPT_TEMPLATE = """
-
-You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
-
-Your primary task is to answer the user's question based on the content of the provided document AND any relevant information from previous chat interactions within the same session. Pay close attention to the document content and prior conversation history, referencing them directly when answering the question. If information is contained within the document, then provide the information directly and not simply state 'The document contains the answer to your question'.
-**Under no circumstances should you include phrases like "Thank you," "You're welcome," "I hope this helps," or any similar expressions. Your responses must be factual and directly answer the user's question.**
-
-First, identify whether the user's query is a request for a summary or a direct question:
-1. **If the user's query is a request for a summary:**
-   Summary: (Two sentences) A brief overview of the document's main points.
-   Parties Involved: Identify the key parties or entities mentioned in the document.
-   Payment Terms: Describe the payment terms, including amounts, frequency, and methods.
-   Contract Duration/Expiry Date: State the contract's duration or the expiry date, if specified.
-   Liability Cap and Exclusions: Summarize any limitations or exclusions of liability.
-   Scope of Work and Associated Costs: Provide a concise overview of the work to be performed and associated costs.
-   When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
-
-2. **If the user's query is a direct question (e.g., "What are the payment terms?"):**
-   Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
-
-
-If the document and chat history do not contain the answer to the user's question, state that you cannot provide an answer based on the available information.
-
-**PLEASE PAY CLOSE ATTENTION**: Validate if the USER_QUERY is not relevant to the document content (including previous chat interactions) using cosine similarity. If the cosine similarity is below the relevance threshold **OR if you have responded with "I cannot answer this question based on the available information.", then append the keyword 'IRRELEVANT_TOPIC' to the end of your answer.** Do not add any extra words or phrases.
-**Do not add any closing statements like 'Thank you' or similar.**
-
-Document Content:
-{content}
-
-User Query:
-{Query}
-"""
 
 def get_risk_matrix_details() -> dict:
     """Returns risk rules from a JSON file.

@@ -43,8 +43,14 @@ from utils import (
     get_file_type,
     get_knowledge_base_folder,
     get_knowledge_base_id,
-    prompt_query_cat
+    prompt_query_cat,
+    business_unit_prompt,
+    generate_prompt_risk,
+    get_risk_matrix_details
 )
+
+from prompt_template import(PROMPT_TEMPLATE,
+                            PROMPT_TEMPLATE_RISK)
 
 logger = logging.getLogger(__name__)
 qna_session_id_store = {}
@@ -61,7 +67,7 @@ GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
 SUMMARY_FLOW_NAME = get_config_value("SUMMARY_FLOW_NAME")
 PRIORITZE_DOCUMENT = "CAN HANDBOOK Third Edition.pdf"
 
-from utils import PROMPT_TEMPLATE,PROMPT_TEMPLATE_RISK,generate_prompt_risk,get_risk_matrix_details
+
 
 app = FastAPI()
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
@@ -130,6 +136,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
     msg_id = str(uuid.uuid4())
     files = request.query.files
     sessionId = request.user.sessionId
+        
     try:
         # Build conversation prompt from previous messages if sessionId is given
         prompt = ""
@@ -147,10 +154,26 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 prompt = f"User:{request.query.text}"
         else:
             prompt = f"User:{request.query.text}"
+            
+        kb_prompt = business_unit_prompt(request.query.text)
+        def get_business_unit(kb_prompt):
+            llm = ChatBedrock(model_id=MODEL_ID)
+            try:
+                answer = llm.invoke(kb_prompt)
+            except Exception as e:
+                raise HTTPException(
+                status_code=500, detail=f"Error invoking the LLM: {str(e)}"
+            )
+            return answer.strip()
+        categorized_knowledge_type = get_business_unit(kb_prompt)
+        if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
+            text=""
+        else:
+            text="The search results do not contain specific information regarding your query. Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
 
-        response = None
-        answer = None
-        citations = []
+            response = None
+            answer = None
+            citations = []
 
         # Attempt retrieving docs from prioritized file(s)
         if files:
@@ -226,7 +249,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 answer = response["output"]["text"]
 
         sessionId = response["sessionId"]  # Make sure to store the final session ID
-
+        answer = answer + "\n<b>Note</b>:"+ text 
         # Build final result
         quickreply = QuickReply(
             text="Rate the overall risk to AZ this contract",
@@ -299,7 +322,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         )
 
 
-def check_qna(queryText: str, answer: str, session_id: str,history:str):
+def check_qna(queryText: str, answer: str, session_id: str,content:str,category,knowledge_base_folder,history):
     """
     Checks if the IRRELEVANT_KEYWORD is present in the 'answer'
     and, if so, attempts to retrieve a fallback answer from GEN_ENQ_KB_ID.
@@ -308,10 +331,12 @@ def check_qna(queryText: str, answer: str, session_id: str,history:str):
     session_qna_id = qna_session_id_store.get(session_id, "")
     try:
         if IRRELEVANT_KEYWORD in answer:
-            prompt=history+"\n\nUser:"+queryText
-            response = retrieve_and_generate(
-                prompt, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id
-            )
+            #prompt="Contract: "+content+"\n\n"+history+"User:"+queryText
+            prompt=history+"User:"+queryText
+            if category=='2':
+                response = retrieve_and_generate_prioritized_doc(prompt, GEN_ENQ_KB_ID,knowledge_base_folder, MODEL_ID, REGION_ID, session_qna_id,[PRIORITZE_DOCUMENT])
+            else:
+                response = retrieve_and_generate(prompt, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id)
             qna_session_id_store[session_id] = response["sessionId"]
             if (
                 "citations" in response
@@ -451,7 +476,7 @@ async def generate_summary(
             )
 
         # Possibly refine answer if IRRELEVANT_KEYWORD is present
-        answer = check_qna(queryText, summary.content, session_id,user_history)
+        answer = check_qna(queryText, summary.content, session_id,content,category,'general',user_history)
 
         # Build final result
         feedbackoptions = FeedbackDisplayOptions(
