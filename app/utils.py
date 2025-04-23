@@ -21,14 +21,14 @@ from fastapi import HTTPException
 from langchain_core.prompts import PromptTemplate
 from langchain_aws import ChatBedrock
 
-from prompt_template import BUSINESS_UNIT_TEMPLATE,CATEGORY_TEMPLATE
+from prompt_template import BUSINESS_UNIT_TEMPLATE, CATEGORY_TEMPLATE
 
 logger = logging.getLogger(__name__)
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
-risk_rules_file_path = os.path.join(MODULE_DIR, r"docs","risk_rules.json")
+risk_rules_file_path = os.path.join(MODULE_DIR, r"docs", "risk_rules.json")
 
 
 ERROR_MESSAGE = "Oops! It seems there’s a network issue. Please check your connection and try again in a moment."
@@ -45,6 +45,7 @@ keyword_llm = ChatBedrock(
     model_id="anthropic.claude-3-haiku-20240307-v1:0",
     model_kwargs={"temperature": 0},
 )
+
 
 def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
     """
@@ -72,6 +73,7 @@ def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
     except Exception as e:
         logger.warning(f"[Keyword Extractor] Claude failed to extract keywords: {e}")
         return query[:2046].lower()
+
 
 def generate_technical_error_message(
     msg_id, transaction_count, user_query, sessionId, exc: Exception = None
@@ -207,7 +209,6 @@ def get_filename_from_path(s3_path):
     return filename
 
 
-
 def business_unit_prompt(query: str) -> str:
     """
     Formats a prompt template for determining the business unit based on the user's query.
@@ -262,46 +263,59 @@ def get_risk_matrix_details() -> dict:
         dict: Risk rules data as a dictionary.
     """
     try:
-        with open(risk_rules_file_path, 'r', encoding='utf-8') as file:
+        with open(risk_rules_file_path, "r", encoding="utf-8") as file:
             risk_rules = json.load(file)
     except FileNotFoundError:
         print(f"ERROR: File not found: {risk_rules_file_path}")
         raise FileNotFoundError(f"File not found: {risk_rules_file_path}")
     except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON format in file: {risk_rules_file_path}. Reason: {e}")
-        raise json.JSONDecodeError(f"Invalid JSON format in file: {risk_rules_file_path}", e.doc, e.pos)
+        print(
+            f"ERROR: Invalid JSON format in file: {risk_rules_file_path}. Reason: {e}"
+        )
+        raise json.JSONDecodeError(
+            f"Invalid JSON format in file: {risk_rules_file_path}", e.doc, e.pos
+        )
     except Exception as e:
-        print(f"ERROR: Error reading risk rules from file: {risk_rules_file_path}. Reason: {e}")
+        print(
+            f"ERROR: Error reading risk rules from file: {risk_rules_file_path}. Reason: {e}"
+        )
         raise Exception(f"Error reading risk rules from file: {e}")
 
     return risk_rules
 
-def generate_prompt(content: str, Query: str,template:str) -> str:
+
+def generate_prompt(content: str, Query: str, template: str) -> str:
     prompt = PromptTemplate(
-        input_variables=["content", "Query"], #Keep content here 
+        input_variables=["content", "Query"],  # Keep content here
         template=template,
     )
     # Format the prompt with the provided values
-    formatted_prompt = prompt.format(content=content, Query=Query) #format content here 
+    formatted_prompt = prompt.format(
+        content=content, Query=Query
+    )  # format content here
     return formatted_prompt
 
 
-
-def generate_prompt_risk(contract: str,risk_rules: str, Query: str,template:str) -> str:
+def generate_prompt_risk(
+    contract: str, risk_rules: str, Query: str, template: str
+) -> str:
     """prompt template to find the risks involved in the contract"""
     prompt = PromptTemplate(
         input_variables=["contract", "risk_rules", "Query"],  # Keep content here
         template=template,
     )
     # Format the prompt with the provided values
-    formatted_prompt = prompt.format(Contract=contract,risk_rules=risk_rules,Query=Query)  # format content here
+    formatted_prompt = prompt.format(
+        Contract=contract, risk_rules=risk_rules, Query=Query
+    )  # format content here
     return formatted_prompt
 
 
 def prompt_query_cat(Query):
-    prompt = PromptTemplate(input_variables=["Query"],template=CATEGORY_TEMPLATE)
-    formatted_prompt = prompt.format(Query=Query) 
+    prompt = PromptTemplate(input_variables=["Query"], template=CATEGORY_TEMPLATE)
+    formatted_prompt = prompt.format(Query=Query)
     return formatted_prompt
+
 
 def extract_pdf_contents(file_bytes: bytes) -> str:
     """Extract text content from a PDF file."""
@@ -373,24 +387,20 @@ def extract_chat_history(data):
             logger.info(
                 f"Warning: Session {session_id} does not contain a list of messages. Skipping."
             )
-            continue  # Skip to the next session
+            continue
 
         for message in messages:
             if not isinstance(message, dict):
                 logger.info(
                     f"Warning: Invalid message format in session {session_id}. Skipping."
                 )
-                continue  # skip to next message
+                continue
 
             try:
-                question = message.get(
-                    "UserMessageSearch"
-                )  # Use get() to handle missing keys
+                question = message.get("UserMessageSearch")
                 answer = message.get("BotResponse")
 
-                if (
-                    question and answer
-                ):  # Only add if both question and answer are present
+                if question and answer:
                     chat_history.append((question, answer))
                 else:
                     if not question:

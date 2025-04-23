@@ -46,13 +46,24 @@ from utils import (
     prompt_query_cat,
     business_unit_prompt,
     generate_prompt_risk,
-    get_risk_matrix_details
+    get_risk_matrix_details,
 )
 
-from prompt_template import(PROMPT_TEMPLATE,
-                            PROMPT_TEMPLATE_RISK)
+from prompt_template import PROMPT_TEMPLATE, PROMPT_TEMPLATE_RISK
+
+
+file_handler = logging.FileHandler("report.log", mode="a")
+stream_handler = logging.StreamHandler()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    handlers=[file_handler, stream_handler]
+)
 
 logger = logging.getLogger(__name__)
+logger.info("Logging initialized")
+
 qna_session_id_store = {}
 
 s3 = boto3.client("s3")
@@ -66,7 +77,6 @@ IRRELEVANT_KEYWORD = get_config_value("IRRELEVANT_KEYWORD")
 GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
 SUMMARY_FLOW_NAME = get_config_value("SUMMARY_FLOW_NAME")
 PRIORITZE_DOCUMENT = "CAN HANDBOOK Third Edition.pdf"
-
 
 
 app = FastAPI()
@@ -119,7 +129,7 @@ def get_user_memory(session_id):
         logger.info(f"BotoCoreError encountered: {str(e)}")
         return ChatMessageHistory(session_id)
     except Exception as e:
-        logger.info(f"Unknown error retrieving user memory: {str(e)}")
+        logger.error(f"Unknown error retrieving user memory: {str(e)}", exc_info=True)
         return ChatMessageHistory(session_id)
 
 
@@ -130,13 +140,15 @@ async def read_root():
 
 @app.post("/getqnaanswer/")
 async def ask_question(request: RequestQuery, token: str = Depends(verify_token)):
+    logger.info("ask_question endpoint triggered")
+    logger.debug(f"Request: {request}")
     """
     Endpoint to retrieve and generate Q&A answers based on the user's query.
     """
     msg_id = str(uuid.uuid4())
     files = request.query.files
     sessionId = request.user.sessionId
-        
+
     try:
         # Build conversation prompt from previous messages if sessionId is given
         prompt = ""
@@ -148,32 +160,42 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             # Then format the new question
             formatted_prompt = follow_up_prompt.format(prompt, request.query.text)
             follow_up = generate_answer_with_context(formatted_prompt)
-            if "follow-up" in follow_up["content"][0]["text"].lower():
-                prompt += f"User:{request.query.text}"
-            else:
-                prompt = f"User:{request.query.text}"
+            try:
+                follow_up_text = follow_up["content"][0]["text"]
+                if "follow-up" in follow_up["content"][0]["text"].lower():
+                    prompt += f"User:{request.query.text}"
+                else:
+                    prompt = f"User:{request.query.text}"
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Error in follow_up_text: {str(e)} the follow up text variable is: {follow_up_text}"
+                )
         else:
             prompt = f"User:{request.query.text}"
-            
+
         kb_prompt = business_unit_prompt(request.query.text)
+
         def get_business_unit(kb_prompt):
             llm = ChatBedrock(model_id=MODEL_ID)
             try:
                 answer = llm.invoke(kb_prompt)
             except Exception as e:
                 raise HTTPException(
-                status_code=500, detail=f"Error invoking the LLM: {str(e)}"
-            )
-            return answer.strip()
-        categorized_knowledge_type = get_business_unit(kb_prompt)
-        if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
-            text=""
-        else:
-            text="The search results do not contain specific information regarding your query. Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
+                    status_code=500, detail=f"Error invoking the LLM: {str(e)}"
+                )
+            return answer
 
-            response = None
-            answer = None
-            citations = []
+        raw_response = get_business_unit(kb_prompt)
+        response = None
+        answer = None
+        citations = []
+        categorized_knowledge_type = getattr(raw_response, "content", str(raw_response)).strip()
+        if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
+            text = ""
+        else:
+            text = "The search results do not contain specific information regarding your query. Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
+
+            
 
         # Attempt retrieving docs from prioritized file(s)
         if files:
@@ -249,7 +271,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 answer = response["output"]["text"]
 
         sessionId = response["sessionId"]  # Make sure to store the final session ID
-        answer = answer + "\n<b>Note</b>:"+ text 
+        answer = answer + "\n<b>Note</b>:" + text
         # Build final result
         quickreply = QuickReply(
             text="Rate the overall risk to AZ this contract",
@@ -294,7 +316,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 UserMessage=request.query.text,
                 UserMessageSearch=user_message_search,
                 BotResponse=answer,
-                BotResponseSearch=answer.lower(),
+                BotResponseSearch=answer,
                 FeedbackComment="",
                 Timestamp=current_datetime,
                 SessionStatus=SESSION_STATUS_ACTIVE,
@@ -307,7 +329,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
 
     except (ClientError, BotoCoreError) as e:
         # These are AWS-specific errors
-        logger.info(f"AWS error occurred: {str(e)}")
+        logger.error(f"AWS error occurred: {str(e)}", exc_info=True)
         return generate_technical_error_message(
             msg_id, request.query.transactionCount, request.query.text, sessionId, exc=e
         )
@@ -316,13 +338,21 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         logger.info(f"HTTP exception: {str(e)}")
         raise  # Re-raise so FastAPI can handle it
     except Exception as e:
-        logger.info(f"Unknown error in ask_question: {str(e)}")
+        logger.error(f"Unknown error in ask_question: {str(e)}", exc_info=True)
         return generate_technical_error_message(
             msg_id, request.query.transactionCount, request.query.text, sessionId, exc=e
         )
 
 
-def check_qna(queryText: str, answer: str, session_id: str,content:str,category,knowledge_base_folder,history):
+def check_qna(
+    queryText: str,
+    answer: str,
+    session_id: str,
+    content: str,
+    category,
+    knowledge_base_folder,
+    history,
+):
     """
     Checks if the IRRELEVANT_KEYWORD is present in the 'answer'
     and, if so, attempts to retrieve a fallback answer from GEN_ENQ_KB_ID.
@@ -331,12 +361,22 @@ def check_qna(queryText: str, answer: str, session_id: str,content:str,category,
     session_qna_id = qna_session_id_store.get(session_id, "")
     try:
         if IRRELEVANT_KEYWORD in answer:
-            #prompt="Contract: "+content+"\n\n"+history+"User:"+queryText
-            prompt=history+"User:"+queryText
-            if category=='2':
-                response = retrieve_and_generate_prioritized_doc(prompt, GEN_ENQ_KB_ID,knowledge_base_folder, MODEL_ID, REGION_ID, session_qna_id,[PRIORITZE_DOCUMENT])
+            # prompt="Contract: "+content+"\n\n"+history+"User:"+queryText
+            prompt = history + "User:" + queryText
+            if category == "2":
+                response = retrieve_and_generate_prioritized_doc(
+                    prompt,
+                    GEN_ENQ_KB_ID,
+                    knowledge_base_folder,
+                    MODEL_ID,
+                    REGION_ID,
+                    session_qna_id,
+                    [PRIORITZE_DOCUMENT],
+                )
             else:
-                response = retrieve_and_generate(prompt, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id)
+                response = retrieve_and_generate(
+                    prompt, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id
+                )
             qna_session_id_store[session_id] = response["sessionId"]
             if (
                 "citations" in response
@@ -348,11 +388,11 @@ def check_qna(queryText: str, answer: str, session_id: str,content:str,category,
                 # remove IRRELEVANT_KEYWORD if the fallback didn't help
                 qna_answer = qna_answer.replace(IRRELEVANT_KEYWORD, "")
     except (ClientError, BotoCoreError) as e:
-        logger.info(f"AWS error in check_qna: {str(e)}")
+        logger.error(f"AWS error in check_qna: {str(e)}", exc_info=True)
         # Optionally raise or just return original
         return qna_answer
     except Exception as e:
-        logger.info(f"Unknown error in check_qna: {str(e)}")
+        logger.error(f"Unknown error in check_qna: {str(e)}", exc_info=True)
     return qna_answer
 
 
@@ -433,31 +473,33 @@ async def generate_summary(
                 detail="No content found. Provide a file or queryText to summarize.",
             )
 
-
         # Generate the prompt
         prompt_category = prompt_query_cat(queryText.lower())
-        
+
         def query_category(prompt_category):
             llm = ChatBedrock(model_id=MODEL_ID)
             try:
                 category = llm.invoke(prompt_category)
             except Exception as e:
                 raise HTTPException(
-            status_code=500, detail=f"Error invoking the LLM: {str(e)}")
+                    status_code=500, detail=f"Error invoking the LLM: {str(e)}"
+                )
             return category.content
 
-        category=query_category(prompt_category)
-    
-        #if "risk" in queryText.lower() or "clause" in queryText.lower() or "risks" in queryText.lower() or "clauses" in queryText.lower():
-        if category =="1":
+        category = query_category(prompt_category)
+
+        # if "risk" in queryText.lower() or "clause" in queryText.lower() or "risks" in queryText.lower() or "clauses" in queryText.lower():
+        if category == "1":
             risk_rules = get_risk_matrix_details()
-            prompt = generate_prompt_risk(content,risk_rules,queryText,PROMPT_TEMPLATE_RISK)
-        else :
-            prompt = generate_prompt(content, queryText,PROMPT_TEMPLATE)
+            prompt = generate_prompt_risk(
+                content, risk_rules, queryText, PROMPT_TEMPLATE_RISK
+            )
+        else:
+            prompt = generate_prompt(content, queryText, PROMPT_TEMPLATE)
         llm = ChatBedrock(model_id=MODEL_ID)
         chain = RunnableWithMessageHistory(llm, get_user_memory)
-        
-        user_history=""
+
+        user_history = ""
         if sessionId:
             history = session_history(sessionId)
             chat_history = extract_chat_history(history)
@@ -476,7 +518,15 @@ async def generate_summary(
             )
 
         # Possibly refine answer if IRRELEVANT_KEYWORD is present
-        answer = check_qna(queryText, summary.content, session_id,content,category,'general',user_history)
+        answer = check_qna(
+            queryText,
+            summary.content,
+            session_id,
+            content,
+            category,
+            "general",
+            user_history,
+        )
 
         # Build final result
         feedbackoptions = FeedbackDisplayOptions(
@@ -518,7 +568,7 @@ async def generate_summary(
                 UserMessage=user_message,
                 UserMessageSearch=user_message_search,
                 BotResponse=answer,
-                BotResponseSearch=answer.lower(),
+                BotResponseSearch=answer,
                 FeedbackComment="",
                 Timestamp=current_datetime,
                 SessionStatus=SESSION_STATUS_ACTIVE,
@@ -535,12 +585,12 @@ async def generate_summary(
             msg_id, transactionCount, queryText, sessionId, exc=http_exc
         )
     except (ClientError, BotoCoreError) as e:
-        logger.info(f"AWS error in generate_summary: {str(e)}")
+        logger.error(f"AWS error in generate_summary: {str(e)}", exc_info=True)
         return generate_technical_error_message(
             msg_id, transactionCount, queryText, sessionId, exc=e
         )
     except Exception as e:
-        logger.info(f"Unknown error in generate_summary: {str(e)}")
+        logger.error(f"Unknown error in generate_summary: {str(e)}", exc_info=True)
         return generate_technical_error_message(
             msg_id, transactionCount, queryText, sessionId, exc=e
         )
