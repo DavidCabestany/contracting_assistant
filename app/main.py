@@ -58,7 +58,7 @@ stream_handler = logging.StreamHandler()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    handlers=[file_handler, stream_handler]
+    handlers=[file_handler, stream_handler],
 )
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,8 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                     prompt = f"User:{request.query.text}"
             except Exception as e:
                 raise HTTPException(
-                    status_code=500, detail=f"Error in follow_up_text: {str(e)} the follow up text variable is: {follow_up_text}"
+                    status_code=500,
+                    detail=f"Error in follow_up_text: {str(e)} the follow up text variable is: {follow_up_text}",
                 )
         else:
             prompt = f"User:{request.query.text}"
@@ -189,13 +190,13 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         response = None
         answer = None
         citations = []
-        categorized_knowledge_type = getattr(raw_response, "content", str(raw_response)).strip()
+        categorized_knowledge_type = getattr(
+            raw_response, "content", str(raw_response)
+        ).strip()
         if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
             text = ""
         else:
-            text = "The search results do not contain specific information regarding your query. Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
-
-            
+            text = "\n<b>Note</b>: The search results do not contain specific information regarding your query. Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
 
         # Attempt retrieving docs from prioritized file(s)
         if files:
@@ -269,9 +270,10 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 )
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
+        # TODO Make the note appear just when the answer is not possible or there is no data
 
         sessionId = response["sessionId"]  # Make sure to store the final session ID
-        answer = answer + "\n<b>Note</b>:" + text
+        answer = answer + text
         # Build final result
         quickreply = QuickReply(
             text="Rate the overall risk to AZ this contract",
