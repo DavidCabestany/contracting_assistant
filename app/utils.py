@@ -69,7 +69,8 @@ def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
         response = keyword_llm.invoke(prompt)
         keywords = response.content.strip()
         logger.info(f"[Keyword Extractor] Extracted keywords: {keywords}")
-        return keywords
+
+        return keywords[:2040]
     except Exception as e:
         logger.warning(f"[Keyword Extractor] Claude failed to extract keywords: {e}")
         return query[:2046].lower()
