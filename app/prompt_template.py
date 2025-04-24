@@ -52,8 +52,9 @@ CATEGORY_TEMPLATE ="""
 
 
 PROMPT_TEMPLATE_RISK = """You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
-Your Task: Analyze the provided Contract and identify potential risks, prioritizing risks covered by the Risk Rules Checklist and then the other identified risks in the format given below.
-Instructions:
+    Your Task: Analyze the provided Contract and identify potential risks, prioritizing risks covered by the Risk Rules Checklist.  Report the findings, clearly distinguishing between checklist-covered risks and other identified risks.
+
+    Instructions:
 
     **Part 1: Risk Rules Checklist Analysis**
 
@@ -67,47 +68,42 @@ Instructions:
 
     **Part 2: Identification of Additional Risks (Not Covered by Checklist)**
 
-4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any *other* potential risks that are *not* explicitly covered by the Risk Rules Checklist.
-5.  **Assess Risk Level of Additional Risks:** Determine the *risk level* (High, Medium, or Low) for each additional risk based on its potential impact and likelihood. Justify your assessment.
-6.  **Importance of Additional Risks:**  **YOU MUST assign ALL additional risks a Low importance.**
-7.  **Document Additional Risks:** For each additional risk, provide a brief description, justification for the *risk level* (High, Medium, or Low), and CONFIRM that its importance is Low.
+        4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any *other* potential risks that are *not* explicitly covered by the Risk Rules Checklist.
+        5.  **Document Additional Risks:** For each additional risk, provide a brief description and justification.
 
     **Part 3: Output Formatting**
 
-8.  **Risk Grouping:** Group the clauses covered by the Risk Rules Checklist *and* the Additional Risks by their *Assessed Risk Level* (High, Medium, Low).
+    6.  **Risk Rules Checklist Risks:** Group the clauses covered by the Risk Rules Checklist first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report. If *none* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance), EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases. Only output subsections where risks are actually present.
 
-9. **Ordering Within Risk Levels:** Within each risk level group:
-    * First, list risks identified by the checklist, ordered by their importance (High, Medium, Low).
-    * Second, list the additional risks *after* the checklist risks, regardless of their assessed *risk level* (High, Medium, or Low).  Since all additional risks are of Low importance, they will always be listed at the end of their Risk Level category (High, Medium, or Low).
+    7.  **Additional Risks Not Covered by the Checklist:** After the Risk Rules Checklist sections, include a section titled "Additional Risks Not Covered by the Checklist." List the risks identified in Part 2, along with their descriptions and justifications.
 
-10. The output should *only* list the clause description and the justification for the risk level classification/assessment.  Do *not* explicitly label if a risk is from the checklist or is an "additional risk."
+    Respond strictly using the following JSON-style format:
 
-11. If *no* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance) within a risk level category, EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases. Only output subsections where risks are actually present.
+        ```json
+        {{
+        "ans": "Short summary paragraph that explains the overall risk findings.",
+        "highRisksClauses": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "mediumRisksClauses": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "lowRisksClauses": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "additionalRisks": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "similarities": [],
+        "differences": []
+        }}```
 
-Use the following structure:
-    ```
-    High Risks Clauses:
-    All Risks with High Importance (from checklist)
-    Followed by Risks with Medium Importance (from checklist)
-    Followed by Risks with Low Importance (from checklist)
-    (Additional High Risks go here, since they are all Low Importance)
+    Do not add any extra commentary outside of the JSON structure. 
+    Only fill in arrays when you have items to add. 
+    Leave similarities and differences as empty arrays for now.
 
-    Medium Risks Clauses:
-    All Risks with High Importance (from checklist)
-    Followed by Risks with Medium Importance (from checklist)
-    Followed by Risks with Low Importance (from checklist)
-    (Additional Medium Risks go here, since they are all Low Importance)
-
-    Low Risks Clauses:
-    All Risks with High Importance (from checklist)
-    Followed by Risks with Medium Importance (from checklist)
-    Followed by Risks with Low Importance (from checklist)
-    (Additional Low Risks go here, since they are all Low Importance)
-    - ...
-    ```
-
-12. **Risk Identification:** Always return the risk classification for risks covered by the Risk Rules Checklist, with a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.  Assess and justify the *risk level* (High, Medium, Low) for additional risks based on their potential impact.  **Enforce Low importance for ALL additional risks.**
-13. **Sample Output Example:** "High Risks Clauses: Termination Clause: The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. This is classified as high risk due to the potential for immediate and severe financial implications. Force Majeure Clause: The Force Majeure Clause is vaguely defined, potentially exposing the company to significant disruptions and costs if unforeseen events occur. This is considered a High Risk."
+    8.  **Risk Identification:** Always return the risk classification for risks covered by the Risk Rules Checklist, with a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
+    9.  **Sample Output Example:** "Termination Clause:The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
 
     Context Information:
     Contract: {Contract}
