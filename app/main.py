@@ -3,6 +3,7 @@ import logging
 import pickle
 import uuid
 from typing import Optional
+import re
 
 import boto3
 from auth.auth import auth_router
@@ -274,7 +275,10 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         # TODO Make the note appear just when the answer is not possible or there is no data
 
         sessionId = response["sessionId"]  # Make sure to store the final session ID
-        answer = answer + text
+        if re.search(r"Sorry, I am unable to assist", answer, re.IGNORECASE):
+            answer = answer + text
+        else:
+            answer
         # Build final result
         quickreply = QuickReply(
             text="Rate the overall risk to AZ this contract",
