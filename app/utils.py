@@ -20,7 +20,8 @@ from docx import Document
 from fastapi import HTTPException
 from langchain_core.prompts import PromptTemplate
 from langchain_aws import ChatBedrock
-
+from data import RiskAssessmentResponse
+from pydantic import ValidationError
 from prompt_template import BUSINESS_UNIT_TEMPLATE, CATEGORY_TEMPLATE
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,18 @@ keyword_llm = ChatBedrock(
     model_kwargs={"temperature": 0},
 )
 
+def parse_risk_assessment_output(model_output: str) -> RiskAssessmentResponse:
+    """
+    Parses model output string into a RiskAssessmentResponse.
+    """
+    try:
+        start = model_output.find("{")
+        end = model_output.rfind("}") + 1
+        json_str = model_output[start:end]
+        parsed = json.loads(json_str)
+        return RiskAssessmentResponse.parse_obj({"answer": parsed})
+    except (json.JSONDecodeError, ValidationError) as e:
+        raise ValueError(f"Parsing error: {str(e)}\nRaw Output:\n{model_output}")
 
 def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
     """

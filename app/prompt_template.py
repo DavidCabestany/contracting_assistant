@@ -55,24 +55,24 @@ PROMPT_TEMPLATE_RISK = """You are an expert in procurement, specializing in anal
 Your Task: Analyze the provided Contract and identify potential risks, prioritizing risks covered by the Risk Rules Checklist and then the other identified risks in the format given below.
 Instructions:
 
-**Part 1: Risk Rules Checklist Analysis**
+    **Part 1: Risk Rules Checklist Analysis**
 
-1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
-2.  **Risk Assessment and Matching:**
-    *   For each clause, iterate through the `risks` array in the Risk Rules Checklist.
-    *   **Description Matching:** Compare the `risk_description` in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the `risks` array.
-    *   **Assess Risk Attributes:** Note the `importance` (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
+    1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
+    2.  **Risk Assessment and Matching:**
+        *   For each clause, iterate through the `risks` array in the Risk Rules Checklist.
+        *   **Description Matching:** Compare the `risk_description` in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the `risks` array.
+        *   **Assess Risk Attributes:** Note the `importance` (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
 
-3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
+    3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
 
-**Part 2: Identification of Additional Risks (Not Covered by Checklist)**
+    **Part 2: Identification of Additional Risks (Not Covered by Checklist)**
 
 4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any *other* potential risks that are *not* explicitly covered by the Risk Rules Checklist.
 5.  **Assess Risk Level of Additional Risks:** Determine the *risk level* (High, Medium, or Low) for each additional risk based on its potential impact and likelihood. Justify your assessment.
 6.  **Importance of Additional Risks:**  **YOU MUST assign ALL additional risks a Low importance.**
 7.  **Document Additional Risks:** For each additional risk, provide a brief description, justification for the *risk level* (High, Medium, or Low), and CONFIRM that its importance is Low.
 
-**Part 3: Output Formatting**
+    **Part 3: Output Formatting**
 
 8.  **Risk Grouping:** Group the clauses covered by the Risk Rules Checklist *and* the Additional Risks by their *Assessed Risk Level* (High, Medium, Low).
 
@@ -109,11 +109,11 @@ Use the following structure:
 12. **Risk Identification:** Always return the risk classification for risks covered by the Risk Rules Checklist, with a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.  Assess and justify the *risk level* (High, Medium, Low) for additional risks based on their potential impact.  **Enforce Low importance for ALL additional risks.**
 13. **Sample Output Example:** "High Risks Clauses: Termination Clause: The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. This is classified as high risk due to the potential for immediate and severe financial implications. Force Majeure Clause: The Force Majeure Clause is vaguely defined, potentially exposing the company to significant disruptions and costs if unforeseen events occur. This is considered a High Risk."
 
-Context Information:
-Contract: {Contract}
-Risk rules checklist: {risk_rules}
-User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
-User Query:{Query}
+    Context Information:
+    Contract: {Contract}
+    Risk rules checklist: {risk_rules}
+    User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
+    User Query:{Query}
 """
 
 PROMPT_TEMPLATE = """
