@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, Union, Any
 
 
 class QueryRequest(BaseModel):
@@ -65,7 +65,7 @@ class Feedback(BaseModel):
 
 class Result(BaseModel):
     messageId: str
-    answer: str
+    answer: Union[str, dict[str, Any]]
     feedback: Feedback
     transactionCount: Optional[int] = 0
     citations: Optional[list[Citation]] = None  # Optional field
@@ -120,3 +120,22 @@ class FeedbackRequest(BaseModel):
     messageId: Optional[str] = None
     isFeedbackPositive: bool
     feedbackComment: Optional[str] = None
+
+
+class RiskClause(BaseModel):
+    title: str
+    description: str
+
+
+class RiskAssessmentAnswer(BaseModel):
+    ans: str
+    highRisksClauses: Optional[list[RiskClause]] = []
+    mediumRisksClauses: Optional[list[RiskClause]] = []
+    lowRisksClauses: Optional[list[RiskClause]] = []
+    additionalRisks: Optional[list[RiskClause]] = []
+    similarities: Optional[list[str]] = []
+    differences: Optional[list[str]] = []
+
+
+class RiskAssessmentResponse(BaseModel):
+    answer: RiskAssessmentAnswer

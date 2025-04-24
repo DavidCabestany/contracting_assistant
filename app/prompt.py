@@ -1,12 +1,17 @@
 import json
 import warnings
-
+import logging
 import boto3
 import numpy as np
 import pandas as pd
 from botocore.config import Config
 from config import get_config_value
 from sklearn.metrics.pairwise import cosine_similarity
+
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 REGION_ID = get_config_value("REGION_ID")
 TABLE_NAME = get_config_value("TABLE_NAME")

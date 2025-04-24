@@ -46,7 +46,7 @@ from utils import (
     prompt_query_cat,
     business_unit_prompt,
     generate_prompt_risk,
-    get_risk_matrix_details,
+    get_risk_matrix_details, parse_risk_assessment_output
 )
 
 from prompt_template import PROMPT_TEMPLATE, PROMPT_TEMPLATE_RISK
@@ -196,7 +196,8 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
             text = ""
         else:
-            text = "\n<b>Note</b>: The search results do not contain specific information regarding your query. Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
+            text = """\n<b>Note</b>: The search results do not contain specific information regarding your query. 
+            Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."""
 
         # Attempt retrieving docs from prioritized file(s)
         if files:
@@ -520,6 +521,7 @@ async def generate_summary(
             )
 
         # Possibly refine answer if IRRELEVANT_KEYWORD is present
+
         answer = check_qna(
             queryText,
             summary.content,
@@ -535,12 +537,20 @@ async def generate_summary(
             thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
         )
         feedback = Feedback(feedbackDisplayOptions=feedbackoptions)
+        try:
+            structured_answer = parse_risk_assessment_output(answer)
+            final_answer = structured_answer.dict()["answer"]
+        except ValueError as e:
+            logger.warning(f"Risk parser failed: {e}")
+            final_answer = {"answer": {"ans": answer}}  # fallback
+
         result = Result(
             messageId=str(msg_id),
-            answer=answer,
+            answer=final_answer,
             transactionCount=transactionCount,
             feedback=feedback,
         )
+
         queryResponse = QueryResponse(
             status="success",
             sessionId=session_id,

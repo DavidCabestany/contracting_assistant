@@ -52,62 +52,64 @@ CATEGORY_TEMPLATE ="""
 
 
 PROMPT_TEMPLATE_RISK = """You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
-Your Task: Analyze the provided Contract and identify potential risks, prioritizing risks covered by the Risk Rules Checklist.  Report the findings, clearly distinguishing between checklist-covered risks and other identified risks.
+    Your Task: Analyze the provided Contract and identify potential risks, prioritizing risks covered by the Risk Rules Checklist.  Report the findings, clearly distinguishing between checklist-covered risks and other identified risks.
 
-Instructions:
+    Instructions:
 
-**Part 1: Risk Rules Checklist Analysis**
+    **Part 1: Risk Rules Checklist Analysis**
 
-1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
-2.  **Risk Assessment and Matching:**
-    *   For each clause, iterate through the `risks` array in the Risk Rules Checklist.
-    *   **Description Matching:** Compare the `risk_description` in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the `risks` array.
-    *   **Assess Risk Attributes:** Note the `importance` (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
+    1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
+    2.  **Risk Assessment and Matching:**
+        *   For each clause, iterate through the `risks` array in the Risk Rules Checklist.
+        *   **Description Matching:** Compare the `risk_description` in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the `risks` array.
+        *   **Assess Risk Attributes:** Note the `importance` (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
 
-3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
+    3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
 
-**Part 2: Identification of Additional Risks (Not Covered by Checklist)**
+    **Part 2: Identification of Additional Risks (Not Covered by Checklist)**
 
-4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any *other* potential risks that are *not* explicitly covered by the Risk Rules Checklist.
-5.  **Document Additional Risks:** For each additional risk, provide a brief description and justification.
+        4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any *other* potential risks that are *not* explicitly covered by the Risk Rules Checklist.
+        5.  **Document Additional Risks:** For each additional risk, provide a brief description and justification.
 
-**Part 3: Output Formatting**
+    **Part 3: Output Formatting**
 
-6.  **Risk Rules Checklist Risks:** Group the clauses covered by the Risk Rules Checklist first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report. If *none* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance), EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases. Only output subsections where risks are actually present.
+    6.  **Risk Rules Checklist Risks:** Group the clauses covered by the Risk Rules Checklist first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report. If *none* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance), EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases. Only output subsections where risks are actually present.
 
-7.  **Additional Risks Not Covered by the Checklist:** After the Risk Rules Checklist sections, include a section titled "Additional Risks Not Covered by the Checklist." List the risks identified in Part 2, along with their descriptions and justifications.
+    7.  **Additional Risks Not Covered by the Checklist:** After the Risk Rules Checklist sections, include a section titled "Additional Risks Not Covered by the Checklist." List the risks identified in Part 2, along with their descriptions and justifications.
 
-Use the following structure:
-    ```
-    High Risks Clauses:
-    All Risks with High Importance
-    Followed by Risks with Medium Importance
-    Followed by Risks with Low Importance
+    Respond strictly using the following JSON-style format:
 
-    Medium Risks Clauses:
-    All Risks with High Importance
-    Followed by Risks with Medium Importance
-    Followed by Risks with Low Importance
+        ```json
+        {{
+        "ans": "Short summary paragraph that explains the overall risk findings.",
+        "highRisksClauses": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "mediumRisksClauses": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "lowRisksClauses": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "additionalRisks": [
+            {{"title": "Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "similarities": [],
+        "differences": []
+        }}```
 
-    Low Risks Clauses:
-    All Risks with High Importance
-    Followed by Risks with Medium Importance
-    Followed by Risks with Low Importance
+    Do not add any extra commentary outside of the JSON structure. 
+    Only fill in arrays when you have items to add. 
+    Leave similarities and differences as empty arrays for now.
 
-    Additional Risks:
-    - Risk 1: [Description and Justification]
-    - Risk 2: [Description and Justification]
-    - ...
-    ```
+    8.  **Risk Identification:** Always return the risk classification for risks covered by the Risk Rules Checklist, with a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
+    9.  **Sample Output Example:** "Termination Clause:The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
 
-8.  **Risk Identification:** Always return the risk classification for risks covered by the Risk Rules Checklist, with a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
-9.  **Sample Output Example:** "Termination Clause:The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
-
-Context Information:
-Contract: {Contract}
-Risk rules checklist: {risk_rules}
-User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
-User Query:{Query}
+    Context Information:
+    Contract: {Contract}
+    Risk rules checklist: {risk_rules}
+    User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
+    User Query:{Query}
 """
 
 
