@@ -182,6 +182,8 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             history = session_history(sessionId)
             chat_history = extract_chat_history(history)
             for question, answer in chat_history:
+                # FIXME this might consume all tokens just retrieving the chatHistory
+                # TODO make a filter and a buffer so we avoid extra costs for recurrent DynamoDB call
                 prompt += f"User: {question}\nAssistant: {answer}\n"
             formatted_prompt = follow_up_prompt.format(prompt, user_txt)
             follow_up = generate_answer_with_context(formatted_prompt)
