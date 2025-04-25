@@ -218,16 +218,15 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         response = None
         answer = None
         citations = []
-
         categorized_knowledge_type = getattr(
             raw_response, "content", str(raw_response)
         ).strip()
-        text = (
-            ""
-            if request.query.knowledgeType.lower() == categorized_knowledge_type.lower()
-            else "\n<b>Note</b>: The search results do not contain specific information regarding your query. "
-            "Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
-        )
+        if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
+            text = ""
+        else:
+            text = """\n<b>Note</b>: The search results do not contain specific information regarding your query. 
+            Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."""
+
 
         # ---------------- prioritized-doc retrieval  -----------------
         if files:

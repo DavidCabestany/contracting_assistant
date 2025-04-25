@@ -49,14 +49,28 @@ keyword_llm = ChatBedrock(
 )
 
 
-
 _CLASSIFY_PROMPT = """
-Return exactly one word:  QUESTION  if the user is asking something,
-or  SUMMARY  if they only pasted text or want a recap.
+    You are a routing agent.
 
-User query:
-{query}
+    Return exactly one word:
+    QUESTION - if the user asks anything, requests a comparison, or wants similarities / differences.
+    SUMMARY - if they merely pasted text or explicitly ask "summarise".
+
+    Examples
+    ---------
+    User: Summarise the following agreement.
+    -> SUMMARY
+
+    User: Compare clause 7 with the AZ standard and list similarities and differences.
+    -> QUESTION
+
+    User: What are the payment terms?
+    -> QUESTION
+
+    Now classify:
+    {query}
 """
+
 
 def needs_summary(query: str) -> bool:
     resp = ChatBedrock(model_id=MODEL_ID).invoke(
@@ -64,10 +78,10 @@ def needs_summary(query: str) -> bool:
     )
     return resp.content.strip().upper() == "SUMMARY"
 
+
 def llm_summarise(text: str) -> str:
     prompt = f"Give a concise summary in one descriptive paragraph:\n\n{text}"
     return ChatBedrock(model_id=MODEL_ID).invoke(prompt).content.strip()
-
 
 
 def parse_risk_assessment_output(model_output: str) -> RiskAssessmentResponse:
@@ -82,6 +96,7 @@ def parse_risk_assessment_output(model_output: str) -> RiskAssessmentResponse:
         return RiskAssessmentResponse.parse_obj({"answer": parsed})
     except (json.JSONDecodeError, ValidationError) as e:
         raise ValueError(f"Parsing error: {str(e)}\nRaw Output:\n{model_output}")
+
 
 def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
     """
