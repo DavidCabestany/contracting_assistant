@@ -49,65 +49,69 @@ CATEGORY_TEMPLATE = """
     """
 
 
-PROMPT_TEMPLATE_RISK = """You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
-    Your Task: Analyze the provided Contract and identify potential risks, prioritizing risks covered by the Risk Rules Checklist.  Report the findings, clearly distinguishing between checklist-covered risks and other identified risks.
+PROMPT_TEMPLATE_RISK = """
 
-    Instructions:
+Respond strictly using the following JSON-style format:
+```json
+{{
+  "ans": "Short summary paragraph that explains the overall risk findings.",
+  "highRisksClauses": [
+    {{"title": "Clause Name", "description": "Risk reason and justification."}}
+  ],
+  "mediumRisksClauses": [
+    {{"title": "Clause Name", "description": "Risk reason and justification."}}
+  ],
+  "lowRisksClauses": [
+    {{"title": "Clause Name", "description": "Risk reason and justification."}}
+  ],
+  "similarities": [],
+  "differences": []
+}}
+```
+Do not add any extra commentary outside of the JSON structure.
+Only fill in arrays when you have items to add.
+You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
+Your Task: Analyze the provided Contract and identify potential risks, reporting them according to the Risk Rules Checklist and other identified risks. Present the findings in the JSON format specified above.
 
-    **Part 1: Risk Rules Checklist Analysis**
+**Part 1: Risk Rules Checklist Analysis**
 
-    1.  **Clause Identification:** For each clause in the Risk Rules Checklist (`Termination Clause`, `Liability Clause`, etc.), examine the `description` field in the checklist to understand the *general purpose* of the clause type.
-    2.  **Risk Assessment and Matching:**
-        *   For each clause, iterate through the `risks` array in the Risk Rules Checklist.
-        *   **Description Matching:** Compare the `risk_description` in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the `risks` array.
-        *   **Assess Risk Attributes:** Note the `importance` (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
+1.  **Clause Identification:** For each clause in the Risk Rules Checklist (Termination Clause, Liability Clause, etc.), examine the description field in the checklist to understand the general purpose of the clause type.
+2.  **Risk Assessment and Matching:** 
+    *   For each clause, iterate through the risks array in the Risk Rules Checklist.
+    *   **Description Matching:**: Compare the risk_description in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the risks array.
+    *   **Assess Risk Attributes: Note the importance (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
+3.  **Risk Classification:** Classify the identified matching risks based on their importance as either "High Risk", "Medium Risk", or "Low Risk".
 
-    3.  **Risk Classification:** Classify the *identified matching risks* based on their `importance` as either "High Risk", "Medium Risk", or "Low Risk".
+**Part 2: Identification of Additional Risks (Not Covered by Checklist)**
 
-    **Part 2: Identification of Additional Risks (Not Covered by Checklist)**
+4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any other potential risks that are not explicitly covered by the Risk Rules Checklist.
+5.  **Assess Risk Level of Additional Risks:** Determine the risk level (High, Medium, or Low) for each additional risk based on its potential impact and likelihood. Justify this assessment. YOU MUST assign ALL additional risks a Low importance.
+6.  **Document Additional Risks:**For each additional risk, provide a brief description, justification for the risk level (High, Medium, or Low), and note that their importance is Low.
 
-        4.  **Identify Additional Risks:** After completing the Risk Rules Checklist analysis, review the contract again to identify any *other* potential risks that are *not* explicitly covered by the Risk Rules Checklist.
-        5.  **Document Additional Risks:** For each additional risk, provide a brief description and justification.
+**Part 3: Handling Different User Queries and Output Formatting**
 
-    **Part 3: Output Formatting**
+**Query Interpretation and Filtering:**
+Analyze the User Query to determine the scope of the request. 
+Here are some example scenarios:
+1."What are all the risks in the contract?" - Analyze the entire contract and report all risks.
+2."What are the risks associated with the Termination Clause?" - Analyze only the Termination Clause and report any risks associated with it.
+3."Is there a Force Majeure clause, and what are the risks?" - Check for the clause, and if it exists, analyze it for risks. If not, indicate that the clause is missing as a risk.
+Based on the query, filter the risks identified in Parts 1 and 2 to include only the relevant ones in the output.
 
-    6.  **Risk Rules Checklist Risks:** Group the clauses covered by the Risk Rules Checklist first by the *Assessed Risk Level* (High, Medium, Low). Within each risk level group, list the clauses sorted by their *Importance* (High first, then Medium, then Low). Ensure all relevant clauses identified are included in the report. If *none* risks are identified for a specific importance level (High Importance, Medium Importance, Low Importance), EXCLUDE that specific importance subsection. Do *not* output "None identified in the category" or similar phrases. Only output subsections where risks are actually present.
-
-    7.  **Additional Risks Not Covered by the Checklist:** After the Risk Rules Checklist sections, include a section titled "Additional Risks Not Covered by the Checklist." List the risks identified in Part 2, along with their descriptions and justifications.
-
-    Respond strictly using the following JSON-style format:
-
-        ```json
-        {{
-        "ans": "Short summary paragraph that explains the overall risk findings.",
-        "highRisksClauses": [
-            {{"title": "Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "mediumRisksClauses": [
-            {{"title": "Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "lowRisksClauses": [
-            {{"title": "Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "additionalRisks": [
-            {{"title": "Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "similarities": [],
-        "differences": []
-        }}```
-
-    Do not add any extra commentary outside of the JSON structure. 
-    Only fill in arrays when you have items to add. 
-    Leave similarities and differences as empty arrays for now.
-
-    8.  **Risk Identification:** Always return the risk classification for risks covered by the Risk Rules Checklist, with a clear justification for the risk level assignment based on both the risk description matching and the importance based on the Risk Rules Checklist.
-    9.  **Sample Output Example:** "Termination Clause:The contract allows AstraZeneca to terminate the SOW with 30 days written notice if the scope changes significantly. The clause has been classified as high importance due to its potential for immediate and severe financial implications."
-
-    Context Information:
-    Contract: {Contract}
-    Risk rules checklist: {risk_rules}
-    User Query Handling: Now address the user's query by providing the requested analysis based on the above instructions.
-    User Query:{Query}
+**JSON Output Population:**
+Based on the filtered risks, populate the JSON structure as follows:
+*ans:* Provide a brief summary paragraph that explains the overall risk findings based on the identified risks.
+*highRisksClauses:* Populate this array with the title (Clause Name) and description (Risk reason and justification) for all High Risk clauses.
+*mediumRisksClauses:* Populate this array with the title and description for all Medium Risk clauses.
+*lowRisksClauses:* Populate this array with the title and description for all Low Risk clauses.
+*similarities:* If the User Query asks for similarities between clauses or risks, identify and list them here. Otherwise, leave it empty.
+*differences:* If the User Query asks for differences between clauses or risks, identify and list them here. Otherwise, leave it empty.
+Additional Risk Handling: Remember that all additional risks have Low importance. Therefore, all additional risks should be placed in the lowRisksClauses array, regardless of their assessed risk level (High, Medium, or Low).
+Context Information:
+Contract: {Contract}
+Risk rules checklist: {risk_rules}
+User Query Handling: Now address the user's query by providing the requested analysis in the specified JSON format.
+User Query: {Query}
 """
 
 PROMPT_TEMPLATE = """
