@@ -1,9 +1,9 @@
 import datetime
 import logging
 import pickle
+import re
 import uuid
 from typing import Optional
-import re
 
 import boto3
 from auth.auth import auth_router
@@ -17,6 +17,7 @@ from data import (
     ChatMetadata,
     Feedback,
     FeedbackDisplayOptions,
+    QnAAnswer,
     QueryResponse,
     QuickReply,
     RequestQuery,
@@ -33,25 +34,26 @@ from prompt import (
     retrieve_and_generate_prioritized_doc,
     retrieve_documents,
 )
+from prompt_template import PROMPT_TEMPLATE, PROMPT_TEMPLATE_RISK
 from utils import (
-    extract_keywords_from_query,
+    business_unit_prompt,
     extract_chat_history,
     extract_file_locations,
+    extract_keywords_from_query,
     extract_pdf_contents,
     extract_text_from_word,
     generate_prompt,
+    generate_prompt_risk,
     generate_technical_error_message,
     get_file_type,
     get_knowledge_base_folder,
     get_knowledge_base_id,
+    get_risk_matrix_details,
+    llm_summarise,
+    needs_summary,
+    parse_risk_assessment_output,
     prompt_query_cat,
-    business_unit_prompt,
-    generate_prompt_risk,
-    get_risk_matrix_details, parse_risk_assessment_output
 )
-
-from prompt_template import PROMPT_TEMPLATE, PROMPT_TEMPLATE_RISK
-
 
 file_handler = logging.FileHandler("report.log", mode="a")
 stream_handler = logging.StreamHandler()
@@ -143,39 +145,62 @@ async def read_root():
 async def ask_question(request: RequestQuery, token: str = Depends(verify_token)):
     logger.info("ask_question endpoint triggered")
     logger.debug(f"Request: {request}")
-    """
-    Endpoint to retrieve and generate Q&A answers based on the user's query.
-    """
+
     msg_id = str(uuid.uuid4())
     files = request.query.files
     sessionId = request.user.sessionId
+    user_txt = request.query.text.strip()
+
+    # ──────────────────── 1. LLM guard-rail  ──────────────────────────────
+    if needs_summary(user_txt):
+        summary_obj = QnAAnswer(
+            ans=llm_summarise(user_txt)
+        )  # similarities/differences default to []
+        result = Result(
+            messageId=msg_id,
+            answer=summary_obj,
+            transactionCount=request.query.transactionCount,
+            citations=[],
+            feedback=Feedback(
+                feedbackDisplayOptions=FeedbackDisplayOptions(
+                    thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+                )
+            ),
+        )
+        return QueryResponse(
+            status="success",
+            sessionId=sessionId or str(uuid.uuid4()),
+            userQuery=user_txt,
+            result=result,
+        )
+    # ──────────────────── 2. normal QnA flow ────────────────────
 
     try:
-        # Build conversation prompt from previous messages if sessionId is given
+        # -------------- build prompt from chat history  --------------
         prompt = ""
         if sessionId:
             history = session_history(sessionId)
             chat_history = extract_chat_history(history)
             for question, answer in chat_history:
                 prompt += f"User: {question}\nAssistant: {answer}\n"
-            # Then format the new question
-            formatted_prompt = follow_up_prompt.format(prompt, request.query.text)
+            formatted_prompt = follow_up_prompt.format(prompt, user_txt)
             follow_up = generate_answer_with_context(formatted_prompt)
             try:
                 follow_up_text = follow_up["content"][0]["text"]
-                if "follow-up" in follow_up["content"][0]["text"].lower():
-                    prompt += f"User:{request.query.text}"
+                if "follow-up" in follow_up_text.lower():
+                    prompt += f"User:{user_txt}"
                 else:
-                    prompt = f"User:{request.query.text}"
+                    prompt = f"User:{user_txt}"
             except Exception as e:
                 raise HTTPException(
                     status_code=500,
                     detail=f"Error in follow_up_text: {str(e)} the follow up text variable is: {follow_up_text}",
                 )
         else:
-            prompt = f"User:{request.query.text}"
+            prompt = f"User:{user_txt}"
 
-        kb_prompt = business_unit_prompt(request.query.text)
+        # ---------------- business-unit classification  -------------
+        kb_prompt = business_unit_prompt(user_txt)
 
         def get_business_unit(kb_prompt):
             llm = ChatBedrock(model_id=MODEL_ID)
@@ -191,20 +216,22 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         response = None
         answer = None
         citations = []
+
         categorized_knowledge_type = getattr(
             raw_response, "content", str(raw_response)
         ).strip()
-        if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
-            text = ""
-        else:
-            text = """\n<b>Note</b>: The search results do not contain specific information regarding your query. 
-            Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."""
+        text = (
+            ""
+            if request.query.knowledgeType.lower() == categorized_knowledge_type.lower()
+            else "\n<b>Note</b>: The search results do not contain specific information regarding your query. "
+            "Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."
+        )
 
-        # Attempt retrieving docs from prioritized file(s)
+        # ---------------- prioritized-doc retrieval  -----------------
         if files:
             try:
                 response = retrieve_and_generate_prioritized_doc(
-                    request.query.text,
+                    user_txt,
                     get_knowledge_base_id(request.query.knowledgeType),
                     get_knowledge_base_folder(request.query.knowledgeType),
                     MODEL_ID,
@@ -215,10 +242,9 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 answer = response["output"]["text"]
                 citations = extract_file_locations(response)
             except Exception as e:
-                # If something goes wrong, let’s log it and continue with normal retrieval
                 logger.info(f"Error in retrieve_and_generate_prioritized_doc: {str(e)}")
 
-        # Fallback if we didn't get an answer from the files logic
+        # ---------------- fallback retrieval paths  ------------------
         if response is None or not answer:
             doc = retrieve_documents(
                 prompt,
@@ -226,7 +252,6 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 REGION_ID,
                 filter_value=None,
             )
-            # Attempt to see if the prioritized doc is in the retrieval results
             for result in doc.get("retrievalResults", []):
                 if (
                     "metadata" in result
@@ -234,9 +259,8 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                     and PRIORITZE_DOCUMENT
                     in result["metadata"]["x-amz-bedrock-kb-source-uri"]
                 ):
-                    # If found, we do a prioritized retrieval:
                     response = retrieve_and_generate_prioritized_doc(
-                        request.query.text,
+                        user_txt,
                         get_knowledge_base_id(request.query.knowledgeType),
                         get_knowledge_base_folder(request.query.knowledgeType),
                         MODEL_ID,
@@ -246,14 +270,12 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                     )
                     break
 
-            # If we found a response from the prioritized doc
             if response:
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
                 if not citations:
-                    # If no citations found, fallback to normal retrieval
                     response = retrieve_and_generate(
-                        request.query.text,
+                        user_txt,
                         get_knowledge_base_id(request.query.knowledgeType),
                         MODEL_ID,
                         REGION_ID,
@@ -262,9 +284,8 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                     citations = extract_file_locations(response)
                     answer = response["output"]["text"]
             else:
-                # If the doc is not found or not relevant, do normal retrieval
                 response = retrieve_and_generate(
-                    request.query.text,
+                    user_txt,
                     get_knowledge_base_id(request.query.knowledgeType),
                     MODEL_ID,
                     REGION_ID,
@@ -272,14 +293,13 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 )
                 citations = extract_file_locations(response)
                 answer = response["output"]["text"]
-        # TODO Make the note appear just when the answer is not possible or there is no data
 
-        sessionId = response["sessionId"]  # Make sure to store the final session ID
+        sessionId = response["sessionId"]
         if re.search(r"Sorry, I am unable to assist", answer, re.IGNORECASE):
-            answer = answer + text
-        else:
-            answer
-        # Build final result
+            answer += text
+
+        answer_obj = QnAAnswer(ans=answer)
+
         quickreply = QuickReply(
             text="Rate the overall risk to AZ this contract",
             payload="Rate the overall risk to AZ this contract",
@@ -288,9 +308,10 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
         )
         feedback = Feedback(feedbackDisplayOptions=feedbackoptions)
+
         result = Result(
             messageId=msg_id,
-            answer=answer,
+            answer=answer_obj,  # ← validated schema
             transactionCount=request.query.transactionCount,
             citations=citations,
             feedback=feedback,
@@ -298,21 +319,20 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         queryResponse = QueryResponse(
             status="success",
             sessionId=sessionId,
-            userQuery=request.query.text,
+            userQuery=user_txt,
             result=result,
         )
 
-        # Log interaction if userId is provided
+        # ---------------- logging interaction  -----------------------
         if request.user.id:
             current_datetime = datetime.datetime.now().isoformat()
-            if len(request.query.text) > 2046:
-                user_message_search = extract_keywords_from_query(
-                    request.query.text.lower()
-                )
-            else:
-                user_message_search = request.query.text.lower()
+            user_message_search = (
+                extract_keywords_from_query(user_txt.lower())
+                if len(user_txt) > 2046
+                else user_txt.lower()
+            )
             chat_metadata = ChatMetadata(
-                FileName="",  # you can fill in if you know the file name
+                FileName="",
                 FileLocation="",
                 FlowName=QNA_FLOW_NAME,
                 KbType=request.query.knowledgeType,
@@ -320,7 +340,7 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
             chat_interaction = ChatInteraction(
                 UserId=request.user.id,
                 SessionId=sessionId,
-                UserMessage=request.query.text,
+                UserMessage=user_txt,
                 UserMessageSearch=user_message_search,
                 BotResponse=answer,
                 BotResponseSearch=answer,
@@ -334,20 +354,19 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
 
         return queryResponse
 
+    # ------------------------- error handling  -----------------------
     except (ClientError, BotoCoreError) as e:
-        # These are AWS-specific errors
         logger.error(f"AWS error occurred: {str(e)}", exc_info=True)
         return generate_technical_error_message(
-            msg_id, request.query.transactionCount, request.query.text, sessionId, exc=e
+            msg_id, request.query.transactionCount, user_txt, sessionId, exc=e
         )
     except HTTPException as e:
-        # If any FastAPI exceptions are raised
         logger.info(f"HTTP exception: {str(e)}")
-        raise  # Re-raise so FastAPI can handle it
+        raise  # Let FastAPI handle it
     except Exception as e:
         logger.error(f"Unknown error in ask_question: {str(e)}", exc_info=True)
         return generate_technical_error_message(
-            msg_id, request.query.transactionCount, request.query.text, sessionId, exc=e
+            msg_id, request.query.transactionCount, user_txt, sessionId, exc=e
         )
 
 
@@ -546,7 +565,7 @@ async def generate_summary(
             final_answer = structured_answer.dict()["answer"]
         except ValueError as e:
             logger.warning(f"Risk parser failed: {e}")
-            final_answer = {"answer": {"ans": answer}}  # fallback
+            final_answer = {"ans": answer}  # fallback
 
         result = Result(
             messageId=str(msg_id),

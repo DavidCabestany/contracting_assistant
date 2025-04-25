@@ -24,8 +24,6 @@ please state that you could not find an exact answer to the question.
 Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
 """
 
-
-
 BUSINESS_UNIT_TEMPLATE = """ "You are a procurement process agent who will classify the User Query based on its content into one of the following business unit categories:
     - 'General Queries': If the query relates to the Procurement Team within AZ.
     - 'Privacy': If the query concerns legal aspects, privacy policies, or related contracts/information for AZ.
@@ -35,7 +33,7 @@ BUSINESS_UNIT_TEMPLATE = """ "You are a procurement process agent who will class
     """
 
 
-CATEGORY_TEMPLATE ="""
+CATEGORY_TEMPLATE = """
     You are an expert in understanding user queries related to contracts.
     Your task is to determine the category of a given query. The categories are:
 

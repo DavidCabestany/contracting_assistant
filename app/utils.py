@@ -41,11 +41,34 @@ PRIVACY_KB_ID = get_config_value("PRIVACY_KB_ID")
 ALEXION_ID = get_config_value("ALEXION_ID")
 GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
 API_KEY = get_config_value("API_KEY")
+MODEL_ID = get_config_value("MODEL_ID")
 
 keyword_llm = ChatBedrock(
     model_id="anthropic.claude-3-haiku-20240307-v1:0",
     model_kwargs={"temperature": 0},
 )
+
+
+
+_CLASSIFY_PROMPT = """
+Return exactly one word:  QUESTION  if the user is asking something,
+or  SUMMARY  if they only pasted text or want a recap.
+
+User query:
+{query}
+"""
+
+def needs_summary(query: str) -> bool:
+    resp = ChatBedrock(model_id=MODEL_ID).invoke(
+        _CLASSIFY_PROMPT.format(query=query.strip())
+    )
+    return resp.content.strip().upper() == "SUMMARY"
+
+def llm_summarise(text: str) -> str:
+    prompt = f"Give a concise summary in one descriptive paragraph:\n\n{text}"
+    return ChatBedrock(model_id=MODEL_ID).invoke(prompt).content.strip()
+
+
 
 def parse_risk_assessment_output(model_output: str) -> RiskAssessmentResponse:
     """
@@ -69,7 +92,8 @@ def extract_keywords_from_query(query: str, max_char: int = 2000) -> str:
         return ""
 
     prompt = f"""
-    Extract the most meaningful keywords up to {max_char} characters from the following user query to help with document search indexing.
+    Extract the most meaningful keywords up to {max_char} characters from the 
+    following user query to help with document search indexing.
     - Use lowercase only
     - Exclude stopwords and punctuation
     - Return keywords as a comma-separated list
@@ -280,17 +304,17 @@ def get_risk_matrix_details() -> dict:
         with open(risk_rules_file_path, "r", encoding="utf-8") as file:
             risk_rules = json.load(file)
     except FileNotFoundError:
-        print(f"ERROR: File not found: {risk_rules_file_path}")
+        logger.info(f"ERROR: File not found: {risk_rules_file_path}")
         raise FileNotFoundError(f"File not found: {risk_rules_file_path}")
     except json.JSONDecodeError as e:
-        print(
+        logger.info(
             f"ERROR: Invalid JSON format in file: {risk_rules_file_path}. Reason: {e}"
         )
         raise json.JSONDecodeError(
             f"Invalid JSON format in file: {risk_rules_file_path}", e.doc, e.pos
         )
     except Exception as e:
-        print(
+        logger.info(
             f"ERROR: Error reading risk rules from file: {risk_rules_file_path}. Reason: {e}"
         )
         raise Exception(f"Error reading risk rules from file: {e}")

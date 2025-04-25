@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+from typing import Any, Literal, Optional, Union
+
 from pydantic import BaseModel
-from typing import Optional, Literal, Union, Any
 
 
 class QueryRequest(BaseModel):
@@ -65,11 +68,11 @@ class Feedback(BaseModel):
 
 class Result(BaseModel):
     messageId: str
-    answer: Union[str, dict[str, Any]]
+    answer: Union[str, dict[str, Any], QnAAnswer]
     feedback: Feedback
     transactionCount: Optional[int] = 0
-    citations: Optional[list[Citation]] = None  # Optional field
-    quickReplies: Optional[list[QuickReply]] = None  # Optional field
+    citations: Optional[list[Citation]] = None  
+    quickReplies: Optional[list[QuickReply]] = None  
 
 
 class QueryResponse(BaseModel):
@@ -139,3 +142,9 @@ class RiskAssessmentAnswer(BaseModel):
 
 class RiskAssessmentResponse(BaseModel):
     answer: RiskAssessmentAnswer
+
+
+class QnAAnswer(BaseModel):
+    ans: str
+    similarities: list[str] = []
+    differences: list[str] = []
