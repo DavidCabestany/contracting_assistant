@@ -68,7 +68,7 @@ Respond strictly using the following JSON-style format:
   "differences": []
 }}
 ```
-Do not add any extra commentary outside of the JSON structure.
+Do not add any extra commentary outside of the JSON structure. Do not explicitly mention risk_id.
 Only fill in arrays when you have items to add.
 You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
 Your Task: Analyze the provided Contract and identify potential risks, reporting them according to the Risk Rules Checklist and other identified risks. Present the findings in the JSON format specified above.
