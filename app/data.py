@@ -71,8 +71,8 @@ class Result(BaseModel):
     answer: Union[str, dict[str, Any], QnAAnswer]
     feedback: Feedback
     transactionCount: Optional[int] = 0
-    citations: Optional[list[Citation]] = None  
-    quickReplies: Optional[list[QuickReply]] = None  
+    citations: Optional[list[Citation]] = None
+    quickReplies: Optional[list[QuickReply]] = None
 
 
 class QueryResponse(BaseModel):

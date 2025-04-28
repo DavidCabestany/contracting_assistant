@@ -1,6 +1,7 @@
-import os
 import json
 import logging
+import os
+
 import boto3
 from fastapi import APIRouter, HTTPException
 
@@ -10,7 +11,9 @@ logger.setLevel(logging.INFO)
 
 if not logger.hasHandlers():
     ch = logging.StreamHandler()
-    ch.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    ch.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(ch)
 
 config_router = APIRouter()
@@ -24,8 +27,12 @@ def _load_values():
     Automatically called on module import but can also be triggered via /config endpoint.
     """
     try:
-        client = boto3.client(service_name="secretsmanager", region_name="us-east-1")
-        secret_name = os.getenv("SECRET_NAME", "azcdi-us-ops-procure-ds-secret-dev")
+        client = boto3.client(
+            service_name="secretsmanager", region_name="us-east-1"
+        )
+        secret_name = os.getenv(
+            "SECRET_NAME", "azcdi-us-ops-procure-ds-secret-dev"
+        )
 
         logger.info(f"Loading config from secret: {secret_name}")
         response = client.get_secret_value(SecretId=secret_name)

@@ -7,16 +7,9 @@ import pandas as pd
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
 from config import get_config_value
-from data import (
-    ChatHistorySearchRequest,
-    ChatInteraction,
-    FeedbackRequest,
-)
+from data import ChatHistorySearchRequest, ChatInteraction, FeedbackRequest
 from fastapi import APIRouter, HTTPException
-from utils import (
-    generate_presigned_url,
-    generate_technical_error_message,
-)
+from utils import generate_presigned_url, generate_technical_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +63,7 @@ def session_history(session_id):
 def search_chat(request: ChatHistorySearchRequest):
     try:
         # Extract parameters from the request body
-        apiKey = request.apiKey
+        apiKey = request.apiKey  # noqa: F841
         userId = request.userId
         keyword = request.keyword
         start_date = request.start_date
@@ -78,7 +71,9 @@ def search_chat(request: ChatHistorySearchRequest):
         sort_order = request.sort_order
         # Parse start and end timestamps if provided
         start_timestamp = (
-            datetime.fromisoformat(start_date).isoformat() if start_date else None
+            datetime.fromisoformat(start_date).isoformat()
+            if start_date
+            else None
         )
         end_timestamp = (
             datetime.fromisoformat(end_date).isoformat() if end_date else None
@@ -118,7 +113,10 @@ def search_chat(request: ChatHistorySearchRequest):
                 combined_filter &= kf
 
             # Apply the combined filter to query parameters
-            if "FilterExpression" in query_params and query_params["FilterExpression"]:
+            if (
+                "FilterExpression" in query_params
+                and query_params["FilterExpression"]
+            ):
                 query_params["FilterExpression"] &= combined_filter
             else:
                 query_params["FilterExpression"] = combined_filter
@@ -141,7 +139,9 @@ def search_chat(request: ChatHistorySearchRequest):
         grouped_conversations = defaultdict(lambda: defaultdict(list))
         seen_sessions = set()
         for item in response["Items"]:
-            date_str = datetime.fromisoformat(item["Timestamp"]).date().isoformat()
+            date_str = (
+                datetime.fromisoformat(item["Timestamp"]).date().isoformat()
+            )
             session_id = item["SessionId"]
             if session_id in seen_sessions:
                 continue
@@ -155,7 +155,8 @@ def search_chat(request: ChatHistorySearchRequest):
             seen_sessions.add(session_id)
         # Convert defaultdict to regular dict for JSON serialization
         grouped_conversations = {
-            date: dict(sessions) for date, sessions in grouped_conversations.items()
+            date: dict(sessions)
+            for date, sessions in grouped_conversations.items()
         }
         return grouped_conversations
     except Exception as e:
@@ -166,7 +167,9 @@ def search_chat(request: ChatHistorySearchRequest):
 
 
 @chat_history_router.post("/session/")
-def view_chat_by_session(request: ChatHistorySearchRequest) -> dict[str, list[dict]]:
+def view_chat_by_session(
+    request: ChatHistorySearchRequest,
+) -> dict[str, list[dict]]:
     try:
         response = table.query(
             IndexName="SessionId-index",
@@ -259,6 +262,7 @@ def update_feedback(feedback: FeedbackRequest):
                 ExpressionAttributeValues=expression_attribute_values,
                 ReturnValues="UPDATED_NEW",
             )
+            logger.info(f"{update_response}")
             return {"status": "success"}
         else:
             return {"status": "error"}
@@ -315,7 +319,9 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
                 first_item = session_message_response["Items"][0]
                 first_message = first_item.get("UserMessage", None)
                 # Extract KbType from ChatMetadata if available
-                kb_type = first_item.get("ChatMetadata", {}).get("KbType", None)
+                kb_type = first_item.get("ChatMetadata", {}).get(
+                    "KbType", None
+                )
                 # Append session info with first message and KbType to active_sessions
                 active_sessions.append(
                     {

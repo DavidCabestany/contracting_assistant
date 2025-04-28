@@ -1,7 +1,8 @@
-from config import get_config_value 
-from auth.utils import create_token, renew_token
-from fastapi import APIRouter, Header, HTTPException
 import logging
+
+from auth.utils import create_token, renew_token
+from config import get_config_value
+from fastapi import APIRouter, Header, HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -13,16 +14,17 @@ TOKEN_EXPIRE_MINUTES = get_config_value("TOKEN_EXPIRE_MINUTES")
 
 @auth_router.post("/loadconfig")
 async def load_config(api_key: str = Header(None)):
-    if api_key!= SECRET_KEY:
+    if api_key != SECRET_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
     token = create_token(data={"sub": "user-UI"})
-    return {
-        "token": token,
-        "expire_min": TOKEN_EXPIRE_MINUTES
-    }
+    return {"token": token, "expire_min": TOKEN_EXPIRE_MINUTES}
 
 
 @auth_router.post("/renew")
 async def renew_token_route(current_token: str = Header(None)):
     result = renew_token(current_token)
-    return {"token": result["token"], "expire_min": TOKEN_EXPIRE_MINUTES, "renewed": result["renewed"]}
+    return {
+        "token": result["token"],
+        "expire_min": TOKEN_EXPIRE_MINUTES,
+        "renewed": result["renewed"],
+    }

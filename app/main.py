@@ -19,7 +19,6 @@ from data import (
     FeedbackDisplayOptions,
     QnAAnswer,
     QueryResponse,
-    QuickReply,
     RequestQuery,
     Result,
 )
@@ -108,7 +107,9 @@ def get_user_memory(session_id):
     Returns a ChatMessageHistory object if not found or on error.
     """
     try:
-        response = s3.get_object(Bucket=BUCKET_NAME, Key=f"cache/{session_id}.pkl")
+        response = s3.get_object(
+            Bucket=BUCKET_NAME, Key=f"cache/{session_id}.pkl"
+        )
         with response["Body"] as file:
             my_object = pickle.load(file)
         return my_object
@@ -132,7 +133,9 @@ def get_user_memory(session_id):
         logger.info(f"BotoCoreError encountered: {str(e)}")
         return ChatMessageHistory(session_id)
     except Exception as e:
-        logger.error(f"Unknown error retrieving user memory: {str(e)}", exc_info=True)
+        logger.error(
+            f"Unknown error retrieving user memory: {str(e)}", exc_info=True
+        )
         return ChatMessageHistory(session_id)
 
 
@@ -142,7 +145,9 @@ async def read_root():
 
 
 @app.post("/getqnaanswer/")
-async def ask_question(request: RequestQuery, token: str = Depends(verify_token)):
+async def ask_question(
+    request: RequestQuery, token: str = Depends(verify_token)
+):
     logger.info("ask_question endpoint triggered")
     logger.debug(f"Request: {request}")
 
@@ -221,12 +226,14 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
         categorized_knowledge_type = getattr(
             raw_response, "content", str(raw_response)
         ).strip()
-        if request.query.knowledgeType.lower() == categorized_knowledge_type.lower():
+        if (
+            request.query.knowledgeType.lower()
+            == categorized_knowledge_type.lower()
+        ):
             text = ""
         else:
-            text = """\n<b>Note</b>: The search results do not contain specific information regarding your query. 
+            text = """\n<b>Note</b>: The search results do not contain specific information regarding your query.
             Please consider switching tabs from the top right corner if the query pertains to a different Business Unit."""
-
 
         # ---------------- prioritized-doc retrieval  -----------------
         if files:
@@ -243,7 +250,9 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
                 answer = response["output"]["text"]
                 citations = extract_file_locations(response)
             except Exception as e:
-                logger.info(f"Error in retrieve_and_generate_prioritized_doc: {str(e)}")
+                logger.info(
+                    f"Error in retrieve_and_generate_prioritized_doc: {str(e)}"
+                )
 
         # ---------------- fallback retrieval paths  ------------------
         if response is None or not answer:
@@ -301,10 +310,10 @@ async def ask_question(request: RequestQuery, token: str = Depends(verify_token)
 
         answer_obj = QnAAnswer(ans=answer)
 
-        quickreply = QuickReply(
-            text="Rate the overall risk to AZ this contract",
-            payload="Rate the overall risk to AZ this contract",
-        )
+        # quickreply = QuickReply(
+        #     text="Rate the overall risk to AZ this contract",
+        #     payload="Rate the overall risk to AZ this contract",
+        # )
         feedbackoptions = FeedbackDisplayOptions(
             thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
         )
@@ -473,7 +482,9 @@ async def generate_summary(
                 )
             except (BotoCoreError, ClientError) as e:
                 logger.info(f"Error uploading to S3: {str(e)}")
-                raise HTTPException(status_code=500, detail="S3 upload failed.")
+                raise HTTPException(
+                    status_code=500, detail="S3 upload failed."
+                )
 
             # Extract PDF/Word contents
             if file_contents:
@@ -491,7 +502,9 @@ async def generate_summary(
         # Default query if none is provided
         if not queryText or queryText.strip() == "":
             queryText = "Summarize the document content"
-            logger.info("QueryText was blank. Initializing with default summary query.")
+            logger.info(
+                "QueryText was blank. Initializing with default summary query."
+            )
 
         # If no content is available at all, raise error
         if not content and not queryText:
@@ -594,7 +607,9 @@ async def generate_summary(
             )
             user_message = queryText if queryText else chat_metadata.FileName
             if len(user_message) > 2046:
-                user_message_search = extract_keywords_from_query(user_message.lower())
+                user_message_search = extract_keywords_from_query(
+                    user_message.lower()
+                )
             else:
                 user_message_search = user_message
 
@@ -626,7 +641,9 @@ async def generate_summary(
             msg_id, transactionCount, queryText, sessionId, exc=e
         )
     except Exception as e:
-        logger.error(f"Unknown error in generate_summary: {str(e)}", exc_info=True)
+        logger.error(
+            f"Unknown error in generate_summary: {str(e)}", exc_info=True
+        )
         return generate_technical_error_message(
             msg_id, transactionCount, queryText, sessionId, exc=e
         )

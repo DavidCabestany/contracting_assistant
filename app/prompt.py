@@ -1,14 +1,13 @@
 import json
-import warnings
 import logging
+import warnings
+
 import boto3
 import numpy as np
 import pandas as pd
 from botocore.config import Config
 from config import get_config_value
 from sklearn.metrics.pairwise import cosine_similarity
-
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -60,10 +59,16 @@ def compare_similarity(input_embeddings: str, prompt_template_question: str):
     try:
         # Check if the embedding for prompt_template_question is already calculated and stored
         if prompt_template_question not in embeddings_map:
-            prompt_question_embedding = get_embeddings(prompt_template_question)
-            embeddings_map[prompt_template_question] = prompt_question_embedding
+            prompt_question_embedding = get_embeddings(
+                prompt_template_question
+            )
+            embeddings_map[prompt_template_question] = (
+                prompt_question_embedding
+            )
         else:
-            prompt_question_embedding = embeddings_map[prompt_template_question]
+            prompt_question_embedding = embeddings_map[
+                prompt_template_question
+            ]
         # Calculate cosine similarity
         similarity_score = cosine_similarity(
             [input_embeddings], [prompt_question_embedding]
@@ -74,14 +79,20 @@ def compare_similarity(input_embeddings: str, prompt_template_question: str):
         raise Exception(f"Error in compare similarity: {e}")
 
 
-warnings.filterwarnings("ignore", message="Passing bytes to 'read_excel' is deprecated")
+warnings.filterwarnings(
+    "ignore", message="Passing bytes to 'read_excel' is deprecated"
+)
 
 
 def get_mapping_list():
     try:
-        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=EXCEL_FILE_PATH)
+        response = s3_client.get_object(
+            Bucket=BUCKET_NAME, Key=EXCEL_FILE_PATH
+        )
         excel_file_content = response["Body"].read()
-        df_mapping = pd.read_excel(excel_file_content, sheet_name=AZ_MAPPING_SHEET_NAME)
+        df_mapping = pd.read_excel(
+            excel_file_content, sheet_name=AZ_MAPPING_SHEET_NAME
+        )
         question_category_ls = df_mapping["Question"].tolist()
         map_prompt_ls = df_mapping["Prompt"].tolist()
     except Exception as e:
@@ -151,7 +162,9 @@ def retrieve_and_generate(
                 },
                 "type": "KNOWLEDGE_BASE",
             },
-            **({"sessionId": session_id} if session_id else {}),  # Conditionally add
+            **(
+                {"sessionId": session_id} if session_id else {}
+            ),  # Conditionally add
         )
     except Exception as e:
         raise Exception(f"Error in retrieving q&a answer: {e}")
@@ -218,7 +231,7 @@ def retrieve_and_generate_prioritized_doc(
 ):
     try:
         prompt_template = ""
-        if str(retrieve_template(query)) != "nan" :
+        if str(retrieve_template(query)) != "nan":
             prompt_template = retrieve_template(query)
         GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(
             files, BUCKET_NAME, knowledge_base_folder
@@ -259,7 +272,9 @@ def retrieve_and_generate_prioritized_doc(
                 },
                 "type": "KNOWLEDGE_BASE",
             },
-            **({"sessionId": session_id} if session_id else {}),  # Conditionally add
+            **(
+                {"sessionId": session_id} if session_id else {}
+            ),  # Conditionally add
         )
     except Exception as e:
         raise Exception(f"Error in retrieving q&a answer: {e}")
@@ -284,7 +299,10 @@ def retrieve_documents(
         # Conditionally add the filter
         if filter_value:
             retrieval_configuration["vectorSearchConfiguration"]["filter"] = {
-                "equals": {"key": "x-amz-bedrock-kb-source-uri", "value": filter_value}
+                "equals": {
+                    "key": "x-amz-bedrock-kb-source-uri",
+                    "value": filter_value,
+                }
             }
 
         # Construct the full request
