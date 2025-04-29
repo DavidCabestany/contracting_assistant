@@ -31,7 +31,7 @@ def _load_values():
             service_name="secretsmanager", region_name="us-east-1"
         )
         secret_name = os.getenv(
-            "SECRET_NAME", "azcdi-us-ops-procure-ds-secret-dev"
+            "secret_name", "azcdi-us-ops-procure-ds-secret-dev"
         )
 
         logger.info(f"Loading config from secret: {secret_name}")
