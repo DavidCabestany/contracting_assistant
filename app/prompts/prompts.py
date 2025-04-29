@@ -1,4 +1,4 @@
-template = """{Instruction}
+TEMPLATE = """{Instruction}
 
 Here are the search results in order with their file reference:
 {search_results_formatted}
@@ -18,7 +18,7 @@ Return your answer as a JSON object with the following format only.
 }}```"""
 
 
-default_instruction = """You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question.
+DEFAULT_INSTRUCTION = """You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question.
 Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question,
 please state that you could not find an exact answer to the question.
 Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
@@ -146,3 +146,23 @@ Document Content:
 User Query:
 {Query}
 """
+
+FOLLOW_UP_PROMPT = """
+You are an AI assistant helping to understand the flow of conversation in a
+technical troubleshooting scenario. Your job is to determine if a new question
+is related to a previous question and its answer.
+
+* **Follow-up:** If the second question is seeking more information, clarification
+  or a specific step related to the first question and its answer, it's a
+  FOLLOW-UP.
+* **New Question:** If the second question introduces a different problem,
+  requests information unrelated to the first question, or could be asked
+  independently, it's a NEW QUESTION.
+
+Analyze the relationship between these queries:
+
+Query 1: {0}
+Query 2: {1}
+
+Respond with only one label: follow-up or New Question.
+""".strip()

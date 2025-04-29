@@ -26,6 +26,12 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_aws import ChatBedrock
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from services import (
+    generate_answer_with_context,
+    retrieve_and_generate,
+    retrieve_and_generate_prioritized_doc,
+    retrieve_documents,
+)
 from utils import (
     business_unit_prompt,
     extract_chat_history,
@@ -46,14 +52,7 @@ from utils import (
     prompt_query_cat,
 )
 
-from app.qna_service import (
-    follow_up_prompt,
-    generate_answer_with_context,
-    retrieve_and_generate,
-    retrieve_and_generate_prioritized_doc,
-    retrieve_documents,
-)
-from app.utils.prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
+from .prompts import BASE_PROMPT, FOLLOW_UP_PROMPT, RISK_MATRIX_PROMPT
 
 file_handler = logging.FileHandler("report.log", mode="a")
 stream_handler = logging.StreamHandler()
@@ -183,6 +182,7 @@ async def ask_question(
 
     try:
         # -------------- build prompt from chat history  --------------
+        follow_up_prompt = FOLLOW_UP_PROMPT
         prompt = ""
         if sessionId:
             history = session_history(sessionId)
@@ -239,14 +239,14 @@ async def ask_question(
         # ---------------- prioritized-doc retrieval  -----------------
         if files:
             try:
-                response = retrieve_and_generate_prioritized_doc(
-                    user_txt,
-                    get_knowledge_base_id(request.query.knowledgeType),
-                    get_knowledge_base_folder(request.query.knowledgeType),
-                    MODEL_ID,
-                    REGION_ID,
-                    sessionId,
-                    files,
+                response = (
+                    retrieve_and_generate_prioritized_doc(
+                        user_txt,
+                        get_knowledge_base_id(request.query.knowledgeType),
+                        get_knowledge_base_folder(request.query.knowledgeType),
+                        files,
+                        session_id=sessionId,
+                    ),
                 )
                 answer = response["output"]["text"]
                 citations = extract_file_locations(response)
@@ -274,10 +274,8 @@ async def ask_question(
                         user_txt,
                         get_knowledge_base_id(request.query.knowledgeType),
                         get_knowledge_base_folder(request.query.knowledgeType),
-                        MODEL_ID,
-                        REGION_ID,
-                        sessionId,
                         [PRIORITZE_DOCUMENT],
+                        session_id=sessionId,
                     )
                     break
 
@@ -288,9 +286,7 @@ async def ask_question(
                     response = retrieve_and_generate(
                         user_txt,
                         get_knowledge_base_id(request.query.knowledgeType),
-                        MODEL_ID,
-                        REGION_ID,
-                        sessionId,
+                        session_id=sessionId,
                     )
                     citations = extract_file_locations(response)
                     answer = response["output"]["text"]
@@ -405,14 +401,12 @@ def check_qna(
                     prompt,
                     GEN_ENQ_KB_ID,
                     knowledge_base_folder,
-                    MODEL_ID,
-                    REGION_ID,
-                    session_qna_id,
                     [PRIORITZE_DOCUMENT],
+                    session_id=session_qna_id,
                 )
             else:
                 response = retrieve_and_generate(
-                    prompt, GEN_ENQ_KB_ID, MODEL_ID, REGION_ID, session_qna_id
+                    prompt, GEN_ENQ_KB_ID, session_id=session_qna_id
                 )
             qna_session_id_store[session_id] = response["sessionId"]
             if (

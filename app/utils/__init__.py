@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-import logging
-from pathlib import Path
-
-from config import get_config_value
-
+from .constants import (
+    ALEXION_ID,
+    API_KEY,
+    BUCKET_CONTAINER,
+    CHAT_TABLE,
+    DOCS_DIR,
+    GEN_ENQ_KB_ID,
+    MODEL_ID,
+    PRIVACY_KB_ID,
+    REGION_ID,
+    ROOT_DIR,
+)
 from .file_utils import (
     extract_chat_history,
     extract_pdf_contents,
@@ -34,26 +41,18 @@ from .s3_utils import (
     get_filename_from_path,
 )
 
-logger = logging.getLogger(__name__)
-
-ROOT_DIR = Path(__file__).resolve().parent
-DOCS_DIR = ROOT_DIR / "docs"
-
-REGION_ID = get_config_value("REGION_ID")
-CHAT_TABLE = get_config_value("CHAT_TABLE")
-BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
-PRIVACY_KB_ID = get_config_value("PRIVACY_KB_ID")
-ALEXION_ID = get_config_value("ALEXION_ID")
-GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")
-API_KEY = get_config_value("API_KEY")
-MODEL_ID = get_config_value("MODEL_ID")
-
-ERROR_MESSAGE = (
-    "Oops! It seems there’s a network issue. "
-    "Please check your connection and try again in a moment."
-)
-
 __all__ = [
+    # configs
+    "ROOT_DIR",
+    "DOCS_DIR",
+    "REGION_ID",
+    "CHAT_TABLE",
+    "BUCKET_CONTAINER",
+    "PRIVACY_KB_ID",
+    "ALEXION_ID",
+    "GEN_ENQ_KB_ID",
+    "API_KEY",
+    "MODEL_ID",
     # llm_utils
     "needs_summary",
     "llm_summarise",
@@ -78,4 +77,6 @@ __all__ = [
     "generate_technical_error_message",
     "validate_api_key",
     "extract_chat_history",
+    # parents
+    "get_config_value",
 ]

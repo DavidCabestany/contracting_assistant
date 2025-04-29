@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import io
+import logging
 from pathlib import Path
 from typing import Iterable
 
 import PyPDF2
 from docx import Document
 from fastapi import HTTPException
+from models import Feedback, FeedbackDisplayOptions, QueryResponse, Result
 
-from . import ERROR_MESSAGE, logger
-from .data import Feedback, FeedbackDisplayOptions, QueryResponse, Result
+from .constants import ERROR_MESSAGE
+
+logger = logging.getLogger(__name__)
 
 
-# ──────────────────────────── file extraction ─────────────────────────── #
 def extract_pdf_contents(file_bytes: bytes) -> str:
     """Return *all* text in a PDF (best-effort)."""
     try:

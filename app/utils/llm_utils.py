@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Final
 
 from langchain_aws import ChatBedrock
+from models import RiskAssessmentResponse
 from pydantic import ValidationError
 
-from . import MODEL_ID, logger
-from .data import RiskAssessmentResponse  # ensure 'data' is on PYTHONPATH
+from .constants import MODEL_ID
 
+logger = logging.getLogger(__name__)
 _KEYWORD_LLM: Final = ChatBedrock(
     model_id="anthropic.claude-3-haiku-20240307-v1:0",
     model_kwargs={"temperature": 0},

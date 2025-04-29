@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Final
 
 from langchain_core.prompts import PromptTemplate
+from prompts import BUSINESS_UNIT_PROMPT, CATEGORY_PROMPT
 
-from . import ALEXION_ID, DOCS_DIR, GEN_ENQ_KB_ID, PRIVACY_KB_ID, logger
-from .prompts import BUSINESS_UNIT_PROMPT, CATEGORY_PROMPT
+from .constants import ALEXION_ID, DOCS_DIR, GEN_ENQ_KB_ID, PRIVACY_KB_ID
 
+logger = logging.getLogger(__name__)
 _RISK_RULES_PATH: Final[Path] = DOCS_DIR / "risk_rules.json"
 
 

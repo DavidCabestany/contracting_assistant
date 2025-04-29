@@ -8,7 +8,7 @@ from typing import Any
 import boto3
 from botocore.config import Config
 
-from . import logger
+from .constants import logger
 
 _S3 = boto3.client(
     "s3",
