@@ -47,12 +47,13 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
     return json.loads(response["body"].read().decode())
 
 
-def _render_prompt(user_query: str, base_template: str | None = None) -> str:
+def _render_prompt(user_query: str, base_prompt: str | None = None) -> str:
     tmpl = (
-        base_template
-        if base_template is not None
+        base_prompt
+        if base_prompt is not None
         else retrieve_template(user_query)
     )
+    tmpl = str(tmpl)
     tmpl += (
         "\n\n%ADDITIONAL INSTRUCTIONS%:\n"
         "Please treat suppliers and vendors as aliases in the chunks."

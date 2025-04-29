@@ -17,8 +17,15 @@ def s3_uri(bucket: str, key: str) -> str:
 
 
 def add_prefix(files: Sequence[str], bucket: str, folder: str) -> list[str]:
-    prefix = s3_uri(bucket, folder)
-    return [f"{prefix}{f}" for f in files]
+    """
+    Return full S3 URIs for *files* that live in *bucket/folder/*.
+
+    Ensures there is always a single “/” between the folder name and the
+    filename, regardless of whether *folder* already ends with “/”.
+    """
+    folder_clean = folder.rstrip("/")  # remove any accidental trailing slash
+    prefix = f"s3://{bucket}/{folder_clean}/"
+    return [f"{prefix}{file}" for file in files]
 
 
 def read_excel_from_s3(key: str, sheet: str) -> pd.DataFrame:
