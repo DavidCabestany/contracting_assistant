@@ -14,8 +14,8 @@ from utils import generate_presigned_url, generate_technical_error_message
 logger = logging.getLogger(__name__)
 
 REGION_ID = get_config_value("REGION_ID")
-TABLE_NAME = get_config_value("TABLE_NAME")
-BUCKET_NAME = get_config_value("BUCKET_NAME")
+CHAT_TABLE = get_config_value("CHAT_TABLE")
+BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
 
 chat_history_router = APIRouter()
 # Initialize FastAPI app
@@ -25,10 +25,10 @@ s3_client = boto3.client("s3", config=boto_config)
 dynamodb = boto3.resource("dynamodb", region_name=REGION_ID)
 
 
-# TODO: change the TABLE_NAME to something less generic
+# TODO: change the CHAT_TABLE to something less generic
 
 
-table = dynamodb.Table(TABLE_NAME)
+table = dynamodb.Table(CHAT_TABLE)
 
 
 # @chat_history_router.post("/store_interaction/")
@@ -206,7 +206,7 @@ async def download_chat(request: ChatHistorySearchRequest):
         file_path = f"/tmp/{request.userId}_chat_history.xlsx"
         df.to_excel(file_path, index=False)
         # Define S3 bucket and key
-        bucket_name = BUCKET_NAME  # Replace with your bucket name
+        bucket_name = BUCKET_CONTAINER  # Replace with your bucket name
         s3_key = f"{request.userId}_chat_history.xlsx"
         # Upload the file to S3
         s3_client.upload_file(file_path, bucket_name, s3_key)

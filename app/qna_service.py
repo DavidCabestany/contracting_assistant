@@ -13,17 +13,18 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 REGION_ID = get_config_value("REGION_ID")
-TABLE_NAME = get_config_value("TABLE_NAME")
+CHAT_TABLE = get_config_value("CHAT_TABLE")
 MODEL_ARN = get_config_value("MODEL_ARN")
 EMBEDDING_MODEL_ID = get_config_value("EMBEDDING_MODEL_ID")
-BUCKET_NAME = get_config_value("BUCKET_NAME")
+MODEL_ID = get_config_value("MODEL_ID")
+BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
 QNA_SEARCH_TYPE = get_config_value("QNA_SEARCH_TYPE")
 GUARDRAIL_ID = get_config_value("GUARDRAIL_ID")
 GUARDRAIL_VERSION_ID = get_config_value("GUARDRAIL_VERSION_ID")
-QNA_MAX_TOKENS_VALUE = get_config_value("QNA_MAX_TOKENS_VALUE")
-QNA_TEMPRATURE_VALUE = get_config_value("QNA_TEMPRATURE_VALUE")
-QNA_TOP_P_VALUE = get_config_value("QNA_TOP_P_VALUE")
-MODEL_ID = get_config_value("MODEL_ID")
+QNA_MAX_TOKENS_VALUE = 4096
+QNA_TEMPERATURE_VALUE = 0.1
+QNA_TOP_P_VALUE = 0.7
+
 
 EXCEL_FILE_PATH = "mappings/prompt_map.xlsx"
 AZ_MAPPING_SHEET_NAME = "Sheet1"
@@ -87,7 +88,7 @@ warnings.filterwarnings(
 def get_mapping_list():
     try:
         response = s3_client.get_object(
-            Bucket=BUCKET_NAME, Key=EXCEL_FILE_PATH
+            Bucket=BUCKET_CONTAINER, Key=EXCEL_FILE_PATH
         )
         excel_file_content = response["Body"].read()
         df_mapping = pd.read_excel(
@@ -153,9 +154,9 @@ def retrieve_and_generate(
                         },
                         "inferenceConfig": {
                             "textInferenceConfig": {
-                                "maxTokens": int(QNA_MAX_TOKENS_VALUE),
-                                "temperature": float(QNA_TEMPRATURE_VALUE),
-                                "topP": float(QNA_TOP_P_VALUE),
+                                "maxTokens": QNA_MAX_TOKENS_VALUE,
+                                "temperature": QNA_TEMPERATURE_VALUE,
+                                "topP": QNA_TOP_P_VALUE,
                             }
                         },
                     },
@@ -188,7 +189,7 @@ def generate_answer_with_context(formatted_prompt):
         body = json.dumps(
             {
                 "anthropic_version": "bedrock-2023-05-31",  # or "bedrock-2024-05-31", check the docs.
-                "max_tokens": int(QNA_MAX_TOKENS_VALUE),
+                "max_tokens": QNA_MAX_TOKENS_VALUE,
                 "messages": [{"role": "user", "content": formatted_prompt}],
             }
         )
@@ -234,7 +235,7 @@ def retrieve_and_generate_prioritized_doc(
         if str(retrieve_template(query)) != "nan":
             prompt_template = retrieve_template(query)
         GENERAL_QUERIES_DOCUMENT_PATH = add_s3_prefix_to_files(
-            files, BUCKET_NAME, knowledge_base_folder
+            files, BUCKET_CONTAINER, knowledge_base_folder
         )
         prompt_template += """\n\n%ADDITIONAL INSTRUCTIONS%:\n Please treat suppliers and vendors as alias in the chunks."""
         prompt_template += f"\n\n%USER QUERY:\n{query}\n"
@@ -263,9 +264,9 @@ def retrieve_and_generate_prioritized_doc(
                         },
                         "inferenceConfig": {
                             "textInferenceConfig": {
-                                "maxTokens": int(QNA_MAX_TOKENS_VALUE),
-                                "temperature": float(QNA_TEMPRATURE_VALUE),
-                                "topP": float(QNA_TOP_P_VALUE),
+                                "maxTokens": QNA_MAX_TOKENS_VALUE,
+                                "temperature": QNA_TEMPERATURE_VALUE,
+                                "topP": QNA_TOP_P_VALUE,
                             }
                         },
                     },

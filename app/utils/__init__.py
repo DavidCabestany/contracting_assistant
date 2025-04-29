@@ -40,8 +40,8 @@ ROOT_DIR = Path(__file__).resolve().parent
 DOCS_DIR = ROOT_DIR / "docs"
 
 REGION_ID = get_config_value("REGION_ID")
-TABLE_NAME = get_config_value("TABLE_NAME")
-BUCKET_NAME = get_config_value("BUCKET_NAME")
+CHAT_TABLE = get_config_value("CHAT_TABLE")
+BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
 PRIVACY_KB_ID = get_config_value("PRIVACY_KB_ID")
 ALEXION_ID = get_config_value("ALEXION_ID")
 GEN_ENQ_KB_ID = get_config_value("GEN_ENQ_KB_ID")

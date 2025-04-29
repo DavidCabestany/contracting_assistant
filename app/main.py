@@ -26,14 +26,6 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_aws import ChatBedrock
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from prompt import (
-    follow_up_prompt,
-    generate_answer_with_context,
-    retrieve_and_generate,
-    retrieve_and_generate_prioritized_doc,
-    retrieve_documents,
-)
-from prompt_template import PROMPT_TEMPLATE, PROMPT_TEMPLATE_RISK
 from utils import (
     business_unit_prompt,
     extract_chat_history,
@@ -54,6 +46,15 @@ from utils import (
     prompt_query_cat,
 )
 
+from app.qna_service import (
+    follow_up_prompt,
+    generate_answer_with_context,
+    retrieve_and_generate,
+    retrieve_and_generate_prioritized_doc,
+    retrieve_documents,
+)
+from app.utils.prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
+
 file_handler = logging.FileHandler("report.log", mode="a")
 stream_handler = logging.StreamHandler()
 
@@ -70,7 +71,7 @@ qna_session_id_store = {}
 
 s3 = boto3.client("s3")
 
-BUCKET_NAME = get_config_value("BUCKET_NAME")
+BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
 QNA_FLOW_NAME = get_config_value("QNA_FLOW_NAME")
 MODEL_ID = get_config_value("MODEL_ID")
 REGION_ID = get_config_value("REGION_ID")
@@ -108,7 +109,7 @@ def get_user_memory(session_id):
     """
     try:
         response = s3.get_object(
-            Bucket=BUCKET_NAME, Key=f"cache/{session_id}.pkl"
+            Bucket=BUCKET_CONTAINER, Key=f"cache/{session_id}.pkl"
         )
         with response["Body"] as file:
             my_object = pickle.load(file)
@@ -119,7 +120,7 @@ def get_user_memory(session_id):
             # Check specific error code
             if e.response["Error"]["Code"] == "NoSuchKey":
                 logger.info(
-                    f"File not found in bucket {BUCKET_NAME}. Returning an empty chat history."
+                    f"File not found in bucket {BUCKET_CONTAINER}. Returning an empty chat history."
                 )
                 return ChatMessageHistory(session_id)
             else:
@@ -471,11 +472,11 @@ async def generate_summary(
             try:
                 folder_path = f"contracts/{userId}/{session_id}"
                 s3.put_object(
-                    Bucket=BUCKET_NAME, Key=f"{folder_path}/"
+                    Bucket=BUCKET_CONTAINER, Key=f"{folder_path}/"
                 )  # ensure folder
                 file_name = file.filename
                 s3.put_object(
-                    Bucket=BUCKET_NAME,
+                    Bucket=BUCKET_CONTAINER,
                     Key=f"{folder_path}/{file_name}",
                     Body=file_contents,
                     ContentType=file.content_type,
@@ -532,10 +533,10 @@ async def generate_summary(
         if category == "1":
             risk_rules = get_risk_matrix_details()
             prompt = generate_prompt_risk(
-                content, risk_rules, queryText, PROMPT_TEMPLATE_RISK
+                content, risk_rules, queryText, RISK_MATRIX_PROMPT
             )
         else:
-            prompt = generate_prompt(content, queryText, PROMPT_TEMPLATE)
+            prompt = generate_prompt(content, queryText, BASE_PROMPT)
         llm = ChatBedrock(model_id=MODEL_ID)
         chain = RunnableWithMessageHistory(llm, get_user_memory)
 
@@ -598,7 +599,7 @@ async def generate_summary(
         # Store interaction if userId is known
         if userId:
             current_datetime = datetime.datetime.now().isoformat()
-            file_location = f"{BUCKET_NAME}{folder_path}{file_name}"
+            file_location = f"{BUCKET_CONTAINER}{folder_path}{file_name}"
             chat_metadata = ChatMetadata(
                 FileName=file_name,
                 FileLocation=file_location,

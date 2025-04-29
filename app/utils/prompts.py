@@ -24,7 +24,7 @@ please state that you could not find an exact answer to the question.
 Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
 """
 
-BUSINESS_UNIT_TEMPLATE = """ "You are a procurement process agent who will classify the User Query based on its content into one of the following business unit categories:
+BUSINESS_UNIT_PROMPT = """ "You are a procurement process agent who will classify the User Query based on its content into one of the following business unit categories:
     - 'General Queries': If the query relates to the Procurement Team within AZ.
     - 'Privacy': If the query concerns legal aspects, privacy policies, or related contracts/information for AZ.
     - 'Alexion': If the query is about the acquired Alexion group, its specific policies, or integration within AZ.
@@ -33,7 +33,7 @@ BUSINESS_UNIT_TEMPLATE = """ "You are a procurement process agent who will class
     """
 
 
-CATEGORY_TEMPLATE = """
+CATEGORY_PROMPT = """
     You are an expert in understanding user queries related to contracts.
     Your task is to determine the category of a given query. The categories are:
 
@@ -49,7 +49,7 @@ CATEGORY_TEMPLATE = """
     """
 
 
-PROMPT_TEMPLATE_RISK = """
+RISK_MATRIX_PROMPT = """
 
 Respond strictly using the following JSON-style format:
 ```json
@@ -114,7 +114,7 @@ User Query Handling: Now address the user's query by providing the requested ana
 User Query: {Query}
 """
 
-PROMPT_TEMPLATE = """
+BASE_PROMPT = """
 
 You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
 

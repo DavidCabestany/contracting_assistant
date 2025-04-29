@@ -9,7 +9,7 @@ from langchain.schema import BaseChatMessageHistory, BaseMessage
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-BUCKET_NAME = get_config_value("BUCKET_NAME")
+BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
 
 s3 = boto3.client("s3")
 
@@ -25,7 +25,7 @@ class ChatMessageHistory(BaseChatMessageHistory):
             updated_pickle_data = pickle.dumps(self)
             # Upload the updated pickle file back to S3
             s3.put_object(
-                Bucket=BUCKET_NAME,
+                Bucket=BUCKET_CONTAINER,
                 Key=f"cache/{self.session_id}.pkl",
                 Body=updated_pickle_data,
             )

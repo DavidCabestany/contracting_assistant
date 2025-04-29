@@ -9,7 +9,7 @@ from typing import Final
 from langchain_core.prompts import PromptTemplate
 
 from . import ALEXION_ID, DOCS_DIR, GEN_ENQ_KB_ID, PRIVACY_KB_ID, logger
-from .prompt_template import BUSINESS_UNIT_TEMPLATE, CATEGORY_TEMPLATE
+from .prompts import BUSINESS_UNIT_PROMPT, CATEGORY_PROMPT
 
 _RISK_RULES_PATH: Final[Path] = DOCS_DIR / "risk_rules.json"
 
@@ -35,7 +35,7 @@ def business_unit_prompt(query: str) -> str:
     """Formatted prompt for classifying *query* into a business unit."""
     return PromptTemplate(
         input_variables=["Query"],
-        template=BUSINESS_UNIT_TEMPLATE,
+        template=BUSINESS_UNIT_PROMPT,
     ).format(Query=query)
 
 
@@ -72,5 +72,5 @@ def prompt_query_cat(query: str) -> str:
     """Prompt that classifies *query* into a high-level category."""
     return PromptTemplate(
         input_variables=["Query"],
-        template=CATEGORY_TEMPLATE,
+        template=CATEGORY_PROMPT,
     ).format(Query=query)
