@@ -3,11 +3,10 @@
 import logging
 
 from auth.auth import auth_router
-from chathistory import chat_history_router
 from config import config_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import qna_router, summary_router
+from routes import chat_history_router, qna_router, summary_router
 
 # Configure root logger
 logging.basicConfig(
@@ -21,19 +20,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ─── ROUTERS ────────────────────────────────────────────────────────────
-# Include authentication endpoints
+# Auth endpoints
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
-# Include config loader endpoints
+# Config loader endpoints
 app.include_router(config_router, prefix="/load", tags=["Config"])
 
-# Include chat history endpoints
-app.include_router(chat_history_router, prefix="/chat", tags=["Chat history"])
+# Q&A endpoints
+app.include_router(qna_router, tags=["QnA"])
 
-# Include Q&A and summarization endpoints
-app.include_router(qna_router)
+# Summarization endpoints
 app.include_router(summary_router)
+
+# Chat history endpoints
+app.include_router(chat_history_router, prefix="/chat", tags=["Chat history"])
 
 # ─── CORS CONFIGURATION ─────────────────────────────────────────────────
 

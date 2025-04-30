@@ -27,11 +27,10 @@ from services import (
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
     retrieve_documents,
+    session_history,
 )
-from services.memory import load_chat_history
 from utils import (
     business_unit_prompt,
-    extract_chat_history,
     extract_file_locations,
     extract_keywords_from_query,
     get_knowledge_base_folder,
@@ -62,13 +61,15 @@ _qna_sessions: dict[str, str] = {}
 
 
 def _get_session_chat_history(session_id: str) -> str:
-    # TODO(@kvcn639): Truncate or summarize history_txt if it grows too large to fit in prompt limits
-    # Issue: TODO_OPEN/126
     history_txt = ""
     if session_id:
-        hist = load_chat_history(session_id)
-        for q, a in extract_chat_history(hist):
-            history_txt += f"User: {q}\nAssistant: {a}\n"
+        history = session_history(session_id)
+        chat_records = history.get(session_id, [])
+        for item in chat_records:
+            user_msg = item.get("UserMessage")
+            bot_msg = item.get("BotResponse")
+            if user_msg and bot_msg:
+                history_txt += f"User: {user_msg}\nAssistant: {bot_msg}\n"
     return history_txt
 
 
@@ -142,9 +143,7 @@ def _store_chat_log(
         now = datetime.datetime.now().isoformat()
         user_msg_search = (
             extract_keywords_from_query(request.query.text.lower())
-            if len(request.query.text)
-            > 2046  # TODO(@kvcn639): Use a constant or config for this limit
-            # Issue: TODO_OPEN/126
+            if len(request.query.text) > 2046
             else request.query.text.lower()
         )
         chat_meta = ChatMetadata(
