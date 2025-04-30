@@ -1,12 +1,14 @@
-# services/doc_retriever.py
-"""Retrieve documents only (no generation)."""
+"""Retrieve documents from Bedrock Knowledge Base without generating answers.
+
+This module provides a thin wrapper around the Bedrock Agent Runtime API to
+perform document-only search queries using vector-based retrieval.
+"""
 
 from __future__ import annotations
 
 from typing import Any, Dict
 
-import boto3
-
+from .clients import bedrock_agent_runtime
 from .config import QNA_SEARCH_TYPE
 
 
@@ -17,13 +19,27 @@ def retrieve_documents(
     *,
     filter_value: str | None = None,
 ) -> Dict[str, Any]:
-    runtime = boto3.client("bedrock-agent-runtime", region_name=region_id)
+    """
+    Queries the Bedrock Knowledge Base for documents related to a given user query.
+
+    Args:
+        query (str): The user input text to search against the knowledge base.
+        kb_id (str): The identifier of the Knowledge Base to search in.
+        region_id (str): AWS region where the KB is hosted.
+        filter_value (Optional[str]): Optional filter on document source URI.
+
+    Returns:
+        Dict[str, Any]: Raw response from the Bedrock Agent Runtime API.
+    """
+    # FIXME: Validate region_id matches configured region; log warning if not
 
     vector_cfg = {
-        "overrideSearchType": QNA_SEARCH_TYPE,
-        "numberOfResults": 3,
+        "overrideSearchType": QNA_SEARCH_TYPE,  # e.g., semantic or keyword
+        "numberOfResults": 3,  # TODO: Make result count configurable
     }
+
     if filter_value:
+        # Filter to only return documents matching specific source URI
         vector_cfg["filter"] = {
             "equals": {
                 "key": "x-amz-bedrock-kb-source-uri",
@@ -36,4 +52,6 @@ def retrieve_documents(
         "retrievalQuery": {"text": query},
         "retrievalConfiguration": {"vectorSearchConfiguration": vector_cfg},
     }
-    return runtime.retrieve(**request)
+
+    # FIXME: Add error handling for the Bedrock retrieve() call (try/except)
+    return bedrock_agent_runtime.retrieve(**request)

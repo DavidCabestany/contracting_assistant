@@ -9,24 +9,30 @@ from __future__ import annotations
 import logging
 import pickle
 
-import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from chat_message_history import ChatMessageHistory
 from config import get_config_value
 
+from .clients import s3_client as _S3
+
 logger = logging.getLogger(__name__)
 
-_S3 = boto3.client("s3")
 _BUCKET = get_config_value("BUCKET_CONTAINER")
 _CACHE_PREFIX = "cache/"
 
 
 def load_chat_history(session_id: str) -> ChatMessageHistory:
     """
-    Fetch cached history for *session_id* or return an empty container.
+    Fetch cached chat history for a given session ID from S3.
 
-    No exception ever escapes this function – callers always get a valid
-    ChatMessageHistory instance.
+    If the file is not found or an error occurs, returns an empty ChatMessageHistory.
+    This function is guaranteed to never raise; it logs and returns a fallback.
+
+    Args:
+        session_id (str): The unique session identifier.
+
+    Returns:
+        ChatMessageHistory: The loaded or new message history object.
     """
     key = f"{_CACHE_PREFIX}{session_id}.pkl"
     try:
@@ -36,10 +42,9 @@ def load_chat_history(session_id: str) -> ChatMessageHistory:
     except ClientError as exc:
         if exc.response.get("Error", {}).get("Code") != "NoSuchKey":
             logger.warning("S3 ClientError while reading %s: %s", key, exc)
-    except (
-        BotoCoreError,
-        pickle.UnpicklingError,
-        Exception,
-    ) as exc:  # noqa: BLE001
+        else:
+            logger.info("No chat history found for session: %s", session_id)
+    except (BotoCoreError, pickle.UnpicklingError, Exception) as exc:
         logger.warning("Failed to load chat history %s: %s", key, exc)
-    return ChatMessageHistory(session_id)
+        # FIXME: Consider deleting corrupted file from S3 if unpickling fails consistently
+    return ChatMessageHistory(session_id)  # Always return valid history

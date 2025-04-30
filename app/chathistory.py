@@ -24,10 +24,6 @@ boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 dynamodb = boto3.resource("dynamodb", region_name=REGION_ID)
 
-
-# TODO: change the CHAT_TABLE to something less generic
-
-
 table = dynamodb.Table(CHAT_TABLE)
 
 
