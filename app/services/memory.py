@@ -1,5 +1,4 @@
-"""
-Load (and later, persist) per-session ChatMessageHistory objects in S3.
+"""Load (and later, persist) per-session ChatMessageHistory objects in S3.
 
 Only I/O lives here; higher-level logic sits in utils or routes.
 """
@@ -22,8 +21,7 @@ _CACHE_PREFIX = "cache/"
 
 
 def load_chat_history(session_id: str) -> ChatMessageHistory:
-    """
-    Fetch cached chat history for a given session ID from S3.
+    """Fetch cached chat history for a given session ID from S3.
 
     If the file is not found or an error occurs, returns an empty ChatMessageHistory.
     This function is guaranteed to never raise; it logs and returns a fallback.
@@ -46,5 +44,5 @@ def load_chat_history(session_id: str) -> ChatMessageHistory:
             logger.info("No chat history found for session: %s", session_id)
     except (BotoCoreError, pickle.UnpicklingError, Exception) as exc:
         logger.warning("Failed to load chat history %s: %s", key, exc)
-        # FIXME: Consider deleting corrupted file from S3 if unpickling fails consistently
+        # TODO(@kvcn639): Consider deleting corrupted file from S3 if unpickling fails consistently
     return ChatMessageHistory(session_id)  # Always return valid history

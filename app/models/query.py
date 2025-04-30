@@ -1,3 +1,5 @@
+"""Data models for representing chat metadata, interactions, and search requests."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -6,8 +8,7 @@ from pydantic import BaseModel
 
 
 class QueryRequest(BaseModel):
-    """
-    Represents a basic query sent by the user to the system.
+    """Represents a basic query sent by the user to the system.
 
     Attributes:
         input_text (str): The raw text input provided by the user.
@@ -21,8 +22,7 @@ class QueryRequest(BaseModel):
 
 
 class AnswerRequest(BaseModel):
-    """
-    Optional wrapper for passing extra instructions alongside a query.
+    """Optional wrapper for passing extra instructions alongside a query.
 
     Attributes:
         additional_instructions (Optional[str]): Supplementary instructions to guide the response.
@@ -32,8 +32,7 @@ class AnswerRequest(BaseModel):
 
 
 class User(BaseModel):
-    """
-    Represents a user interacting with the system.
+    """Represents a user interacting with the system.
 
     Attributes:
         id (str): Unique identifier for the user.
@@ -49,8 +48,7 @@ class User(BaseModel):
 
 
 class Query(BaseModel):
-    """
-    Describes the structure of a user query within a session.
+    """Describes the structure of a user query within a session.
 
     Attributes:
         text (str): The question or command provided by the user.
@@ -66,8 +64,7 @@ class Query(BaseModel):
 
 
 class RequestQuery(BaseModel):
-    """
-    Full query request payload including user and query details.
+    """Full query request payload including user and query details.
 
     Attributes:
         apiKey (str): API key for authentication.

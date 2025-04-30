@@ -1,11 +1,12 @@
+"""Data models for representing chat metadata, interactions, and search requests."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
 class Citation(BaseModel):
-    """
-    Represents a reference to a specific location in a document.
+    """Represents a reference to a specific location in a document.
 
     Attributes:
         fileName (str): Name of the source file.
@@ -19,8 +20,7 @@ class Citation(BaseModel):
 
 
 class QuickReply(BaseModel):
-    """
-    Represents a suggested quick reply option for a chatbot response.
+    """Represents a suggested quick reply option for a chatbot response.
 
     Attributes:
         text (str): The text shown to the user.

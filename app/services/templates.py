@@ -1,5 +1,7 @@
-# services/templates.py
-"""Pick the most relevant prompt template from the mapping sheet."""
+"""Pick the most relevant prompt template from the mapping sheet.
+
+Uses embedding-based similarity to select a prompt template based on a user's query.
+"""
 
 from __future__ import annotations
 
@@ -16,20 +18,43 @@ from .config import (
 from .embeddings import get_embeddings, similarity
 from .storage import read_excel_from_s3
 
+# Suppress deprecation warnings related to pandas
 warnings.filterwarnings(
-    "ignore", message="Passing bytes to 'read_excel' is deprecated"
+    "ignore",
+    message="Passing bytes to 'read_excel' is deprecated",
 )
 
 
 def _load_mapping() -> Tuple[list[str], list[str]]:
+    """Load the question-to-prompt mappings from the configured Excel sheet.
+
+    Returns:
+        Tuple[list[str], list[str]]: A list of questions and corresponding prompts.
+    """
+    # TODO(@kvcn639): Add validation for required columns ("Question", "Prompt")
     df = read_excel_from_s3(EXCEL_FILE_PATH, AZ_MAPPING_SHEET_NAME)
     return df["Question"].tolist(), df["Prompt"].tolist()
 
 
 def retrieve_template(user_query: str, threshold: float = 0.6) -> str:
+    """Retrieve the most relevant prompt template for a user query.
+
+    Uses cosine similarity on embeddings to pick the best match.
+    If no match exceeds the threshold, returns an empty string.
+
+    Args:
+        user_query (str): The user’s input.
+        threshold (float): Minimum similarity score required to select a template.
+
+    Returns:
+        str: The selected prompt string or an empty string if no match is strong enough.
+    """
     questions, prompts = _load_mapping()
     source_emb = get_embeddings(user_query)
     sims = np.array([similarity(source_emb, q) for q in questions])
     idx = int(np.argmax(sims))
     logger.debug("Best match - %.3f «%s»", sims[idx], questions[idx])
     return prompts[idx] if sims[idx] >= threshold else ""
+
+    # TODO(@kvcn639): Add fallback default template if no match is above threshold
+    # TODO(@kvcn639): Log warning if mapping is empty or similarity check fails silently

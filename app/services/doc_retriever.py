@@ -19,8 +19,7 @@ def retrieve_documents(
     *,
     filter_value: str | None = None,
 ) -> Dict[str, Any]:
-    """
-    Queries the Bedrock Knowledge Base for documents related to a given user query.
+    """Queries the Bedrock Knowledge Base for documents related to a given user query.
 
     Args:
         query (str): The user input text to search against the knowledge base.
@@ -31,11 +30,11 @@ def retrieve_documents(
     Returns:
         Dict[str, Any]: Raw response from the Bedrock Agent Runtime API.
     """
-    # FIXME: Validate region_id matches configured region; log warning if not
+    # TODO(@kvcn639): Validate region_id matches configured region; log warning if not
 
     vector_cfg = {
         "overrideSearchType": QNA_SEARCH_TYPE,  # e.g., semantic or keyword
-        "numberOfResults": 3,  # TODO: Make result count configurable
+        "numberOfResults": 3,  # TODO(@kvcn639): Make result count configurable
     }
 
     if filter_value:
@@ -44,7 +43,7 @@ def retrieve_documents(
             "equals": {
                 "key": "x-amz-bedrock-kb-source-uri",
                 "value": filter_value,
-            }
+            },
         }
 
     request = {
@@ -53,5 +52,5 @@ def retrieve_documents(
         "retrievalConfiguration": {"vectorSearchConfiguration": vector_cfg},
     }
 
-    # FIXME: Add error handling for the Bedrock retrieve() call (try/except)
+    # TODO(@kvcn639): Add error handling for the Bedrock retrieve() call (try/except)
     return bedrock_agent_runtime.retrieve(**request)

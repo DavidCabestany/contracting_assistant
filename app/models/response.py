@@ -1,3 +1,5 @@
+"""Data models for representing chat metadata, interactions, and search requests."""
+
 from __future__ import annotations
 
 from typing import Any, Optional, Union
@@ -10,8 +12,7 @@ from .primitives import Citation, QuickReply
 
 
 class Result(BaseModel):
-    """
-    Represents the result of a query operation.
+    """Represents the result of a query operation.
 
     Attributes:
         messageId (str): Unique identifier for the message.
@@ -31,8 +32,7 @@ class Result(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    """
-    Represents the complete response to a user's query.
+    """Represents the complete response to a user's query.
 
     Attributes:
         status (str): The status of the query response (e.g., "success", "error").

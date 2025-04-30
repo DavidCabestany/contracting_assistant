@@ -1,2 +1,18 @@
 [tool.black]
-line-length = 80
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+lint.extend-select = ["D"]  # Enable all pydocstyle rules
+lint.ignore = [
+  "D105",  # Missing docstring in magic method
+  #"D107",  # Missing docstring in __init__
+  "TD001",  # Invalid TODO tag
+  "TD002",  # Missing author
+  "TD003",  # Missing issue link
+  "FIX001", # Line contains FIXME
+  "FIX002", # Line contains TODO
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

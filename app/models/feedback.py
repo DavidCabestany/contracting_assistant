@@ -1,3 +1,5 @@
+"""Data models for representing chat metadata, interactions, and search requests."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -6,8 +8,7 @@ from pydantic import BaseModel
 
 
 class FeedbackDisplayOptions(BaseModel):
-    """
-    Controls which feedback UI options are visible to the user.
+    """Controls which feedback UI options are visible to the user.
 
     Attributes:
         thumbsUp (Optional[str]): Whether the thumbs-up option is shown ("Y" or "N").
@@ -21,8 +22,7 @@ class FeedbackDisplayOptions(BaseModel):
 
 
 class Feedback(BaseModel):
-    """
-    Represents a configuration object that defines how feedback options should be displayed.
+    """Represents a configuration object that defines how feedback options should be displayed.
 
     Attributes:
         feedbackDisplayOptions (FeedbackDisplayOptions): The visual options for feedback UI.
@@ -32,8 +32,7 @@ class Feedback(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    """
-    Represents a user's submitted feedback for a specific message.
+    """Represents a user's submitted feedback for a specific message.
 
     Attributes:
         apiKey (Optional[str]): API key associated with the request.

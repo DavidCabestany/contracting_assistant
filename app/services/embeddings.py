@@ -17,8 +17,7 @@ from .config import EMBEDDING_MODEL_ID, logger
 
 
 def get_embeddings(text: str) -> list[float]:
-    """
-    Invoke the Bedrock embedding model to compute a vector representation of input text.
+    """Invoke the Bedrock embedding model to compute a vector representation of input text.
 
     Args:
         text (str): The input string to embed.
@@ -38,15 +37,14 @@ def get_embeddings(text: str) -> list[float]:
             body=json.dumps(body).encode(),
         )
         return json.loads(response["body"].read().decode())["embedding"]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("Cannot invoke %s — %s", EMBEDDING_MODEL_ID, exc)
-        raise  # FIXME: Raise specific exception class (e.g., EmbeddingError)
+        raise  # TODO(@kvcn639): Raise specific exception class (e.g., EmbeddingError)
 
 
 @lru_cache(maxsize=1024)
 def _cached_embedding(text: str) -> tuple[float, ...]:
-    """
-    Get embedding vector from cache if available, otherwise compute it.
+    """Get embedding vector from cache if available, otherwise compute it.
 
     Args:
         text (str): The input string to embed.
@@ -55,13 +53,12 @@ def _cached_embedding(text: str) -> tuple[float, ...]:
         tuple[float, ...]: Cached or computed embedding vector as an immutable tuple.
     """
     return tuple(
-        get_embeddings(text)
-    )  # TODO: Consider TTL cache instead if embeddings change
+        get_embeddings(text),
+    )  # TODO(@kvcn639): Consider TTL cache instead if embeddings change
 
 
 def similarity(source_emb: list[float], target_text: str) -> float:
-    """
-    Compute cosine similarity between a given source embedding and a target text.
+    """Compute cosine similarity between a given source embedding and a target text.
 
     Args:
         source_emb (list[float]): Precomputed embedding of the source text.
@@ -73,6 +70,7 @@ def similarity(source_emb: list[float], target_text: str) -> float:
     target_emb = _cached_embedding(target_text)
     return float(
         cosine_similarity([source_emb], [list(target_emb)], dense_output=True)[
-            0, 0
-        ]
-    )  # FIXME: Handle edge case where embeddings are empty or None
+            0,
+            0,
+        ],
+    )  # TODO(@kvcn639): Handle edge case where embeddings are empty or None

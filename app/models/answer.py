@@ -1,11 +1,12 @@
+"""Data models for storing document-based and comparative QnA answers."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
 class DocumentAnswer(BaseModel):
-    """
-    Represents an answer extracted from a document, including metadata.
+    """Represents an answer extracted from a document, including metadata.
 
     Attributes:
         answer (str): The extracted answer text.
@@ -23,8 +24,7 @@ class DocumentAnswer(BaseModel):
 
 
 class QnAAnswer(BaseModel):
-    """
-    Represents an answer that compares or contrasts concepts.
+    """Represents an answer that compares or contrasts concepts.
 
     Attributes:
         ans (str): The main answer string.

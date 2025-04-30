@@ -1,3 +1,5 @@
+"""Configuration loader for AWS Secrets Manager with FastAPI endpoints."""
+
 import json
 import logging
 import os
@@ -13,7 +15,7 @@ logger.setLevel(logging.INFO)
 if not logger.hasHandlers():
     ch = logging.StreamHandler()
     ch.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"),
     )
     logger.addHandler(ch)
 
@@ -25,8 +27,7 @@ _secret_values = {}
 
 
 def _load_values():
-    """
-    Load configuration secrets from AWS Secrets Manager and store them in the `_secret_values` dictionary.
+    """Load configuration secrets from AWS Secrets Manager and store them in the `_secret_values` dictionary.
 
     This function:
     - Initializes the boto3 Secrets Manager client.
@@ -39,10 +40,12 @@ def _load_values():
     """
     try:
         client = boto3.client(
-            service_name="secretsmanager", region_name="us-east-1"
+            service_name="secretsmanager",
+            region_name="us-east-1",
         )
         secret_name = os.getenv(
-            "secret_name", "azcdi-us-ops-procure-ds-secret-dev"
+            "secret_name",
+            "azcdi-us-ops-procure-ds-secret-dev",
         )
 
         logger.info(f"Loading config from secret: {secret_name}")
@@ -57,13 +60,12 @@ def _load_values():
         logger.info("Configuration values loaded successfully")
 
     except Exception as e:
-        logger.error(f"Failed to load configuration: {str(e)}")
-        raise Exception(f"Error loading config data: {str(e)}")
+        logger.error(f"Failed to load configuration: {e!s}")
+        raise Exception(f"Error loading config data: {e!s}")
 
 
 def get_config_value(key: str, default=None):
-    """
-    Retrieve a specific configuration value from `_secret_values`.
+    """Retrieve a specific configuration value from `_secret_values`.
 
     Args:
         key (str): The key to look up.
@@ -77,8 +79,7 @@ def get_config_value(key: str, default=None):
 
 @config_router.get("/config")
 async def reload_config():
-    """
-    Endpoint to manually reload configuration values from AWS Secrets Manager.
+    """Endpoint to manually reload configuration values from AWS Secrets Manager.
 
     Returns:
         dict: A success message or an HTTP 500 error if loading fails.
@@ -92,8 +93,7 @@ async def reload_config():
 
 @config_router.get("/config/{key}")
 async def get_config_item(key: str):
-    """
-    Endpoint to retrieve a specific configuration key.
+    """Endpoint to retrieve a specific configuration key.
 
     Args:
         key (str): The configuration key to retrieve.
@@ -112,8 +112,7 @@ async def get_config_item(key: str):
 
 @config_router.get("/config/keys")
 async def list_config_keys():
-    """
-    Endpoint to list all available configuration keys currently loaded.
+    """Endpoint to list all available configuration keys currently loaded.
 
     Returns:
         dict: A dictionary containing the list of keys.

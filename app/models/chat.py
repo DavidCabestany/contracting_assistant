@@ -1,3 +1,5 @@
+"""Data models for representing chat metadata, interactions, and search requests."""
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -6,8 +8,7 @@ from pydantic import BaseModel
 
 
 class ChatMetadata(BaseModel):
-    """
-    Metadata associated with a chat session.
+    """Metadata associated with a chat session.
 
     Attributes:
         FileName (Optional[str]): Name of the source file, if any.
@@ -25,8 +26,7 @@ class ChatMetadata(BaseModel):
 
 
 class ChatInteraction(BaseModel):
-    """
-    Represents a single chat interaction between a user and a bot.
+    """Represents a single chat interaction between a user and a bot.
 
     Attributes:
         UserId (Optional[str]): Identifier for the user.
@@ -60,8 +60,7 @@ class ChatInteraction(BaseModel):
 
 
 class ChatHistorySearchRequest(BaseModel):
-    """
-    Represents a search query for retrieving chat history records.
+    """Represents a search query for retrieving chat history records.
 
     Attributes:
         apiKey (Optional[str]): API key to authenticate the request.

@@ -1,3 +1,5 @@
+"""Routes and logic for handling user QnA requests via chat interface."""
+
 from __future__ import annotations
 
 import datetime
@@ -7,7 +9,9 @@ import uuid
 
 from auth.utils import verify_token
 from chathistory import store_interaction
-from data import (
+from fastapi import APIRouter, Depends
+from langchain_aws import ChatBedrock
+from models import (
     ChatInteraction,
     ChatMetadata,
     Feedback,
@@ -17,8 +21,6 @@ from data import (
     RequestQuery,
     Result,
 )
-from fastapi import APIRouter, Depends
-from langchain_aws import ChatBedrock
 from prompts import FOLLOW_UP_PROMPT
 from services import (
     generate_answer_with_context,
@@ -60,7 +62,8 @@ _qna_sessions: dict[str, str] = {}
 
 
 def _get_session_chat_history(session_id: str) -> str:
-    # TODO: Truncate or summarize history_txt if it grows too large to fit in prompt limits
+    # TODO(@kvcn639): Truncate or summarize history_txt if it grows too large to fit in prompt limits
+    # Issue: TODO_OPEN/126
     history_txt = ""
     if session_id:
         hist = load_chat_history(session_id)
@@ -70,10 +73,12 @@ def _get_session_chat_history(session_id: str) -> str:
 
 
 def _get_kb_classification(
-    user_txt: str, knowledge_type: str
+    user_txt: str,
+    knowledge_type: str,
 ) -> tuple[str, str]:
     prompt = business_unit_prompt(user_txt)
-    # FIXME: Add error handling in case Bedrock call fails or returns garbage
+    # TODO(@kvcn639): Add error handling in case Bedrock call fails or returns garbage
+    # Issue: TODO_OPEN/126
     detected_unit = (
         ChatBedrock(model_id=MODEL_ID).invoke(prompt).content.strip()
     )
@@ -110,29 +115,36 @@ def _fallback_qna(
             )
         else:
             resp = retrieve_and_generate(
-                prompt, GEN_ENQ_KB_ID, session_id=kb_session
+                prompt,
+                GEN_ENQ_KB_ID,
+                session_id=kb_session,
             )
         _qna_sessions[session_id] = resp["sessionId"]
         if resp.get("citations") and resp["citations"][0].get(
-            "retrievedReferences"
+            "retrievedReferences",
         ):
             return resp["output"]["text"]
     except Exception:
         logger.exception(
-            "QnA fallback failed"
-        )  # FIXME: Add retry logic or fallback strategy
+            "QnA fallback failed",
+        )  # TODO(@kvcn639): Add retry logic or fallback strategy
+        # Issue: TODO_OPEN/126
     return answer.replace(IRRELEVANT, "")
 
 
 def _store_chat_log(
-    request: RequestQuery, answer: str, msg_id: str, session_id: str
+    request: RequestQuery,
+    answer: str,
+    msg_id: str,
+    session_id: str,
 ):
     if request.user.id:
         now = datetime.datetime.now().isoformat()
         user_msg_search = (
             extract_keywords_from_query(request.query.text.lower())
             if len(request.query.text)
-            > 2046  # FIXME: Use a constant or config for this limit
+            > 2046  # TODO(@kvcn639): Use a constant or config for this limit
+            # Issue: TODO_OPEN/126
             else request.query.text.lower()
         )
         chat_meta = ChatMetadata(
@@ -154,19 +166,27 @@ def _store_chat_log(
                 SessionStatus=SESSION_STATUS,
                 MessageId=msg_id,
                 ChatMetadata=chat_meta,
-            )
+            ),
         )
 
 
 @router.post("/getqnaanswer/")
 async def ask_question(request: RequestQuery) -> QueryResponse:
+    """Handles user questions and returns answers with context, citations, and feedback.
+
+    Args:
+        request (RequestQuery): The request payload containing the user query and metadata.
+
+    Returns:
+        QueryResponse: The response object containing the generated answer and metadata.
+    """
     msg_id = str(uuid.uuid4())
     user_txt = request.query.text.strip()
     session_id = request.user.sessionId
     files = request.query.files
 
     if needs_summary(user_txt):
-        # TODO: Consider caching summaries to avoid recomputation on similar queries
+        # TODO(@kvcn639): Consider caching summaries to avoid recomputation on similar queries
         return QueryResponse(
             status="success",
             sessionId=session_id or str(uuid.uuid4()),
@@ -178,15 +198,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 citations=[],
                 feedback=Feedback(
                     feedbackDisplayOptions=FeedbackDisplayOptions(
-                        thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
-                    )
+                        thumbsUp="Y",
+                        thumbsDown="Y",
+                        feedbackText="Y",
+                    ),
                 ),
             ),
         )
 
     history_txt = _get_session_chat_history(session_id)
     follow = generate_answer_with_context(
-        FOLLOW_UP_PROMPT.format(history_txt, user_txt)
+        FOLLOW_UP_PROMPT.format(history_txt, user_txt),
     )
     prompt = (
         f"{history_txt}User:{user_txt}"
@@ -195,7 +217,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
     )
 
     _, note_if_off = _get_kb_classification(
-        user_txt, request.query.knowledgeType
+        user_txt,
+        request.query.knowledgeType,
     )
 
     resp, answer, citations = None, None, []
@@ -212,8 +235,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             citations = extract_file_locations(resp)
         except Exception:
             logger.exception(
-                "prioritised-doc retrieval failed"
-            )  # FIXME: Add error message to response for client visibility
+                "prioritised-doc retrieval failed",
+            )  # TODO(@kvcn639): Add error message to response for client visibility
 
     if not answer:
         doc = retrieve_documents(
@@ -223,7 +246,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         )
         for hit in doc.get("retrievalResults", []):
             if PRIOR_DOC in hit.get("metadata", {}).get(
-                "x-amz-bedrock-kb-source-uri", ""
+                "x-amz-bedrock-kb-source-uri",
+                "",
             ):
                 resp = retrieve_and_generate_prioritized_doc(
                     user_txt,
@@ -243,12 +267,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         citations = extract_file_locations(resp)
 
     session_id = resp["sessionId"]
-    if re.search(r"Sorry, I am unable to assist", answer, re.I):
+    if re.search(r"Sorry, I am unable to assist", answer, re.IGNORECASE):
         answer += note_if_off
 
     cat = prompt_query_cat(user_txt.lower())
     answer = _fallback_qna(
-        user_txt, answer, session_id, cat, "general", history_txt
+        user_txt,
+        answer,
+        session_id,
+        cat,
+        "general",
+        history_txt,
     )
 
     _store_chat_log(request, answer, msg_id, session_id)
@@ -264,8 +293,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             citations=citations,
             feedback=Feedback(
                 feedbackDisplayOptions=FeedbackDisplayOptions(
-                    thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
-                )
+                    thumbsUp="Y",
+                    thumbsDown="Y",
+                    feedbackText="Y",
+                ),
             ),
         ),
     )

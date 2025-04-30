@@ -1,4 +1,10 @@
-"""Utility functions for S3 paths and presigned URLs."""
+"""Utility functions for S3 paths and presigned URLs.
+
+This module provides functions for:
+- Generating presigned S3 URLs with support for PDF page linking.
+- Extracting referenced document locations from Bedrock responses.
+- Parsing filenames from S3 URIs.
+"""
 
 from __future__ import annotations
 
@@ -17,9 +23,21 @@ _S3 = boto3.client(
 
 
 def generate_presigned_url(
-    s3_url: str, page_number: int, *, expiration: int = 3_600
+    s3_url: str,
+    page_number: int,
+    *,
+    expiration: int = 3_600,
 ) -> str | None:
-    """Return a presigned HTTPS URL (with `#page=`), or *None* on failure."""
+    """Generate a presigned URL for an S3 object, with support for page reference.
+
+    Args:
+        s3_url (str): The full S3 URI (e.g., 's3://my-bucket/my-object.pdf').
+        page_number (int): The page number to link to using a `#page=` fragment.
+        expiration (int, optional): Time in seconds before the URL expires. Defaults to 3600.
+
+    Returns:
+        str | None: The presigned URL or None if generation fails.
+    """
     try:
         expiration = int(expiration)
     except ValueError:
@@ -45,14 +63,25 @@ def generate_presigned_url(
 
 
 def extract_file_locations(data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Flatten Bedrock KB citations into a deduplicated list of dicts."""
+    """Extract a deduplicated list of file locations from retrieved citations.
+
+    Args:
+        data (dict): A JSON-like dictionary containing Bedrock citation info.
+
+    Returns:
+        list[dict]: A list of dictionaries, each representing a file reference:
+            - filePath (str): Presigned S3 URL with page.
+            - pageNumber (int): Page number referenced.
+            - fileName (str): Extracted filename.
+    """
     citations: list[dict[str, Any]] = []
     for citation in data.get("citations", []):
         for ref in citation.get("retrievedReferences", []):
             page = int(
                 ref.get("metadata", {}).get(
-                    "x-amz-bedrock-kb-document-page-number", 0
-                )
+                    "x-amz-bedrock-kb-document-page-number",
+                    0,
+                ),
             )
             s3_uri = (
                 ref.get("location", {}).get("s3Location", {}).get("uri", "")
@@ -75,11 +104,18 @@ def extract_file_locations(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def get_filename_from_path(s3_path: str) -> str:
-    """Return the trailing filename component of a `s3://` URI."""
+    """Extract the file name from an S3 URI.
+
+    Args:
+        s3_path (str): A URI of the form 's3://bucket/key/path/file.ext'.
+
+    Returns:
+        str: The filename component, or an empty string on error.
+    """
     try:
         if not s3_path.startswith("s3://"):
             raise ValueError("must start with s3://")
         return s3_path.rsplit("/", 1)[-1]
     except Exception as exc:  # noqa: BLE001
-        logger.info("Bad S3 path %s – %r", s3_path, exc)
+        logger.info("Bad S3 path %s - %r", s3_path, exc)
         return ""

@@ -1,3 +1,8 @@
+"""Chat history FastAPI routes for storing, querying, downloading, and managing user-bot interactions.
+
+This module connects to DynamoDB and S3 to provide chat storage, retrieval, and feedback features.
+"""
+
 import logging
 from collections import defaultdict
 from datetime import datetime
@@ -7,8 +12,8 @@ import pandas as pd
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
 from config import get_config_value
-from data import ChatHistorySearchRequest, ChatInteraction, FeedbackRequest
 from fastapi import APIRouter, HTTPException
+from models import ChatHistorySearchRequest, ChatInteraction, FeedbackRequest
 from utils import generate_presigned_url, generate_technical_error_message
 
 logger = logging.getLogger(__name__)
@@ -18,17 +23,24 @@ CHAT_TABLE = get_config_value("CHAT_TABLE")
 BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
 
 chat_history_router = APIRouter()
-# Initialize FastAPI app
-# router = APIRouter()
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
 dynamodb = boto3.resource("dynamodb", region_name=REGION_ID)
-
 table = dynamodb.Table(CHAT_TABLE)
 
 
-# @chat_history_router.post("/store_interaction/")
 def store_interaction(interaction: ChatInteraction):
+    """Store a user-bot interaction in DynamoDB.
+
+    Args:
+        interaction (ChatInteraction): Interaction to persist.
+
+    Returns:
+        dict: Success message if stored properly.
+
+    Raises:
+        HTTPException: If the write operation fails.
+    """
     try:
         item = interaction.dict()
         table.put_item(Item=item)
@@ -38,34 +50,46 @@ def store_interaction(interaction: ChatInteraction):
 
 
 def session_history(session_id):
+    """Retrieve a full conversation history by session ID.
+
+    Args:
+        session_id (str): The session to search for.
+
+    Returns:
+        dict: Messages grouped by session ID.
+
+    TODO(@toloko): Add pagination for long sessions.
+    """
     try:
         response = table.query(
             IndexName="SessionId-index",
             KeyConditionExpression=Key("SessionId").eq(session_id),
         )
-        # Sort items by Timestamp in ascending order
         sorted_items = sorted(response["Items"], key=lambda x: x["Timestamp"])
-        # Group sorted items by SessionId
-        grouped_conversations = {session_id: sorted_items}
-        return grouped_conversations
+        return {session_id: sorted_items}
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        generate_technical_error_message(
-            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
-        )
+        return generate_technical_error_message("", 0, "", session_id, e)
 
 
 @chat_history_router.post("/search/")
 def search_chat(request: ChatHistorySearchRequest):
+    """Search chats by UserId, keyword, date range, and sort order.
+
+    Args:
+        request (ChatHistorySearchRequest): Search filters.
+
+    Returns:
+        dict: Grouped chat summaries by date and session ID.
+    """
     try:
-        # Extract parameters from the request body
         apiKey = request.apiKey  # noqa: F841
         userId = request.userId
         keyword = request.keyword
         start_date = request.start_date
         end_date = request.end_date
         sort_order = request.sort_order
-        # Parse start and end timestamps if provided
+
         start_timestamp = (
             datetime.fromisoformat(start_date).isoformat()
             if start_date
@@ -74,7 +98,7 @@ def search_chat(request: ChatHistorySearchRequest):
         end_timestamp = (
             datetime.fromisoformat(end_date).isoformat() if end_date else None
         )
-        # Set up initial query parameters
+
         query_params = {}
         if userId:
             key_condition = Key("UserId").eq(userId)
@@ -93,47 +117,39 @@ def search_chat(request: ChatHistorySearchRequest):
                 if start_timestamp and end_timestamp
                 else None
             )
-        # Add FilterExpression for keyword if provided
+
         if keyword:
-            # Remove special characters and split the keyword into separate words
-            # words = re.findall(r'\b\w+\b', keyword.lower())
             words = keyword.lower().split()
             keyword_filters = [
                 Attr("UserMessageSearch").contains(word)
                 | Attr("BotResponseSearch").contains(word)
                 for word in words
             ]
-
             combined_filter = keyword_filters[0]
             for kf in keyword_filters[1:]:
                 combined_filter &= kf
 
-            # Apply the combined filter to query parameters
-            if (
-                "FilterExpression" in query_params
-                and query_params["FilterExpression"]
-            ):
+            if query_params.get("FilterExpression"):
                 query_params["FilterExpression"] &= combined_filter
             else:
                 query_params["FilterExpression"] = combined_filter
 
-        if sort_order and sort_order.lower() == "desc":
-            query_params["ScanIndexForward"] = False  # Sort descending
-        else:
-            query_params["ScanIndexForward"] = True  # Sort ascending (default)
+        query_params["ScanIndexForward"] = sort_order.lower() != "desc"
 
-        # Execute query or scan based on UserId presence
-        if userId:
-            response = table.query(**query_params, Limit=100)
-        else:
-            response = table.scan(**query_params, Limit=100)
-        # Sort items based on Timestamp
+        response = (
+            table.query(**query_params, Limit=100)
+            if userId
+            else table.scan(**query_params, Limit=100)
+        )
+
         response["Items"].sort(
             key=lambda x: datetime.fromisoformat(x["Timestamp"]),
             reverse=(sort_order.lower() == "desc"),
         )
+
         grouped_conversations = defaultdict(lambda: defaultdict(list))
         seen_sessions = set()
+
         for item in response["Items"]:
             date_str = (
                 datetime.fromisoformat(item["Timestamp"]).date().isoformat()
@@ -141,7 +157,6 @@ def search_chat(request: ChatHistorySearchRequest):
             session_id = item["SessionId"]
             if session_id in seen_sessions:
                 continue
-            # Save only the first message of each session
             grouped_conversations[date_str][session_id] = {
                 "UserMessage": item["UserMessage"],
                 "Timestamp": item["Timestamp"],
@@ -149,109 +164,108 @@ def search_chat(request: ChatHistorySearchRequest):
                 "UserId": item["UserId"],
             }
             seen_sessions.add(session_id)
-        # Convert defaultdict to regular dict for JSON serialization
-        grouped_conversations = {
+
+        return {
             date: dict(sessions)
             for date, sessions in grouped_conversations.items()
         }
-        return grouped_conversations
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        return generate_technical_error_message(
-            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
-        )
+        return generate_technical_error_message("", 0, "", "", e)
 
 
 @chat_history_router.post("/session/")
 def view_chat_by_session(
     request: ChatHistorySearchRequest,
 ) -> dict[str, list[dict]]:
+    """Get full session history for a given session ID.
+
+    Args:
+        request (ChatHistorySearchRequest): Request containing session ID.
+
+    Returns:
+        dict: Sorted message list for that session.
+    """
     try:
         response = table.query(
             IndexName="SessionId-index",
             KeyConditionExpression=Key("SessionId").eq(request.session_id),
         )
-        # Sort items by Timestamp in ascending order
         sorted_items = sorted(response["Items"], key=lambda x: x["Timestamp"])
-        # Group sorted items by SessionId
-        grouped_conversations = {request.session_id: sorted_items}
-        return grouped_conversations
+        return {request.session_id: sorted_items}
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        generate_technical_error_message(
-            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
+        return generate_technical_error_message(
+            "", 0, "", request.session_id, e
         )
 
 
 @chat_history_router.post("/download/")
 async def download_chat(request: ChatHistorySearchRequest):
+    """Generate and upload Excel file for a user's chat history and return presigned S3 URL.
+
+    Args:
+        request (ChatHistorySearchRequest): Filters to apply.
+
+    Returns:
+        dict: Download status and presigned URL.
+
+    TODO(@toloko): Clean up temp files after upload.
+    """
     try:
-        # Retrieve chat history using the provided request data
-        chat_history = search_chat(
-            ChatHistorySearchRequest(
-                apiKey=request.apiKey,
-                userId=request.userId,
-                keyword=request.keyword,
-                start_date=request.start_date,
-                end_date=request.end_date,
-                sort_order=request.sort_order,
-            )
-        )
+        chat_history = search_chat(request)
         df = pd.DataFrame(chat_history)
-        # Save the Excel file locally
         file_path = f"/tmp/{request.userId}_chat_history.xlsx"
         df.to_excel(file_path, index=False)
-        # Define S3 bucket and key
-        bucket_name = BUCKET_CONTAINER  # Replace with your bucket name
+
         s3_key = f"{request.userId}_chat_history.xlsx"
-        # Upload the file to S3
-        s3_client.upload_file(file_path, bucket_name, s3_key)
-        # Generate the S3 URL
-        s3_url = f"s3://{bucket_name}/{s3_key}"
-        # Generate a presigned URL
+        s3_client.upload_file(file_path, BUCKET_CONTAINER, s3_key)
+        s3_url = f"s3://{BUCKET_CONTAINER}/{s3_key}"
         presigned_url = generate_presigned_url(s3_url, page_number=1)
-        # Return the presigned URL in a JSON response
         return {"status": "success", "downloadUrl": presigned_url}
     except Exception as e:
         logger.info(f"Error in downloading chat: {e}")
-        generate_technical_error_message(
-            msg_id="", transaction_count=0, user_query="", sessionId="", exc=e
-        )
+        return generate_technical_error_message("", 0, "", "", e)
 
 
 @chat_history_router.post("/feedback/")
 def update_feedback(feedback: FeedbackRequest):
+    """Update feedback for a specific chat message.
+
+    Args:
+        feedback (FeedbackRequest): Feedback fields and message ID.
+
+    Returns:
+        dict: Update status.
+    """
     try:
-        # Validate that necessary feedback fields are provided
         if feedback.isFeedbackPositive is None:
             raise HTTPException(
-                status_code=400, detail="IsFeedbackPositive must be provided."
+                status_code=400,
+                detail="IsFeedbackPositive must be provided.",
             )
-        # Query to get the primary key using MessageId and SessionId
+
         response = table.query(
             IndexName="MessageId-index",
             KeyConditionExpression=Key("MessageId").eq(feedback.messageId),
         )
-        # Check if item exists
+
         if response["Items"]:
-            # Extract primary key values from the queried item
             item = response["Items"][0]
             user_id = item["UserId"]
             timestamp = item["Timestamp"]
-            # Construct the update expression and expression attribute values
             update_expression = "SET IsFeedbackPositive = :IsFeedbackPositive"
             expression_attribute_values = {
-                ":IsFeedbackPositive": feedback.isFeedbackPositive
+                ":IsFeedbackPositive": feedback.isFeedbackPositive,
             }
-            # Include FeedbackComment if provided
+
             if feedback.feedbackComment is not None:
                 update_expression += ", FeedbackComment = :FeedbackComment"
                 expression_attribute_values[":FeedbackComment"] = (
                     feedback.feedbackComment
                 )
-            # Prepare the primary key for the update
+
             key = {"UserId": user_id, "Timestamp": timestamp}
-            # Update the item in DynamoDB
             update_response = table.update_item(
                 Key=key,
                 UpdateExpression=update_expression,
@@ -260,12 +274,10 @@ def update_feedback(feedback: FeedbackRequest):
             )
             logger.info(f"{update_response}")
             return {"status": "success"}
-        else:
-            return {"status": "error"}
+
+        return {"status": "error"}
     except Exception as e:
-        logger.info(
-            f"Error updating feedback: {str(e)}"
-        )  # Print the error for debugging
+        logger.info(f"Error updating feedback: {e!s}")
         return generate_technical_error_message(
             feedback.messageId, 0, "", feedback.sessionId
         )
@@ -273,8 +285,15 @@ def update_feedback(feedback: FeedbackRequest):
 
 @chat_history_router.post("/recents/")
 def get_latest_active_sessions(request: ChatHistorySearchRequest):
+    """Get up to 3 recent active QnA sessions with first messages.
+
+    Args:
+        request (ChatHistorySearchRequest): User ID to filter.
+
+    Returns:
+        list: Recent sessions with SessionId, message, and KbType.
+    """
     try:
-        # Query using UserId as partition key and filter by active sessions
         response = []
         last_evaluated_key = None
 
@@ -290,8 +309,6 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
                 query_params["ExclusiveStartKey"] = last_evaluated_key
 
             output = table.query(**query_params)
-
-            # Extend the top_qna list with items from the response
             response.extend(output["Items"])
             last_evaluated_key = output.get("LastEvaluatedKey")
             if not last_evaluated_key:
@@ -299,26 +316,26 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
 
         active_sessions = []
         seen_session_ids = set()
-        kb_type = ""
+
         for item in response:
             session_id = item["SessionId"]
             if session_id in seen_session_ids:
-                continue  # Skip if session ID has been processed
-            # Query to get only the first message for each session, sorted by Timestamp ascending
+                continue
+
             session_message_response = table.query(
                 IndexName="SessionId-Timestamp-index",
                 KeyConditionExpression=Key("SessionId").eq(session_id),
                 ScanIndexForward=True,
                 Limit=1,
             )
+
             if session_message_response["Items"]:
                 first_item = session_message_response["Items"][0]
-                first_message = first_item.get("UserMessage", None)
-                # Extract KbType from ChatMetadata if available
+                first_message = first_item.get("UserMessage")
                 kb_type = first_item.get("ChatMetadata", {}).get(
                     "KbType", None
                 )
-                # Append session info with first message and KbType to active_sessions
+
                 active_sessions.append(
                     {
                         "SessionId": session_id,
@@ -329,10 +346,11 @@ def get_latest_active_sessions(request: ChatHistorySearchRequest):
                 seen_session_ids.add(session_id)
                 if len(seen_session_ids) >= 3:
                     break
+
         return active_sessions
     except Exception as e:
         logger.info(f"Error retrieving latest active sessions: {e}")
         raise HTTPException(
-            status_code=500, detail="Error retrieving latest active sessions"
+            status_code=500,
+            detail="Error retrieving latest active sessions",
         )
-        return []

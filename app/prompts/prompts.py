@@ -1,3 +1,5 @@
+"""Prompt templates used for knowledge base classification, risk assessment, and query generation."""
+
 TEMPLATE = """{Instruction}
 
 Here are the search results in order with their file reference:

@@ -1,4 +1,5 @@
-# services/config.py
+"""Loads configuration values and initializes constants for QnA services."""
+
 import logging
 
 import boto3

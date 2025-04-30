@@ -1,4 +1,4 @@
-"""services package init  re-export submodules"""
+"""services package init  re-export submodules."""
 
 from .doc_retriever import retrieve_documents
 from .embeddings import get_embeddings, similarity

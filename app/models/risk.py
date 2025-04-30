@@ -1,3 +1,5 @@
+"""Data models for representing chat metadata, interactions, and search requests."""
+
 from __future__ import annotations
 
 from typing import Optional, list
@@ -6,8 +8,7 @@ from pydantic import BaseModel
 
 
 class RiskClause(BaseModel):
-    """
-    Represents a single risk clause identified in a contract or document.
+    """Represents a single risk clause identified in a contract or document.
 
     Attributes:
         title (str): Short title or category of the risk clause.
@@ -19,8 +20,7 @@ class RiskClause(BaseModel):
 
 
 class RiskAssessmentAnswer(BaseModel):
-    """
-    Detailed structured response for a risk assessment query.
+    """Detailed structured response for a risk assessment query.
 
     Attributes:
         ans (str): Main answer or summary.
@@ -42,8 +42,7 @@ class RiskAssessmentAnswer(BaseModel):
 
 
 class RiskAssessmentResponse(BaseModel):
-    """
-    Wrapper model for returning a full risk assessment answer.
+    """Wrapper model for returning a full risk assessment answer.
 
     Attributes:
         answer (RiskAssessmentAnswer): Structured answer including clause breakdown and analysis.

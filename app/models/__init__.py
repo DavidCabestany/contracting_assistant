@@ -1,7 +1,6 @@
-"""
-Public re-exports so callers can simply do e.g.
+"""Public re-exports so callers can simply do e.g.
 
-    from models import QueryRequest, Result
+from models import QueryRequest, Result
 """
 
 from .answer import (
