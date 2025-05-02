@@ -34,7 +34,7 @@ node_modules/
 
 # Git-specific
 .git/
-
+.env
 # IDEs and text editors
 .idea/
 .vscode/
