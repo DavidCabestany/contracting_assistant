@@ -8,7 +8,6 @@ import re
 import uuid
 
 from auth.utils import verify_token
-from chathistory import store_interaction
 from fastapi import APIRouter, Depends
 from langchain_aws import ChatBedrock
 from models import (
@@ -29,6 +28,7 @@ from services import (
     retrieve_documents,
     session_history,
 )
+from services.chat_history_service import store_interaction
 from utils import (
     business_unit_prompt,
     extract_file_locations,

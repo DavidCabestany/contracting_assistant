@@ -8,7 +8,6 @@ import uuid
 from typing import Optional
 
 from auth.utils import verify_token
-from chathistory import store_interaction
 from config import get_config_value
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from langchain_aws import ChatBedrock
@@ -23,6 +22,7 @@ from models import (
 )
 from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
 from services import retrieve_and_generate_prioritized_doc
+from services.chat_history_service import store_interaction
 from services.memory import load_chat_history
 from utils import (
     extract_keywords_from_query,
