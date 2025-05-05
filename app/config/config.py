@@ -30,6 +30,7 @@ def _load_values():
     """Load configuration secrets from AWS Secrets Manager and store them in the `_secret_values` dictionary.
 
     This function:
+
     - Initializes the boto3 Secrets Manager client.
     - Fetches the secret identified by the environment variable 'secret_name' (or a default).
     - Parses the JSON-formatted secret string.
