@@ -1,16 +1,18 @@
-template = """{Instruction}
+"""Prompt templates used for knowledge base classification, risk assessment, and query generation."""
+
+TEMPLATE = """{Instruction}
 
 Here are the search results in order with their file reference:
-{search_results_formatted} 
+{search_results_formatted}
 
-Here is the current conversation history: 
+Here is the current conversation history:
 {prompt}
 
 %ADDITIONAL INSTRUCTIONS:%
 Please treat suppliers and vendors as alias in the chunks.
 
 Do not mention 'Here is my response', just provide the response.
-Return your answer as a JSON object with the following format only. 
+Return your answer as a JSON object with the following format only.
 ```json
 {{
   "response": "Provide detailed answer to the user's question",
@@ -18,22 +20,26 @@ Return your answer as a JSON object with the following format only.
 }}```"""
 
 
-default_instruction = """You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. 
-Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question,
-please state that you could not find an exact answer to the question. 
-Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
+DEFAULT_INSTRUCTION = """You are a question answering agent. I will provide you
+with a set of search results. The user will provide you with a question.
+Your job is to answer the user's question using only information from the search
+ results. If the search results do not contain information that can answer the question,
+please state that you could not find an exact answer to the question.
+Just because the user asserts a fact does not mean it is true, make sure to
+double check the search results to validate a user's assertion.
 """
 
-BUSINESS_UNIT_TEMPLATE = """ "You are a procurement process agent who will classify the User Query based on its content into one of the following business unit categories:
+BUSINESS_UNIT_PROMPT = """ "You are a procurement process agent who will classify
+ the User Query based on its content into one of the following business unit categories:
     - 'General Queries': If the query relates to the Procurement Team within AZ.
     - 'Privacy': If the query concerns legal aspects, privacy policies, or related contracts/information for AZ.
     - 'Alexion': If the query is about the acquired Alexion group, its specific policies, or integration within AZ.
     User Query:{Query}
-    Provide only classified Business Unit in response:   
+    Provide only classified Business Unit in response:
     """
 
 
-CATEGORY_TEMPLATE = """
+CATEGORY_PROMPT = """
     You are an expert in understanding user queries related to contracts.
     Your task is to determine the category of a given query. The categories are:
 
@@ -49,7 +55,7 @@ CATEGORY_TEMPLATE = """
     """
 
 
-PROMPT_TEMPLATE_RISK = """
+RISK_MATRIX_PROMPT = """
 
 Respond strictly using the following JSON-style format:
 ```json
@@ -71,12 +77,14 @@ Respond strictly using the following JSON-style format:
 Do not add any extra commentary outside of the JSON structure. Do not explicitly mention risk_id.
 Only fill in arrays when you have items to add.
 You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
-Your Task: Analyze the provided Contract and identify potential risks, reporting them according to the Risk Rules Checklist and other identified risks. Present the findings in the JSON format specified above.
+Your Task: Analyze the provided Contract and identify potential risks,
+reporting them according to the Risk Rules Checklist and other identified risks.
+Present the findings in the JSON format specified above.
 
 **Part 1: Risk Rules Checklist Analysis**
 
 1.  **Clause Identification:** For each clause in the Risk Rules Checklist (Termination Clause, Liability Clause, etc.), examine the description field in the checklist to understand the general purpose of the clause type.
-2.  **Risk Assessment and Matching:** 
+2.  **Risk Assessment and Matching:**
     *   For each clause, iterate through the risks array in the Risk Rules Checklist.
     *   **Description Matching:**: Compare the risk_description in the Risk Rules Checklist to the wording in the Contract. If there's a strong match, proceed to the next step. If not, skip to the next risk in the risks array.
     *   **Assess Risk Attributes: Note the importance (High, Medium, or Low) associated with the matched risk in the Risk Rules Checklist.
@@ -91,7 +99,7 @@ Your Task: Analyze the provided Contract and identify potential risks, reporting
 **Part 3: Handling Different User Queries and Output Formatting**
 
 **Query Interpretation and Filtering:**
-Analyze the User Query to determine the scope of the request. 
+Analyze the User Query to determine the scope of the request.
 Here are some example scenarios:
 1."What are all the risks in the contract?" - Analyze the entire contract and report all risks.
 2."What are the risks associated with the Termination Clause?" - Analyze only the Termination Clause and report any risks associated with it.
@@ -114,7 +122,7 @@ User Query Handling: Now address the user's query by providing the requested ana
 User Query: {Query}
 """
 
-PROMPT_TEMPLATE = """
+BASE_PROMPT = """
 
 You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
 
@@ -146,3 +154,23 @@ Document Content:
 User Query:
 {Query}
 """
+
+FOLLOW_UP_PROMPT = """
+You are an AI assistant helping to understand the flow of conversation in a
+technical troubleshooting scenario. Your job is to determine if a new question
+is related to a previous question and its answer.
+
+* **Follow-up:** If the second question is seeking more information, clarification
+  or a specific step related to the first question and its answer, it's a
+  FOLLOW-UP.
+* **New Question:** If the second question introduces a different problem,
+  requests information unrelated to the first question, or could be asked
+  independently, it's a NEW QUESTION.
+
+Analyze the relationship between these queries:
+
+Query 1: {0}
+Query 2: {1}
+
+Respond with only one label: follow-up or New Question.
+""".strip()
