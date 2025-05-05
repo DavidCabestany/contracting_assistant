@@ -10,7 +10,7 @@ import pickle
 from collections.abc import Sequence
 
 from botocore.exceptions import BotoCoreError, ClientError
-from config import get_config_value
+from config import get_secret
 from fastapi import HTTPException
 from langchain.schema import BaseChatMessageHistory, BaseMessage
 
@@ -18,7 +18,7 @@ from .clients import s3_client as _S3
 
 logger = logging.getLogger(__name__)
 
-_BUCKET = get_config_value("BUCKET_CONTAINER")
+_BUCKET = get_secret("BUCKET_CONTAINER")
 _CACHE_PREFIX = "cache/"
 
 

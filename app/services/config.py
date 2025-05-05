@@ -1,7 +1,7 @@
 """Centralised configuration and constant values.
 
 This module defines:
-- Dynamic values fetched from AWS Secrets Manager via `get_config_value`
+- Dynamic values fetched from AWS Secrets Manager via `get_secret`
 - Static constants used for tuning (e.g., temperature, max tokens)
 - Prompt mapping paths
 - Logging setup for downstream service modules
@@ -9,17 +9,17 @@ This module defines:
 
 import logging
 
-from config import get_config_value
+from config import get_secret
 
 # ─────── Dynamic config values (loaded at runtime from Secrets Manager) ───────
-REGION_ID: str = get_config_value("REGION_ID")
-MODEL_ARN: str = get_config_value("MODEL_ARN")
-EMBEDDING_MODEL_ID: str = get_config_value("EMBEDDING_MODEL_ID")
-MODEL_ID: str = get_config_value("MODEL_ID")
-BUCKET_CONTAINER: str = get_config_value("BUCKET_CONTAINER")
-QNA_SEARCH_TYPE: str = get_config_value("QNA_SEARCH_TYPE")
-GUARDRAIL_ID: str = get_config_value("GUARDRAIL_ID")
-GUARDRAIL_VERSION_ID: str = get_config_value("GUARDRAIL_VERSION_ID")
+REGION_ID: str = get_secret("REGION_ID")
+MODEL_ARN: str = get_secret("MODEL_ARN")
+EMBEDDING_MODEL_ID: str = get_secret("EMBEDDING_MODEL_ID")
+MODEL_ID: str = get_secret("MODEL_ID")
+BUCKET_CONTAINER: str = get_secret("BUCKET_CONTAINER")
+QNA_SEARCH_TYPE: str = get_secret("QNA_SEARCH_TYPE")
+GUARDRAIL_ID: str = get_secret("GUARDRAIL_ID")
+GUARDRAIL_VERSION_ID: str = get_secret("GUARDRAIL_VERSION_ID")
 
 # TODO(@kvcn639): Add fallback defaults or error handling if any value above is missing or None
 

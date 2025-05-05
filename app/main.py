@@ -28,6 +28,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
 # Auth endpoints
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 

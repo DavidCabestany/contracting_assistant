@@ -8,7 +8,7 @@ import uuid
 from typing import Optional
 
 from auth.utils import verify_token
-from config import get_config_value
+from config import get_secret
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from langchain_aws import ChatBedrock
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -149,7 +149,7 @@ async def generate_summary(
         try:
             resp = retrieve_and_generate_prioritized_doc(
                 prompt,
-                get_config_value("GEN_ENQ_KB_ID"),
+                get_secret("GEN_ENQ_KB_ID"),
                 "general",
                 [PRIOR_DOC],
                 session_id=session_id,

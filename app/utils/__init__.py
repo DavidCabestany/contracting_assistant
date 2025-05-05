@@ -80,5 +80,5 @@ __all__ = [
     "validate_api_key",
     "extract_chat_history",
     # parents
-    "get_config_value",
+    "get_secret",
 ]

@@ -30,7 +30,6 @@ def _load_values():
     """Load configuration secrets from AWS Secrets Manager and store them in the `_secret_values` dictionary.
 
     This function:
-
     - Initializes the boto3 Secrets Manager client.
     - Fetches the secret identified by the environment variable 'secret_name' (or a default).
     - Parses the JSON-formatted secret string.
@@ -41,28 +40,24 @@ def _load_values():
     """
     try:
         client = boto3.client(
-            service_name="secretsmanager",
-            region_name="us-east-1",
+            service_name="secretsmanager", region_name="us-east-1"
         )
-        secret_name = os.getenv("secret_name")  # removed teh default option
+        secret_name = os.getenv(
+            "secret_name", "azcdi-us-ops-procure-ds-secret-dev"
+        )
 
-        logger.info(f"Loading config from secret: {secret_name}")
-        response = client.get_secret_value(SecretId=secret_name)
-
-        secret_str = response.get("SecretString")
-        if not secret_str:
-            raise ValueError("SecretString is missing in the response")
-
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
         global _secret_values
-        _secret_values = json.loads(secret_str)
-        logger.info("Configuration values loaded successfully")
+        _secret_values = json.loads(get_secret_value_response["SecretString"])
 
+        print("Configuration values loaded successfully")
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e!s}")
-        raise Exception(f"Error loading config data: {e!s}")
+        raise Exception(f"Error in loading required data: {str(e)}")
 
 
-def get_config_value(key: str, default=None):
+def get_secret(key: str):
     """Retrieve a specific configuration value from `_secret_values`.
 
     Args:
@@ -72,7 +67,7 @@ def get_config_value(key: str, default=None):
     Returns:
         Any: The value associated with the key, or `default` if not found.
     """
-    return _secret_values.get(key, default)
+    return _secret_values.get(key)
 
 
 @config_router.get("/config")
@@ -100,7 +95,7 @@ async def get_config_item(key: str):
         dict: The value for the key, or a message if not found.
     """
     try:
-        value = get_config_value(key)
+        value = get_secret(key)
         if value is None:
             return {"message": f"Key '{key}' not found"}
         return {key: value}
@@ -118,5 +113,4 @@ async def list_config_keys():
     return {"keys": list(_secret_values.keys())}
 
 
-# Load secrets immediately when this module is imported
 _load_values()
