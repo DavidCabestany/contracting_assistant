@@ -13,7 +13,15 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+file_handler = logging.FileHandler("report.log", mode="a", encoding="utf-8")
+file_handler.setLevel(logging.INFO)
 
+# Re-use the same format you defined in basicConfig
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+)
+
+logging.getLogger().addHandler(file_handler)
 # Create FastAPI app instance
 app = FastAPI(
     title="Contracting Assistant API",
