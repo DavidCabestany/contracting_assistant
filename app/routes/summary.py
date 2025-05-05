@@ -133,14 +133,21 @@ async def generate_summary(
     chain = RunnableWithMessageHistory(llm, load_chat_history)
 
     # include previous chat for better coherence
+    history = load_chat_history(session_id)
     user_hist = ""
-    # TODO(@kvcn639): Add truncation if session history is too long to fit in prompt
-    for q, a in extract_keywords_from_query(load_chat_history(session_id)):
-        user_hist += f"User: {q}\nAssistant: {a}\n"
+    for i in range(0, len(history.messages), 2):
+        human = history.messages[i].content
+        ai = (
+            history.messages[i + 1].content
+            if i + 1 < len(history.messages)
+            else ""
+        )
+        user_hist += f"User: {human}\nAssistant: {ai}\n"
 
     try:
+        full_prompt = f"{user_hist}\n{prompt}"
         summary = chain.invoke(
-            prompt,
+            full_prompt,
             config={"configurable": {"session_id": session_id}},
         )
     except Exception as exc:
