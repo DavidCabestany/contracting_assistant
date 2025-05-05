@@ -16,7 +16,7 @@ from botocore.config import Config
 
 from .constants import logger
 
-_S3 = boto3.client(
+s3_client = boto3.client(
     "s3",
     config=Config(retries={"max_attempts": 3}, max_pool_connections=50),
 )
@@ -51,7 +51,7 @@ def generate_presigned_url(
 
     bucket, key = match.groups()
     try:
-        url = _S3.generate_presigned_url(
+        url = s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket, "Key": key},
             ExpiresIn=expiration,

@@ -8,7 +8,7 @@ from config import get_secret
 logger = logging.getLogger(__name__)
 
 
-S3 = boto3.client("s3")
+s3_client = boto3.client("s3")
 BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
 QNA_FLOW_NAME = get_secret("QNA_FLOW_NAME")
 MODEL_ID = get_secret("MODEL_ID")

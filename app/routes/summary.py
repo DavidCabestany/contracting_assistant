@@ -97,7 +97,9 @@ async def generate_summary(
                 ContentType=file.content_type,
             )
         except Exception as exc:
-            raise HTTPException(500, f"S3 upload failed: {exc}") from exc
+            raise HTTPException(
+                500, f"s3_client upload failed: {exc}"
+            ) from exc
 
         try:
             if ftype == ".pdf":
