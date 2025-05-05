@@ -70,7 +70,7 @@ class ChatMessageHistory(BaseChatMessageHistory):
         self.messages.clear()
 
 
-def load_chat_history(session_id: str) -> ChatMessageHistory:
+def get_file_memory(session_id: str) -> ChatMessageHistory:
     """Fetch cached chat history for a given session ID from S3.
 
     If the file is not found or an error occurs, returns an empty ChatMessageHistory.

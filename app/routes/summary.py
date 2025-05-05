@@ -17,13 +17,14 @@ from models import (
     ChatMetadata,
     Feedback,
     FeedbackDisplayOptions,
+    QnAAnswer,
     QueryResponse,
     Result,
 )
 from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
 from services import retrieve_and_generate_prioritized_doc
-from services.chat_history_service import store_interaction
-from services.memory import load_chat_history
+from services.chat_history_service import session_history, store_interaction
+from services.memory import get_file_memory
 from utils import (
     extract_keywords_from_query,
     extract_pdf_contents,
@@ -41,10 +42,10 @@ from .constants import (
     IRRELEVANT,
     MODEL_ID,
     PRIOR_DOC,
-    S3,
     SESSION_STATUS,
     SUMMARY_FLOW_NAME,
 )
+from .constants import s3_client as S3
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -130,19 +131,17 @@ async def generate_summary(
         prompt = generate_prompt(content, queryText, BASE_PROMPT)
 
     llm = ChatBedrock(model_id=MODEL_ID)
-    chain = RunnableWithMessageHistory(llm, load_chat_history)
+    chain = RunnableWithMessageHistory(llm, get_file_memory)
 
     # include previous chat for better coherence
-    history = load_chat_history(session_id)
+
+    history_dict = session_history(session_id)
+    transcript = history_dict.get(session_id, [])
     user_hist = ""
-    for i in range(0, len(history.messages), 2):
-        human = history.messages[i].content
-        ai = (
-            history.messages[i + 1].content
-            if i + 1 < len(history.messages)
-            else ""
-        )
-        user_hist += f"User: {human}\nAssistant: {ai}\n"
+    for item in transcript:
+        # each item is a dict exactly as you stored it
+        user_hist += f"User: {item['UserMessage']}\n"
+        user_hist += f"Assistant: {item['BotResponse']}\n"
 
     try:
         full_prompt = f"{user_hist}\n{prompt}"
@@ -171,12 +170,12 @@ async def generate_summary(
             )  # TODO(@kvcn639): Add alerting or retry strategy here
 
     try:
-        structured = parse_risk_assessment_output(answer)
-        final_ans = structured.dict()["answer"]
-    except ValueError:
-        final_ans = {
-            "ans": answer,
-        }  # TODO(@kvcn639): Add fallback schema validation for unexpected answer shapes
+        parsed = parse_risk_assessment_output(answer).dict()["answer"]
+        qna = QnAAnswer(**parsed)
+    except Exception:
+        qna = QnAAnswer(ans=answer)
+
+    final_ans = qna.dict()
 
     result = Result(
         messageId=msg_id,
