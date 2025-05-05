@@ -11,6 +11,7 @@ from .chat_history_service import (
 )
 from .doc_retriever import retrieve_documents
 from .embeddings import get_embeddings, similarity
+from .memory import get_file_memory
 from .qna import (
     generate_answer_with_context,
     retrieve_and_generate,
@@ -19,6 +20,7 @@ from .qna import (
 from .templates import retrieve_template
 
 __all__ = [
+    "get_file_memory",
     # qna
     "retrieve_and_generate",
     "retrieve_and_generate_prioritized_doc",

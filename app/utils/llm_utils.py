@@ -115,7 +115,7 @@ def extract_keywords_from_query(query: str, *, max_char: int = 2_000) -> str:
     Returns:
         str: Comma-separated keywords or fallback string on failure.
     """
-    if not query.strip():
+    if not query():
         return ""
 
     prompt = f"""

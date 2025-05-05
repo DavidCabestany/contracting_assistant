@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from config import get_config_value
+from config import get_secret
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 # Load token settings from environment/config
-ALGORITHM = get_config_value("ALGORITHM")
-SECRET_KEY = get_config_value("SECRET_KEY")
-TOKEN_GRACE_PERIOD_MINUTES = get_config_value("TOKEN_GRACE_PERIOD_MINUTES")
-TOKEN_EXPIRE_MINUTES = get_config_value("TOKEN_EXPIRE_MINUTES")
+ALGORITHM = get_secret("ALGORITHM")
+SECRET_KEY = get_secret("SECRET_KEY")
+TOKEN_GRACE_PERIOD_MINUTES = get_secret("TOKEN_GRACE_PERIOD_MINUTES")
+TOKEN_EXPIRE_MINUTES = get_secret("TOKEN_EXPIRE_MINUTES")
 
 
 def verify_token(

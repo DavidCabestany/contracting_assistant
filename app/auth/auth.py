@@ -3,7 +3,7 @@
 import logging
 
 from auth.utils import create_token, renew_token
-from config import get_config_value
+from config import get_secret
 from fastapi import APIRouter, Header, HTTPException
 
 logger = logging.getLogger(__name__)
@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 auth_router = APIRouter()
 
 # Configuration constants for token handling
-SECRET_KEY = get_config_value("SECRET_KEY")
-TOKEN_EXPIRE_MINUTES = get_config_value("TOKEN_EXPIRE_MINUTES")
+SECRET_KEY = get_secret("SECRET_KEY")
+TOKEN_EXPIRE_MINUTES = get_secret("TOKEN_EXPIRE_MINUTES")
 
 
 @auth_router.post("/loadconfig")

@@ -10,15 +10,15 @@ import pickle
 from collections.abc import Sequence
 
 from botocore.exceptions import BotoCoreError, ClientError
-from config import get_config_value
+from config import get_secret
 from fastapi import HTTPException
 from langchain.schema import BaseChatMessageHistory, BaseMessage
 
-from .clients import s3_client as _S3
+from .clients import s3_client
 
 logger = logging.getLogger(__name__)
 
-_BUCKET = get_config_value("BUCKET_CONTAINER")
+_BUCKET = get_secret("BUCKET_CONTAINER")
 _CACHE_PREFIX = "cache/"
 
 
@@ -53,7 +53,7 @@ class ChatMessageHistory(BaseChatMessageHistory):
             updated_pickle_data = pickle.dumps(self)
 
             # Upload the updated pickle file back to S3
-            _S3.put_object(
+            s3_client.put_object(
                 Bucket=_BUCKET,
                 Key=f"cache/{self.session_id}.pkl",
                 Body=updated_pickle_data,
@@ -70,7 +70,7 @@ class ChatMessageHistory(BaseChatMessageHistory):
         self.messages.clear()
 
 
-def load_chat_history(session_id: str) -> ChatMessageHistory:
+def get_file_memory(session_id: str) -> ChatMessageHistory:
     """Fetch cached chat history for a given session ID from S3.
 
     If the file is not found or an error occurs, returns an empty ChatMessageHistory.
@@ -84,7 +84,7 @@ def load_chat_history(session_id: str) -> ChatMessageHistory:
     """
     key = f"{_CACHE_PREFIX}{session_id}.pkl"
     try:
-        obj = _S3.get_object(Bucket=_BUCKET, Key=key)
+        obj = s3_client.get_object(Bucket=_BUCKET, Key=key)
         with obj["Body"] as fd:
             return pickle.load(fd)
     except ClientError as exc:

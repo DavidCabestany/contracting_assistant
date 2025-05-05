@@ -8,16 +8,16 @@ import boto3
 import pandas as pd
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
-from config import get_config_value
+from config import get_secret
 from fastapi import HTTPException
 from models import ChatHistorySearchRequest, ChatInteraction, FeedbackRequest
 from utils import generate_presigned_url, generate_technical_error_message
 
 logger = logging.getLogger(__name__)
 
-REGION_ID = get_config_value("REGION_ID")
-CHAT_TABLE = get_config_value("CHAT_TABLE")
-BUCKET_CONTAINER = get_config_value("BUCKET_CONTAINER")
+REGION_ID = get_secret("REGION_ID")
+CHAT_TABLE = get_secret("CHAT_TABLE")
+BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
 
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
 s3_client = boto3.client("s3", config=boto_config)
