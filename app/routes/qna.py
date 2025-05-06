@@ -136,15 +136,27 @@ def _build_prompt_with_optional_history(
         resp = generate_answer_with_context(
             FOLLOW_UP_PROMPT.format(history_txt, user_txt)
         )
-        verdict = (resp.get("content", [{}])[0].get("text", "")).lower()
-        is_follow_up = "follow-up" in verdict
-        logger.info("FOLLOW-UP | is_follow_up=%s", is_follow_up)
-    except Exception as e:
-        logger.warning(f"History detector failed: {e}")
-        is_follow_up = True
+        user_txt = (resp.get("content", [{}])[0].get("text", "")).lower()
+        # is_follow_up = "follow-up" in verdict
+        # logger.info(
+        #     "FOLLOW-UP | detector_text='%s' | is_follow_up=%s",
+        #     verdict[:60].replace("\n", " "),
+        #     is_follow_up,
+        # )
+    except Exception:
+        logger.exception(
+            "FOLLOW-UP | detector failed – default include history"
+        )
+    # is_follow_up = True
 
     prompt = (
         f"{history_txt}User:{user_txt}" if is_follow_up else f"User:{user_txt}"
+    )
+    # -- DEBUG: log history + final prompt --------------------
+    logger.info(
+        "FOLLOW-UP | history_preview='%s' | prompt_preview='%s'",
+        history_txt[:200].replace("\n", " "),
+        prompt[:200].replace("\n", " "),
     )
     return prompt, history_txt
 

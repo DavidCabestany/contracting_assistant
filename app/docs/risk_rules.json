@@ -25,17 +25,17 @@
       "importance": "High",
       "risks": [
         {
-          "risk_description": "Unlimited liability or high liability caps",
+          "risk_description": "Unlimited liability or high liability caps to Astrazeneca, low or no liability for the other contractual party than AZ, it should also take into context the cap vs the total spend of the agreement",
           "importance": "High",
           "risk_ID": "risk_004"
         },
         {
-          "risk_description": "Moderate liability caps",
+          "risk_description": "Moderate liability caps for both Astrazeneca and 2nd party, it should also take into context the cap vs the total spend of the agreement",
           "importance": "Medium",
           "risk_ID": "risk_005"
         },
         {
-          "risk_description": "Low liability caps or limited liability",
+          "risk_description": "Low liability caps for or limited liability to Astrazeneca and high liability caps for the 2nd party, it should also take into context the cap vs the total spend of the agreement",
           "importance": "Low",
           "risk_ID": "risk_006"
         }
@@ -67,17 +67,17 @@
       "importance": "High",
       "risks": [
         {
-          "risk_description": "No sustainability commitments or poor environmental practices",
+          "risk_description": "No sustainability commitments or poor environmental practices, lack of commitments to achieve proper Ecovadis score, no Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP) commitments",
           "importance": "High",
           "risk_ID": "risk_010"
         },
         {
-          "risk_description": "Some sustainability commitments with moderate impact",
+          "risk_description": "Some sustainability commitments to Ecovadis, Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP)",
           "importance": "Medium",
           "risk_ID": "risk_011"
         },
         {
-          "risk_description": "Strong sustainability commitments and excellent environmental practices",
+          "risk_description": "Strong sustainability commitments to high Ecovadis score, and compliance with Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP) and excellent environmental practices",
           "importance": "Low",
           "risk_ID": "risk_012"
         }
@@ -105,21 +105,21 @@
       ]
     },
     "Payment Terms": {
-      "description": "Clause governing the methods, timing, and conditions of payment.",
+      "description": "Clause governing the methods, timing, and conditions of payment with AZ standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions;60 days within the United Kingdom and the European Union;45 days within France.",
       "importance": "Medium",
       "risks": [
         {
-          "risk_description": "Unfavorable payment terms, such as advance payments or long payment period",
+          "risk_description": "Unfavorable payment terms to Astrazeneca, not in line with AZ standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions;60 days within the United Kingdom and the European Union;45 days within France., such as advance payments or long payment periods. Based on 2nd party location",
           "importance": "High",
           "risk_ID": "risk_016"
         },
         {
-          "risk_description": "Balanced payment terms",
+          "risk_description": "Balanced payment terms in line with az standard: 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France. Or approved deviations. Based on 2nd party location",
           "importance": "Medium",
           "risk_ID": "risk_017"
         },
         {
-          "risk_description": "Favorable payment terms, such as prompt payments",
+          "risk_description": "Favorable payment terms longer than AZ standard, such as prompt payments or in line with our standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France. Based on 2nd party location",
           "importance": "Low",
           "risk_ID": "risk_018"
         }
