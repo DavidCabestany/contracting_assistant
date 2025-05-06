@@ -115,7 +115,6 @@ def retrieve_and_generate(
     Returns:
         dict: Retrieved and generated output from Bedrock.
     """
-
     # Define query to document mapping
     query_reference_document_mapping = {
         "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
@@ -126,14 +125,14 @@ def retrieve_and_generate(
     # Determine document filter based on query content
     filter_config = {}
     query_lower = query.lower()
-    
+
     # Find matching document based on keywords
     for keywords, document in query_reference_document_mapping.items():
         if all(keyword in query_lower for keyword in keywords.split()):
             filter_config = {
                 "equals": {
                     "key": "x-amz-bedrock-kb-source-uri",
-                    "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}"
+                    "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}",
                 }
             }
             break
@@ -147,10 +146,8 @@ def retrieve_and_generate(
                 "retrievalConfiguration": {
                     "vectorSearchConfiguration": {
                         "overrideSearchType": QNA_SEARCH_TYPE,
-                            "numberOfResults": 5, # TODO(@kvcn639): Make result limit configurable
-                            **({
-                                "filter": filter_config
-                            } if filter_config else {})
+                        "numberOfResults": 5,  # TODO(@kvcn639): Make result limit configurable
+                        **({"filter": filter_config} if filter_config else {}),
                     },
                 },
                 "generationConfiguration": _build_gen_cfg(),

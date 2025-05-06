@@ -22,10 +22,20 @@ file_handler.setFormatter(
 )
 
 logging.getLogger().addHandler(file_handler)
-# Create FastAPI app instance
+
+
 app = FastAPI(
     title="Contracting Assistant API",
     version="1.0.0",
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -43,16 +53,6 @@ app.include_router(summary_router)
 
 # Chat history endpoints
 app.include_router(chat_history_router, prefix="/chat", tags=["Chat history"])
-
-# ─── CORS CONFIGURATION ─────────────────────────────────────────────────
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/")
