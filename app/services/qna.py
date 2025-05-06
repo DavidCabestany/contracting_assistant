@@ -117,12 +117,7 @@ def retrieve_and_generate(
     """
     # Define query to document mapping
     query_reference_document_mapping = {
-        "supplier controller processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
-        "gcp clause": "SAAS Agreement (Standalone).pdf",
-        "can handbook": "CAN HANDBOOK Third Edition.pdf",
-        "payment terms vendor": "CAN HANDBOOK Third Edition.pdf",
-        "liability data protection": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
-        "template clarifies govern": "General Rules Document.pdf",
+        "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
     }
 
     prompt_text = _render_prompt(query)
@@ -133,7 +128,7 @@ def retrieve_and_generate(
 
     # Find matching document based on keywords
     for keywords, document in query_reference_document_mapping.items():
-        if any(keyword in query_lower for keyword in keywords.split()):
+        if all(keyword in query_lower for keyword in keywords.split()):
             filter_config = {
                 "equals": {
                     "key": "x-amz-bedrock-kb-source-uri",
