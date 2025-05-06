@@ -102,6 +102,7 @@ def retrieve_and_generate(
     kb_id: str,
     *,
     session_id: str | None = None,
+    kb_path: str | None = None,
 ):
     """Run Bedrock's retrieve-and-generate pipeline using the general KB.
 
@@ -109,11 +110,39 @@ def retrieve_and_generate(
         query (str): The user query.
         kb_id (str): Knowledge base ID.
         session_id (Optional[str]): Optional session identifier.
+        kb_path (Optional[str]): S3 prefix path for the documents.
 
     Returns:
         dict: Retrieved and generated output from Bedrock.
     """
+
+    # Define query to document mapping
+    query_reference_document_mapping = {
+        "supplier controller processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+        "gcp clause": "SAAS Agreement (1).pdf",
+        "can handbook": "CAN Handbook.pdf",
+        "payment terms vendor": "CAN Handbook.pdf",
+        "liability data protection": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
+        "template clarifies govern": "General Rules Document.pdf"
+    }
+
     prompt_text = _render_prompt(query)
+
+    # Determine document filter based on query content
+    filter_config = {}
+    query_lower = query.lower()
+    
+    # Find matching document based on keywords
+    for keywords, document in query_reference_document_mapping.items():
+        if any(keyword in query_lower for keyword in keywords.split()):
+            filter_config = {
+                "equals": {
+                    "key": "x-amz-bedrock-kb-source-uri",
+                    "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}"
+                }
+            }
+            break
+
     return bedrock_agent_runtime.retrieve_and_generate(
         input={"text": prompt_text},
         retrieveAndGenerateConfiguration={
@@ -123,7 +152,10 @@ def retrieve_and_generate(
                 "retrievalConfiguration": {
                     "vectorSearchConfiguration": {
                         "overrideSearchType": QNA_SEARCH_TYPE,
-                        "numberOfResults": 3,  # TODO(@kvcn639): Make result limit configurable
+                            "numberOfResults": 5, # TODO(@kvcn639): Make result limit configurable
+                            **({
+                                "filter": filter_config
+                            } if filter_config else {})
                     },
                 },
                 "generationConfiguration": _build_gen_cfg(),

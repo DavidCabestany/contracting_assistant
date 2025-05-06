@@ -167,7 +167,7 @@ def _fallback_qna(
             )
         else:
             resp = retrieve_and_generate(
-                prompt, GEN_ENQ_KB_ID, session_id=bedrock_session
+                prompt, GEN_ENQ_KB_ID, session_id=bedrock_session, kb_path=kb_folder
             )
         _bedrock_sessions[ui_session_id] = resp["sessionId"]
         if resp.get("citations") and resp["citations"][0].get(
@@ -221,6 +221,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
     user_txt = request.query.text.strip()
 
     ui_session_id = request.user.sessionId
+
+    #Get the knowledge base folder based on the knowledge type
+    kb_path = get_knowledge_base_folder(request.query.knowledgeType)
+
     if not ui_session_id:
         ui_session_id = str(uuid.uuid4())
         request.user.sessionId = ui_session_id
@@ -310,6 +314,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 user_txt,
                 get_knowledge_base_id(request.query.knowledgeType),
                 session_id=bedrock_session_id,
+                kb_path=kb_path,
             )
         answer = resp["output"]["text"]
         citations = extract_file_locations(resp)
