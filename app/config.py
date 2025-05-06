@@ -105,4 +105,4 @@ load_values()
 
 
 ##Hardcoded Values
-PRIORITZE_DOCUMENT = 'CAN HANDBOOK Third Edition.pdf'
+PRIORITZE_DOCUMENT = 'CAN HANDBOOK 4.0.pdf'
