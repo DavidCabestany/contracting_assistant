@@ -119,9 +119,9 @@ def retrieve_and_generate(
     # Define query to document mapping
     query_reference_document_mapping = {
         "supplier controller processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
-        "gcp clause": "SAAS Agreement (1).pdf",
-        "can handbook": "CAN Handbook.pdf",
-        "payment terms vendor": "CAN Handbook.pdf",
+        "gcp clause": "SAAS Agreement (Standalone).pdf",
+        "can handbook": "CAN HANDBOOK Third Edition.pdf",
+        "payment terms vendor": "CAN HANDBOOK Third Edition.pdf",
         "liability data protection": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
         "template clarifies govern": "General Rules Document.pdf"
     }
