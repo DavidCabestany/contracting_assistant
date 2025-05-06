@@ -43,7 +43,7 @@ def _load_values():
             service_name="secretsmanager", region_name="us-east-1"
         )
         secret_name = os.getenv(
-            "secret_name", "azcdi-us-ops-procure-ds-secret-test"
+            "secret_name", "azcdi-us-ops-procure-ds-secret-dev"
         )
 
         get_secret_value_response = client.get_secret_value(

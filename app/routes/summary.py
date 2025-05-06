@@ -1,30 +1,38 @@
-"""Routes and logic for generating document summaries and risk assessments."""
+"""Routes and logic for generating document summaries and risk assessments.
+
+This module provides endpoints to summarize uploaded documents or plain text queries
+and assess associated risks. It does not depend on RunnableWithMessageHistory;
+instead, session context is managed via load_history and save_history in
+memory_helpers.py, eliminating Pydantic attribute errors while preserving all functionality.
+"""
 
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import uuid
 from typing import Optional
 
+import boto3
 from auth.utils import verify_token
+from botocore.exceptions import BotoCoreError, ClientError
 from config import get_secret
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from langchain_aws import ChatBedrock
-from langchain_core.runnables.history import RunnableWithMessageHistory
 from models import (
     ChatInteraction,
     ChatMetadata,
     Feedback,
     FeedbackDisplayOptions,
-    QnAAnswer,
     QueryResponse,
     Result,
 )
 from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
-from services import retrieve_and_generate_prioritized_doc
-from services.chat_history_service import session_history, store_interaction
-from services.memory import get_file_memory
+from routes.qna import retrieve_and_generate_prioritized_doc
+from services.chat_history_service import store_interaction
+from services.memory import ChatMessageHistory
+from services.memory_helpers import load_history, save_history
 from utils import (
     extract_keywords_from_query,
     extract_pdf_contents,
@@ -33,92 +41,144 @@ from utils import (
     generate_prompt_risk,
     get_file_type,
     get_risk_matrix_details,
-    parse_risk_assessment_output,
     prompt_query_cat,
 )
 
-from .constants import (
-    BUCKET_CONTAINER,
-    IRRELEVANT,
-    MODEL_ID,
-    PRIOR_DOC,
-    SESSION_STATUS,
-    SUMMARY_FLOW_NAME,
-)
-from .constants import s3_client as S3
-
+# Configure logging
 logger = logging.getLogger(__name__)
+
+# Initialize S3 client and constants
+s3 = boto3.client("s3")
+MAX_SEARCH_LEN = 2000
+BUCKET_CONTAINER: str = get_secret("BUCKET_CONTAINER")
+MODEL_ID: str = get_secret("MODEL_ID")
+REGION_ID: str = get_secret("REGION_ID")
+IRRELEVANT: str = get_secret("IRRELEVANT_KEYWORD")
+SUMMARY_FLOW_NAME: str = get_secret("SUMMARY_FLOW_NAME")
+PRIOR_DOC: str = "CAN HANDBOOK Third Edition.pdf"
+
 router = APIRouter(
     tags=["Summary"],
     dependencies=[Depends(verify_token)],
 )
 
 
+def fallback_via_kb(
+    prompt: str,
+    session_id: str,
+    knowledge_base_folder: str = "general",
+) -> tuple[str, list]:
+    """Attempt Bedrock KB retrieval and prioritized document generation.
+
+    Returns:
+        A tuple containing the answer text and a list of citations.
+        If retrieval fails, the answer text is empty and citations list is empty.
+    """
+    try:
+        response = retrieve_and_generate_prioritized_doc(
+            prompt,
+            get_secret("GEN_ENQ_KB_ID"),
+            knowledge_base_folder,
+            [PRIOR_DOC],
+            session_id=session_id,
+        )
+        if response.get("citations"):
+            return response["output"]["text"], response["citations"]
+    except Exception:
+        logger.exception("Fallback retrieval via knowledge base failed.")
+
+    return "", []
+
+
 @router.post("/getsummary/")
 async def generate_summary(
     file: UploadFile = File(None),
-    apiKey: Optional[str] = Form(None),
+    apiKey: Optional[str] = Form(
+        None
+    ),  # maintained for signature parity, unused
     userId: Optional[str] = Form(None),
     sessionId: Optional[str] = Form(None),
-    language: Optional[str] = Form(None),
-    platform: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),  # reserved, not used yet
+    platform: Optional[str] = Form(None),  # reserved, not used yet
     queryText: Optional[str] = Form(None),
     transactionCount: Optional[str] = Form(None),
 ) -> QueryResponse:
-    """Endpoint for generating a summary from an uploaded document or query text.
+    """Summarize an uploaded document or a plain query text.
 
-    Optionally classifies the type of summary and applies fallback mechanisms if needed.
-    Stores the full interaction metadata for audit and training purposes.
+    Steps:
+    1. If `file` is provided, upload it to S3 and extract its text.
+    2. Default `queryText` to a generic summary request if it is empty.
+    3. Load per-session chat history from S3 via memory_helpers.
+    4. Determine query category (risk vs. normal) and build the prompt.
+    5. Invoke the Bedrock model directly without LangChain history wrapper.
+    6. If the response contains the `IRRELEVANT` keyword, attempt KB fallback.
+    7. Persist the updated chat history for future turns.
+    8. Build and return the API response, logging interaction to the database.
     """
     msg_id = str(uuid.uuid4())
     session_id = sessionId or str(uuid.uuid4())
     file_name = ""
-    folder = ""
-
+    folder_path = ""
     content = ""
-    if file:
+
+    # 1. Handle file upload and text extraction
+    if file is not None:
         try:
             file_bytes = await file.read()
-            ftype = get_file_type(file.filename)
-            # TODO(@kvcn639): Add file size limit guardrail to prevent memory overload
+            file_type = get_file_type(file.filename)
         except Exception as exc:
             raise HTTPException(400, f"Error reading file: {exc}") from exc
 
+        # Upload to S3
         try:
-            folder = f"contracts/{userId}/{session_id}"
-            S3.put_object(
-                Bucket=BUCKET_CONTAINER,
-                Key=f"{folder}/",
-            )  # TODO(@kvcn639): Validate if this is necessary as a separate call
+            folder_path = f"contracts/{userId or 'anonymous'}/{session_id}"
+            s3.put_object(Bucket=BUCKET_CONTAINER, Key=f"{folder_path}/")
             file_name = file.filename
-            S3.put_object(
+            s3.put_object(
                 Bucket=BUCKET_CONTAINER,
-                Key=f"{folder}/{file_name}",
+                Key=f"{folder_path}/{file_name}",
                 Body=file_bytes,
                 ContentType=file.content_type,
             )
-        except Exception as exc:
-            raise HTTPException(
-                500, f"s3_client upload failed: {exc}"
-            ) from exc
+        except (BotoCoreError, ClientError) as exc:
+            logger.exception("S3 upload failed.")
+            raise HTTPException(500, "S3 upload failed.") from exc
 
+        # Extract text based on file type
         try:
-            if ftype == ".pdf":
+            if file_type == ".pdf":
                 content = extract_pdf_contents(file_bytes)
-            elif ftype in (".doc", ".docx"):
+            elif file_type in {".doc", ".docx"}:
                 content = extract_text_from_word(file_bytes)
+            else:
+                raise ValueError(f"Unsupported file type {file_type}")
         except ValueError as exc:
             raise HTTPException(
-                400,
-                f"Failed to extract content: {exc}",
+                400, f"Failed to extract content: {exc}"
             ) from exc
 
-    if not queryText:
+    # 2. Default query text if missing
+    if not queryText or not queryText.strip():
         queryText = "Summarize the document content"
 
-    # TODO(@kvcn639): Add try-except block for prompt_query_cat to handle edge cases or unexpected output
+    # 3. Load previous chat history and build prompt
+    chat_mem: ChatMessageHistory = load_history(session_id)
+
+    history_block = "".join(
+        (
+            f"User: {m.content}\n"
+            if m.role == "user"
+            else f"Assistant: {m.content}\n"
+        )
+        for m in chat_mem.messages
+    )
+
+    # Determine query category and prepare prompt
     prompt_cat = prompt_query_cat(queryText.lower())
-    category = ChatBedrock(model_id=MODEL_ID).invoke(prompt_cat).content
+    try:
+        category = ChatBedrock(model_id=MODEL_ID).invoke(prompt_cat).content
+    except Exception as exc:
+        raise HTTPException(500, f"Error invoking the LLM: {exc}") from exc
 
     if category == "1":
         prompt = generate_prompt_risk(
@@ -130,85 +190,117 @@ async def generate_summary(
     else:
         prompt = generate_prompt(content, queryText, BASE_PROMPT)
 
+    full_prompt = f"{history_block}{prompt}"
+
+    # 4. Invoke the model
     llm = ChatBedrock(model_id=MODEL_ID)
-    chain = RunnableWithMessageHistory(llm, get_file_memory)
-
-    # include previous chat for better coherence
-
-    history_dict = session_history(session_id)
-    transcript = history_dict.get(session_id, [])
-    user_hist = ""
-    for item in transcript:
-        # each item is a dict exactly as you stored it
-        user_hist += f"User: {item['UserMessage']}\n"
-        user_hist += f"Assistant: {item['BotResponse']}\n"
-
     try:
-        full_prompt = f"{user_hist}\n{prompt}"
-        summary = chain.invoke(
-            full_prompt,
-            config={"configurable": {"session_id": session_id}},
-        )
+        llm_response = llm.invoke(full_prompt)
     except Exception as exc:
         raise HTTPException(500, f"Error invoking the LLM: {exc}") from exc
 
-    answer = summary.content
-    if IRRELEVANT in answer:
-        try:
-            resp = retrieve_and_generate_prioritized_doc(
-                prompt,
-                get_secret("GEN_ENQ_KB_ID"),
-                "general",
-                [PRIOR_DOC],
-                session_id=session_id,
-            )
-            if resp.get("citations"):
-                answer = resp["output"]["text"]
-        except Exception:
-            logger.exception(
-                "Summary fallback failed",
-            )  # TODO(@kvcn639): Add alerting or retry strategy here
+    raw_answer = llm_response.content.strip()
 
+    # Strip markdown code fences from the response
+    if raw_answer.startswith("```"):
+        lines = raw_answer.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        raw_answer = "\n".join(lines).strip()
+
+    # Attempt to parse JSON output, fallback to raw string
     try:
-        parsed = parse_risk_assessment_output(answer).dict()["answer"]
-        qna = QnAAnswer(**parsed)
-    except Exception:
-        qna = QnAAnswer(ans=answer)
-
-    final_ans = qna.dict()
-
-    result = Result(
-        messageId=msg_id,
-        answer=final_ans,
-        transactionCount=transactionCount,
-        feedback=Feedback(
-            feedbackDisplayOptions=FeedbackDisplayOptions(
-                thumbsUp="Y",
-                thumbsDown="Y",
-                feedbackText="Y",
-            ),
-        ),
+        answer = json.loads(raw_answer)
+    except json.JSONDecodeError:
+        answer = raw_answer
+    if isinstance(answer, dict):
+        answer.setdefault("similarities", [])
+        answer.setdefault("differences", [])
+    else:
+        # model gave us just text: package it in the expected structure
+        answer = {
+            "ans": answer,
+            "highRisksClauses": [],
+            "mediumRisksClauses": [],
+            "lowRisksClauses": [],
+            "similarities": [],
+            "differences": [],
+        }
+    bot_response_search = (
+        raw_answer.lower()[:MAX_SEARCH_LEN]
+        if len(raw_answer) > MAX_SEARCH_LEN
+        else raw_answer.lower()
     )
 
+    # 5. Fallback if the response is irrelevant
+    if IRRELEVANT in raw_answer:
+        fb_answer, _ = fallback_via_kb(prompt, session_id)
+        raw_answer = fb_answer or raw_answer.replace(IRRELEVANT, "")
+        try:
+            answer = json.loads(raw_answer)
+        except json.JSONDecodeError:
+            answer = raw_answer
+        if isinstance(answer, dict):
+            answer.setdefault("similarities", [])
+            answer.setdefault("differences", [])
+        else:
+            # model gave us just text: package it in the expected structure
+            answer = {
+                "ans": answer,
+                "highRisksClauses": [],
+                "mediumRisksClauses": [],
+                "lowRisksClauses": [],
+                "similarities": [],
+                "differences": [],
+            }
+
+    # 6. Persist chat history
+    chat_mem.add_user_message(queryText)
+    chat_mem.add_ai_message(raw_answer)
+    save_history(chat_mem)
+
+    # 7. Build API response and log interaction
+    feedback = Feedback(
+        feedbackDisplayOptions=FeedbackDisplayOptions(
+            thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+        )
+    )
+    result = Result(
+        messageId=msg_id,
+        answer=answer,
+        transactionCount=transactionCount,
+        feedback=feedback,
+    )
+    response = QueryResponse(
+        status="success",
+        sessionId=session_id,
+        userQuery=queryText,
+        result=result,
+    )
+
+    # Log interaction to database if userId is provided
     if userId:
         now = datetime.datetime.now().isoformat()
-        # TODO(@kvcn639): Validate final file path format is correct
-        file_loc = f"{BUCKET_CONTAINER}{folder}{file_name}"
+        file_loc = (
+            f"{BUCKET_CONTAINER}{folder_path}{file_name}" if file_name else ""
+        )
         store_interaction(
             ChatInteraction(
                 UserId=userId,
                 SessionId=session_id,
-                UserMessage=queryText or file_name,
+                UserMessage=queryText,
                 UserMessageSearch=(
                     extract_keywords_from_query(queryText.lower())
-                    if len(queryText) > 2046
-                    else queryText
+                    if len(queryText) > MAX_SEARCH_LEN
+                    else queryText.lower()
                 ),
-                BotResponse=answer,
-                BotResponseSearch=answer,
+                BotResponse=raw_answer,
+                BotResponseSearch=bot_response_search,
                 FeedbackComment="",
                 Timestamp=now,
-                SessionStatus=SESSION_STATUS,
+                SessionStatus=get_secret("SESSION_STATUS_ACTIVE"),
                 MessageId=msg_id,
                 ChatMetadata=ChatMetadata(
                     FileName=file_name,
@@ -216,12 +308,7 @@ async def generate_summary(
                     FlowName=SUMMARY_FLOW_NAME,
                     Department="",
                 ),
-            ),
+            )
         )
 
-    return QueryResponse(
-        status="success",
-        sessionId=session_id,
-        userQuery=queryText,
-        result=result,
-    )
+    return response

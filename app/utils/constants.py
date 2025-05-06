@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # — Paths — #
 ROOT_DIR = Path(__file__).resolve().parent
 DOCS_DIR = (
-    ROOT_DIR / "docs"
+    ROOT_DIR.parent / "docs"
 )  # TODO(@kvcn639): Ensure 'docs' folder exists at startup if it's required for runtime ops
 
 # — AWS / Dynamo / S3 / KB settings — #
