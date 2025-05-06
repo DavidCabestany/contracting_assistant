@@ -151,7 +151,7 @@ def retrieve_and_generate(
                 "retrievalConfiguration": {
                     "vectorSearchConfiguration": {
                         "overrideSearchType": QNA_SEARCH_TYPE,
-                        "numberOfResults": 5,  # TODO(@kvcn639): Make result limit configurable
+                        "numberOfResults": 5,
                         **({"filter": filter_config} if filter_config else {}),
                     },
                 },

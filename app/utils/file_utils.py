@@ -8,7 +8,10 @@ from collections.abc import Iterable
 from hmac import compare_digest
 from pathlib import Path
 
+import boto3
 import PyPDF2
+from boto3.dynamodb.conditions import Key
+from config import get_secret
 from docx import Document
 from fastapi import HTTPException
 from models import Feedback, FeedbackDisplayOptions, QueryResponse, Result
@@ -16,6 +19,13 @@ from models import Feedback, FeedbackDisplayOptions, QueryResponse, Result
 from .constants import API_KEY, ERROR_MESSAGE
 
 logger = logging.getLogger(__name__)
+
+REGION_ID = get_secret("REGION_ID")
+CHAT_TABLE = get_secret("CHAT_TABLE")
+BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
+
+dynamodb = boto3.resource("dynamodb", region_name=REGION_ID)
+table = dynamodb.Table(CHAT_TABLE)
 
 
 def extract_pdf_contents(file_bytes: bytes) -> str:
@@ -133,6 +143,29 @@ def validate_api_key(api_key: str) -> bool:
             detail=f"Authentication verification failed: {exc}",
         ) from exc
         # TODO(@kvcn639): Consider using 401/403 instead of 500 for API key failures
+
+
+def session_history(session_id):
+    """Retrieve a full conversation history by session ID.
+
+    Args:
+        session_id (str): The session to search for.
+
+    Returns:
+        dict: Messages grouped by session ID.
+
+    TODO(@toloko): Add pagination for long sessions.
+    """
+    try:
+        response = table.query(
+            IndexName="SessionId-index",
+            KeyConditionExpression=Key("SessionId").eq(session_id),
+        )
+        sorted_items = sorted(response["Items"], key=lambda x: x["Timestamp"])
+        return {session_id: sorted_items}
+    except Exception as e:
+        logger.info(f"Error in chat search: {e}")
+        return generate_technical_error_message("", 0, "", session_id, e)
 
 
 def extract_chat_history(data: dict) -> list[tuple[str, str]]:
