@@ -17,7 +17,8 @@ Return your answer as a JSON object with the following format only.
 {{
   "response": "Provide detailed answer to the user's question",
   "reference": ["Reference (x-amz-bedrock-kb-source-uri) of the search text used to answer the question.  If multiple references were used, list them separated by commas.  If no answer was found, leave this field blank."]
-}}```"""
+}}```
+"""
 
 
 DEFAULT_INSTRUCTION = """You are a question answering agent. I will provide you
@@ -60,23 +61,23 @@ Respond strictly using the following JSON-style format:
 ```json
 {{
   "ans": "Short summary paragraph that explains the overall risk findings.",
-"Contractual Risks":{{
-  "highRisksClauses": [
-    {{"title": "Clause Name", "description": "Risk reason and justification."}}
-  ],
-  "mediumRisksClauses": [
-    {{"title": "Clause Name", "description": "Risk reason and justification."}}
-  ],
-  "lowRisksClauses": [
-    {{"title": "Clause Name", "description": "Risk reason and justification."}}
-  ]}},
-"Standard AZ Risks":
-{{"title": "Risks not available in the uploaded contract:", "description":"Provide all the clauses"}},
-"Additional Potential Risks":
-{{"title": "Clause Name", "description": "Risk reason and justification."}},
-  "similarities": [],
-  "differences": []
-}}
+  "ContractualRisks":{{
+    "HighRisksClauses": [
+      {{"title": "Clause Name", "description": "Risk reason and justification."}}
+    ],
+    "MediumRisksClauses": [
+      {{"title": "Clause Name", "description": "Risk reason and justification."}}
+    ],
+    "LowRisksClauses": [
+      {{"title": "Clause Name", "description": "Risk reason and justification."}}
+    ]}},
+  "StandardAZRisks":
+  {{"title": "Risks not available in the uploaded contract:", "description":"Provide all the clauses"}},
+  "AdditionalPotentialRisks":
+  {{"title": "Clause Name", "description": "Risk reason and justification."}},
+    "similarities": [],
+    "differences": []
+  }}
 ```
 Do not add any extra commentary outside of the JSON structure. Do not explicitly mention risk_id.
 Only fill in arrays when you have items to add, do not mention as null for any arrays.

@@ -146,7 +146,7 @@ def retrieve_and_generate(
                 "retrievalConfiguration": {
                     "vectorSearchConfiguration": {
                         "overrideSearchType": QNA_SEARCH_TYPE,
-                        "numberOfResults": 5,
+                        "numberOfResults": 3,
                         **({"filter": filter_config} if filter_config else {}),
                     },
                 },
@@ -195,7 +195,7 @@ def retrieve_and_generate_prioritized_doc(
                                 "value": allowed_paths,
                             },
                         },
-                        "numberOfResults": 3,  # TODO restrict the number of docs to 1 when prioritized document
+                        "numberOfResults": 3,
                     },
                 },
                 "generationConfiguration": _build_gen_cfg(),
