@@ -25,8 +25,10 @@ from models import (
     QueryResponse,
     Result,
 )
-from prompts import RISK_MATRIX_PROMPT, TEMPLATE
-from routes.qna import retrieve_and_generate_prioritized_doc
+from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT, TEMPLATE
+from routes.qna import (
+    retrieve_and_generate_prioritized_doc,
+)
 from services.chat_history_service import store_interaction
 from services.memory import ChatMessageHistory
 from services.memory_helpers import load_history, save_history
@@ -34,13 +36,14 @@ from utils import (
     extract_keywords_from_query,
     extract_pdf_contents,
     extract_text_from_word,
+    generate_prompt,
     generate_prompt_risk,
     get_file_type,
     get_risk_matrix_details,
     prompt_query_cat,
 )
 
-# ───────────────────────── config & constants ──────────────────────────
+# Logger and configuration constants.
 logger = logging.getLogger(__name__)
 
 s3 = boto3.client("s3")
@@ -53,11 +56,16 @@ PRIOR_DOC = "CAN HANDBOOK Third Edition.pdf"
 
 router = APIRouter(tags=["Summary"], dependencies=[Depends(verify_token)])
 
-# ───────────────────────── helper functions ────────────────────────────
-
 
 def _extract_json(text: str) -> dict | None:
-    """Return first JSON object inside *text* (even if fenced); else None."""
+    """Extract the first JSON object found in a text.
+
+    Args:
+        text: A string potentially containing JSON.
+
+    Returns:
+        A dictionary if a JSON object is found and parsed successfully, otherwise None.
+    """
     cleaned = "\n".join(
         ln for ln in text.splitlines() if not ln.lstrip().startswith("```")
     )
@@ -71,7 +79,14 @@ def _extract_json(text: str) -> dict | None:
 
 
 def _wrap_plain(ans: str) -> dict:
-    """Wrap free-text summary into the expected dict shape."""
+    """Wrap plain text answer in structured summary format.
+
+    Args:
+        ans: Free-text summary.
+
+    Returns:
+        A dictionary with default summary fields.
+    """
     return {
         "ans": ans,
         "highRisksClauses": [],
@@ -83,6 +98,16 @@ def _wrap_plain(ans: str) -> dict:
 
 
 def _fallback_kb(prompt: str, session_id: str, folder: str = "general") -> str:
+    """Trigger fallback knowledge base search if model output is irrelevant.
+
+    Args:
+        prompt: The original full prompt.
+        session_id: Current session ID.
+        folder: Name of the knowledge folder (default is 'general').
+
+    Returns:
+        Text response from fallback knowledge base or empty string if failed.
+    """
     try:
         resp = retrieve_and_generate_prioritized_doc(
             prompt,
@@ -98,9 +123,6 @@ def _fallback_kb(prompt: str, session_id: str, folder: str = "general") -> str:
     return ""
 
 
-# ─────────────────────────────── route ─────────────────────────────────
-
-
 @router.post("/getsummary/")
 async def generate_summary(
     file: UploadFile = File(None),
@@ -112,52 +134,90 @@ async def generate_summary(
     queryText: Optional[str] = Form(None),
     transactionCount: Optional[str] = Form(None),
 ) -> QueryResponse:
-    """Summarize an uploaded document or a plain query text."""
+    """Generate a document summary and risk analysis using an LLM.
+
+    This endpoint accepts a file or plain query text. It handles:
+    - File parsing and S3 upload
+    - Query classification and prompt generation
+    - LLM invocation
+    - Result parsing, fallback handling, and response formatting
+
+    Args:
+        file: Optional uploaded document (PDF, DOC, DOCX).
+        apiKey: Optional API key (currently unused).
+        userId: Optional identifier of the user.
+        sessionId: Optional session identifier.
+        language: Optional language preference.
+        platform: Optional source platform.
+        queryText: Optional free-text user query.
+        transactionCount: Optional transaction metadata.
+
+    Returns:
+        A QueryResponse object with structured result.
+    """
     msg_id = str(uuid.uuid4())
     session_id = sessionId or str(uuid.uuid4())
-
     content = ""
     file_name = ""
     folder_path = ""
+
+    # Step 1: Process uploaded file, if any
     if file is not None:
         try:
+            # Read file and detect file type
             file_bytes = await file.read()
             ftype = get_file_type(file.filename)
+            file_name = file.filename
+            logger.info(
+                f"[{msg_id}] File received: name={file_name}, type={ftype}"
+            )
         except Exception as exc:
+            logger.exception(f"[{msg_id}] Failed to read uploaded file")
             raise HTTPException(400, f"Error reading file: {exc}") from exc
 
+        # Upload to S3
+        folder_path = f"contracts/{userId or 'anonymous'}/{session_id}"
         try:
-            folder_path = f"contracts/{userId or 'anonymous'}/{session_id}"
             s3.put_object(Bucket=BUCKET_CONTAINER, Key=f"{folder_path}/")
-            file_name = file.filename
             s3.put_object(
                 Bucket=BUCKET_CONTAINER,
                 Key=f"{folder_path}/{file_name}",
                 Body=file_bytes,
                 ContentType=file.content_type,
             )
+            logger.info(
+                f"[{msg_id}] File uploaded to S3: {folder_path}/{file_name}"
+            )
         except (BotoCoreError, ClientError) as exc:
-            logger.exception("S3 upload failed")
+            logger.exception(f"[{msg_id}] S3 upload failed")
             raise HTTPException(500, "S3 upload failed") from exc
 
+        # Extract content
         try:
             if ftype == ".pdf":
                 content = extract_pdf_contents(file_bytes)
             elif ftype in {".doc", ".docx"}:
                 content = extract_text_from_word(file_bytes)
             else:
-                raise ValueError(f"Unsupported file type {ftype}")
-        except ValueError as exc:
+                raise ValueError(f"Unsupported file type: {ftype}")
+            logger.debug(f"[{msg_id}] Extracted content from file")
+        except Exception as exc:
+            logger.exception(f"[{msg_id}] Failed to extract content from file")
             raise HTTPException(
                 400, f"Failed to extract content: {exc}"
             ) from exc
 
-    # ── 2. default query text ────────────────────────────────────────
+    # Step 2: Default query if none provided
     if not queryText or not queryText.strip():
         queryText = "Summarize the document content"
+        logger.info(f"[{msg_id}] No queryText provided. Default applied.")
 
-    # ── 3. build prompt with stored history ───────────────────────────
+    # Step 3: Load chat memory
     chat_mem: ChatMessageHistory = load_history(session_id)
+    logger.debug(
+        f"[{msg_id}] Loaded chat history with {len(chat_mem.messages)} messages"
+    )
+
     history_block = "".join(
         ("User: " if isinstance(m, HumanMessage) else "Assistant: ")
         + m.content
@@ -165,65 +225,90 @@ async def generate_summary(
         for m in chat_mem.messages
     )
 
+    # Step 4: Classify query
     try:
         cat_prompt = prompt_query_cat(queryText.lower())
         category = ChatBedrock(model_id=MODEL_ID).invoke(cat_prompt).content
+        logger.info(f"[{msg_id}] Query category determined: {category}")
     except Exception as exc:
-        raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
+        logger.exception(f"[{msg_id}] Failed to classify query prompt")
+        raise HTTPException(500, f"Error classifying prompt: {exc}") from exc
 
-    if category == "1":
-        body_prompt = generate_prompt_risk(
-            content, get_risk_matrix_details(), queryText, RISK_MATRIX_PROMPT
-        )
-    else:
-        body_prompt = Template(TEMPLATE).safe_substitute(
-            {
-                "Instruction": queryText,
-                "search_results_formatted": "",
-                "prompt": "",
-            }
-        )
+    # Step 5: Generate prompt based on category
+    try:
+        if category in {"1", "2"}:
+            body_prompt = generate_prompt_risk(
+                content,
+                get_risk_matrix_details(),
+                queryText,
+                RISK_MATRIX_PROMPT,
+            )
+        elif category == "3":
+            body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
+        else:
+            body_prompt = Template(TEMPLATE).safe_substitute(
+                {
+                    "Instruction": queryText,
+                    "search_results_formatted": "",
+                    "prompt": "",
+                }
+            )
+        logger.debug(f"[{msg_id}] Prompt built for LLM.")
+    except Exception as exc:
+        logger.exception(f"[{msg_id}] Failed to generate body prompt")
+        raise HTTPException(500, f"Prompt generation failed: {exc}") from exc
 
     full_prompt = f"{history_block}{body_prompt}"
+    logger.debug(
+        f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
+    )
 
-    # ── 4. call Bedrock ──────────────────────────────────────────────
+    # Step 6: Call LLM
     try:
         llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
+        raw_answer = llm_resp.content.strip()
+        logger.info(f"[{msg_id}] LLM responded successfully")
+        logger.debug(
+            f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
+        )
     except Exception as exc:
+        logger.exception(f"[{msg_id}] LLM call failed")
         raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
 
-    raw_answer = llm_resp.content.strip()
-
-    # ── 5. normalise response into dict shape ────────────────────────
+    # Step 7: Normalize response
     payload = _extract_json(raw_answer)
+    logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
 
     if payload is None:
-        # maybe the JSON blob is nested (```json {…} ``` inside prose)
         inner = _extract_json(raw_answer.replace("```json", "```"))
         if inner and "response" in inner:
             answer = _wrap_plain(inner["response"])
-            if isinstance(answer, dict) and isinstance(answer.get("ans"), str):
-                inner = _extract_json(answer["ans"])
-                if inner and "response" in inner:  # TEMPLATE scaffold
-                    answer["ans"] = inner["response"]
-                elif inner:  # any other JSON shape
-                    # merge keys but keep default arrays if absent
-                    inner.setdefault("similarities", [])
-                    inner.setdefault("differences", [])
-                    answer = inner
+            inner2 = _extract_json(answer["ans"])
+            if inner2 and "response" in inner2:
+                answer["ans"] = inner2["response"]
+            elif inner2:
+                inner2.setdefault("similarities", [])
+                inner2.setdefault("differences", [])
+                answer = inner2
         elif inner:
             answer = inner | {"similarities": [], "differences": []}
         else:
             answer = _wrap_plain(raw_answer)
-    elif "response" in payload:  # came from TEMPLATE scaffold
+        logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
+    elif "response" in payload:
         answer = _wrap_plain(payload["response"])
+        logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
     else:
         answer = payload
         answer.setdefault("similarities", [])
         answer.setdefault("differences", [])
+        logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
 
-    # ── 6. fallback if answer contains IRRELEVANT token ──────────────
+    # Step 8: Fallback if response is irrelevant
     if IRRELEVANT in raw_answer:
+        logger.warning(
+            f"[{msg_id}] Detected IRRELEVANT content, trying KB fallback"
+        )
         fb = _fallback_kb(full_prompt, session_id)
         if fb:
             raw_answer = fb
@@ -236,19 +321,15 @@ async def generate_summary(
             if isinstance(answer, dict):
                 answer.setdefault("similarities", [])
                 answer.setdefault("differences", [])
+            logger.info(f"[{msg_id}] Fallback response used")
 
-    bot_response_search = (
-        raw_answer.lower()[:MAX_SEARCH_LEN]
-        if len(raw_answer) > MAX_SEARCH_LEN
-        else raw_answer.lower()
-    )
-
-    # ── 7. persist chat history ──────────────────────────────────────
+    # Step 9: Save chat history
     chat_mem.add_user_message(queryText)
     chat_mem.add_ai_message(raw_answer)
     save_history(chat_mem)
+    logger.debug(f"[{msg_id}] Updated and saved chat history")
 
-    # ── 8. build API response & store interaction ────────────────────
+    # Step 10: Build API response
     feedback = Feedback(
         feedbackDisplayOptions=FeedbackDisplayOptions(
             thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
@@ -266,7 +347,9 @@ async def generate_summary(
         userQuery=queryText,
         result=result,
     )
+    logger.info(f"[{msg_id}] Summary generation complete")
 
+    # Step 11: Store interaction
     if userId:
         now = datetime.datetime.now().isoformat()
         file_loc = (
@@ -283,7 +366,7 @@ async def generate_summary(
                     else queryText.lower()
                 ),
                 BotResponse=raw_answer,
-                BotResponseSearch=bot_response_search,
+                BotResponseSearch=raw_answer.lower()[:MAX_SEARCH_LEN],
                 FeedbackComment="",
                 Timestamp=now,
                 SessionStatus=get_secret("SESSION_STATUS_ACTIVE"),
@@ -296,5 +379,6 @@ async def generate_summary(
                 ),
             )
         )
+        logger.info(f"[{msg_id}] Interaction stored for userId={userId}")
 
     return api_resp

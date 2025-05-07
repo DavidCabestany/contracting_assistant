@@ -27,8 +27,6 @@ async def load_config(api_key: str = Header(None)):
 
     Raises:
         HTTPException: If the API key is invalid.
-
-    TODO(@toloko): Log auth attempts and track failed API key usage
     """
     if api_key != SECRET_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")

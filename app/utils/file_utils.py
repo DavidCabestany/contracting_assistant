@@ -154,8 +154,9 @@ def session_history(session_id):
     Returns:
         dict: Messages grouped by session ID.
 
-    TODO(@toloko): Add pagination for long sessions.
+
     """
+    # TODO(@toloko): Add pagination for long sessions.
     try:
         response = table.query(
             IndexName="SessionId-index",
