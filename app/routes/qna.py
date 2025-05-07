@@ -87,7 +87,7 @@ def _get_kb_classification(
     if knowledge_type.lower() != detected_unit.lower():
         note_if_off = (
             "\n<b>Note</b>: The search results do not contain specific information "
-            "regarding your query. Please consider switching tabs…"
+            "regarding your query. Please consider switching tabs …"
         )
     return detected_unit, note_if_off
 
