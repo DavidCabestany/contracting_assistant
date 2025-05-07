@@ -71,10 +71,12 @@ Respond strictly using the following JSON-style format:
     "LowRisksClauses": [
       {{"title": "Clause Name", "description": "Risk reason and justification."}}
     ]}},
-  "StandardAZRisks":
-  {{"title": "Risks not available in the uploaded contract:", "description":"Provide all the clauses"}},
-  "AdditionalPotentialRisks":
-  {{"title": "Clause Name", "description": "Risk reason and justification."}},
+  "StandardAZRisks":[
+      {{"title": "Clause Name", "description": "Risk reason and justification."}}
+    ],
+  "AdditionalPotentialRisks":[
+      {{"title": "Clause Name", "description": "Risk reason and justification."}}
+    ],
     "similarities": [],
     "differences": []
   }}

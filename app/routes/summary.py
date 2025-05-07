@@ -7,7 +7,6 @@ import json
 import logging
 import re
 import uuid
-from string import Template
 from typing import Optional
 
 import boto3
@@ -25,7 +24,7 @@ from models import (
     QueryResponse,
     Result,
 )
-from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT, TEMPLATE
+from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
 from routes.qna import (
     retrieve_and_generate_prioritized_doc,
 )
@@ -246,13 +245,7 @@ async def generate_summary(
         elif category == "3":
             body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
         else:
-            body_prompt = Template(TEMPLATE).safe_substitute(
-                {
-                    "Instruction": queryText,
-                    "search_results_formatted": "",
-                    "prompt": "",
-                }
-            )
+            body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
         logger.debug(f"[{msg_id}] Prompt built for LLM.")
     except Exception as exc:
         logger.exception(f"[{msg_id}] Failed to generate body prompt")
