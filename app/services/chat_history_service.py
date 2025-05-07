@@ -46,7 +46,13 @@ def session_history(session_id):
         }
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", session_id, e)
+        return generate_technical_error_message(
+            msg_id="",
+            transaction_count=0,
+            user_query="",
+            session_id=session_id,
+            exc=e,
+        )
 
 
 def search_chat(request: ChatHistorySearchRequest):
@@ -130,7 +136,13 @@ def search_chat(request: ChatHistorySearchRequest):
         return {date: dict(sess) for date, sess in grouped.items()}
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", "", e)
+        return generate_technical_error_message(
+            msg_id="",
+            transaction_count=0,
+            user_query="",
+            session_id="",
+            exc=e,
+        )
 
 
 def view_chat_by_session(session_id: str):
@@ -145,7 +157,13 @@ def view_chat_by_session(session_id: str):
         }
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", session_id, e)
+        return generate_technical_error_message(
+            msg_id="",
+            transaction_count=0,
+            user_query="",
+            session_id=session_id,
+            exc=e,
+        )
 
 
 def download_chat(request: ChatHistorySearchRequest):
@@ -164,7 +182,13 @@ def download_chat(request: ChatHistorySearchRequest):
         }
     except Exception as e:
         logger.info(f"Error in downloading chat: {e}")
-        return generate_technical_error_message("", 0, "", "", e)
+        return generate_technical_error_message(
+            msg_id="",
+            transaction_count=0,
+            user_query="",
+            session_id="",
+            exc=e,
+        )
 
 
 def update_feedback(feedback: FeedbackRequest):
@@ -201,7 +225,7 @@ def update_feedback(feedback: FeedbackRequest):
     except Exception as e:
         logger.info(f"Error updating feedback: {e}")
         return generate_technical_error_message(
-            feedback.messageId, 0, "", feedback.sessionId
+            feedback.messageId, 0, "", feedback.sessionId, exc=e
         )
 
 

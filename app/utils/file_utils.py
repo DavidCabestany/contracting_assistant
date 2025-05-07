@@ -16,7 +16,7 @@ from docx import Document
 from fastapi import HTTPException
 from models import Feedback, FeedbackDisplayOptions, QueryResponse, Result
 
-from .constants import API_KEY, ERROR_MESSAGE
+from .constants import API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def generate_technical_error_message(
     )
     result = Result(
         messageId=str(msg_id),
-        answer=str(exc) if exc else ERROR_MESSAGE,
+        answer=str(exc),
         transactionCount=transaction_count,
         feedback=feedback,
     )
@@ -166,7 +166,13 @@ def session_history(session_id):
         return {session_id: sorted_items}
     except Exception as e:
         logger.info(f"Error in chat search: {e}")
-        return generate_technical_error_message("", 0, "", session_id, e)
+        return generate_technical_error_message(
+            msg_id="",
+            transaction_count=0,
+            user_query="",
+            session_id=session_id,
+            exc=e,
+        )
 
 
 def extract_chat_history(data: dict) -> list[tuple[str, str]]:
