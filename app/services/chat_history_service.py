@@ -233,6 +233,7 @@ def get_latest_active_sessions(user_id: str):
     """Return up to 3 active sessions (QnA flow) with their first message and KbType."""
     try:
         response = []
+        seen_session_ids = set()
         last_key = None
         while len(response) < 3:
             query_params = {
@@ -246,37 +247,44 @@ def get_latest_active_sessions(user_id: str):
                 query_params["ExclusiveStartKey"] = last_key
 
             output = table.query(**query_params)
-            response.extend(output["Items"])
+            items_in_batch = output.get("Items", [])
+
+            if not items_in_batch and not output.get("LastEvaluatedKey"):
+                break
+
+            for item in items_in_batch:
+                sid = item["SessionId"]
+
+                if sid in seen_session_ids:
+                    continue
+
+                msg_resp = table.query(
+                    IndexName="SessionId-Timestamp-index",
+                    KeyConditionExpression=Key("SessionId").eq(sid),
+                    ScanIndexForward=True,
+                    Limit=1,
+                )
+                if msg_resp.get("Items"):
+                    first_message_item = msg_resp["Items"][0]
+                    response.append(
+                        {
+                            "SessionId": sid,
+                            "Message": first_message_item.get("UserMessage"),
+                            "KbType": first_message_item.get(
+                                "ChatMetadata", {}
+                            ).get("KbType"),
+                        }
+                    )
+                    seen_session_ids.add(sid)
+                    if len(response) >= 3:
+                        break
+            if len(response) >= 3:
+                break
+
             last_key = output.get("LastEvaluatedKey")
             if not last_key:
                 break
-
-        sessions = []
-        seen = set()
-        for item in response:
-            sid = item["SessionId"]
-            if sid in seen:
-                continue
-
-            msg_resp = table.query(
-                IndexName="SessionId-Timestamp-index",
-                KeyConditionExpression=Key("SessionId").eq(sid),
-                ScanIndexForward=True,
-                Limit=1,
-            )
-            if msg_resp["Items"]:
-                first = msg_resp["Items"][0]
-                sessions.append(
-                    {
-                        "SessionId": sid,
-                        "Message": first.get("UserMessage"),
-                        "KbType": first.get("ChatMetadata", {}).get("KbType"),
-                    }
-                )
-                seen.add(sid)
-                if len(sessions) >= 3:
-                    break
-        return sessions
+        return response
     except Exception as e:
         logger.info(f"Error retrieving latest active sessions: {e}")
         raise HTTPException(
