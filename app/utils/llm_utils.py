@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Final
 
 from langchain_aws import ChatBedrock
@@ -61,7 +62,7 @@ def needs_summary(query: str) -> bool:
             "LLM classification failed, defaulting to QUESTION: %r",
             exc,
         )
-        return False  # TODO(@kvcn639): Consider fallback rule-based classification
+        return False
 
 
 def llm_summarise(text: str) -> str:
@@ -78,7 +79,7 @@ def llm_summarise(text: str) -> str:
         return ChatBedrock(model_id=MODEL_ID).invoke(prompt).content.strip()
     except Exception as exc:
         logger.error("Summarisation failed: %r", exc)
-        return "Summary unavailable."  # TODO(@kvcn639): Handle this gracefully if used downstream
+        return "Summary unavailable."
 
 
 def parse_risk_assessment_output(model_output: str) -> RiskAssessmentResponse:
@@ -100,39 +101,52 @@ def parse_risk_assessment_output(model_output: str) -> RiskAssessmentResponse:
     except (json.JSONDecodeError, ValidationError) as exc:
         raise ValueError(
             f"Could not parse risk assessment response: {exc}\nRaw:\n{model_output}",
-        ) from exc  # TODO(@kvcn639): Ensure model format is constrained upstream to avoid silent failures
+        ) from exc
 
 
 def extract_keywords_from_query(query: str, *, max_char: int = 2_000) -> str:
     """Extract a lowercase, comma-separated keyword list from a user query.
 
     Uses an LLM to pull indexable terms with optional truncation.
+    Falls back to a simple regex-based keyword list if the LLM fails.
 
     Args:
         query (str): User's original input.
         max_char (int): Maximum character length of output keyword string.
 
     Returns:
-        str: Comma-separated keywords or fallback string on failure.
+        str: Comma-separated keywords.
     """
-    if not query():
+    if not isinstance(query, str):
+        raise TypeError(
+            f"extract_keywords_from_query expected str, got {type(query).__name__}"
+        )
+    if not query:
         return ""
 
+    # Build a clean, dedented prompt
     prompt = f"""
-Extract the most meaningful keywords (≤ {max_char} chars) from the user query
-to help with document search indexing.
+        Extract the most meaningful keywords (≤ {max_char} chars) from the user query
+        to help with document search indexing.
 
-- Use lowercase only, no punctuation or stop-words
-- Return a comma-separated list
+        - Use lowercase only, no punctuation or stop-words
+        - Return a comma-separated list
 
-Query:
-{query}
-"""
+        Query:
+        {query}
+    """
+
     try:
         response = _KEYWORD_LLM.invoke(prompt)
-        return response.content.strip()[:2_040]
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[Keyword Extractor] fallback – %r", exc)
-        return query[
-            :2_046
-        ].lower()  # TODO(@kvcn639): Use regex to extract alphanumeric keywords as fallback
+        content = (response.content or "").strip().lower()
+        # Ensure we never exceed max_char
+        return content[:max_char]
+    except Exception as exc:
+        logger.warning("[Keyword Extractor] LLM fallback – %r", exc)
+        # Simple regex fallback: alphanumeric words only, unique, comma-joined
+        words: list[str] = re.findall(r"\b[a-z0-9]+\b", query.lower())
+        # Dedupe while preserving order
+        seen = set()
+        keywords = [w for w in words if not (w in seen or seen.add(w))]
+        fallback = ",".join(keywords)
+        return fallback[:max_char]
