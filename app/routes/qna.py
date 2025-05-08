@@ -343,7 +343,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         }
 
         for keywords, document in query_reference_document_mapping.items():
-            if any(
+            if all(
                 keyword in user_txt.lower() for keyword in keywords.split()
             ):
                 files = [document]
@@ -364,7 +364,43 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 bedrock_session_id = resp["sessionId"]
             except Exception as e:
                 logger.warning(f"Prioritized retrieval failed: {e}")
-
+        if not files:
+            try:
+                doc = retrieve_documents(
+                    prompt,
+                    get_knowledge_base_id(request.query.knowledgeType),
+                    REGION_ID,
+                )
+                for hit in doc.get("retrievalResults", []):
+                    if PRIOR_DOC in hit.get("metadata", {}).get(
+                        "x-amz-bedrock-kb-source-uri", ""
+                    ):
+                        resp = retrieve_and_generate_prioritized_doc(
+                            prompt,
+                            get_knowledge_base_id(request.query.knowledgeType),
+                            get_knowledge_base_folder(
+                                request.query.knowledgeType
+                            ),
+                            [PRIOR_DOC],
+                            session_id=bedrock_session_id,
+                        )
+                        break
+                if not resp:
+                    resp = retrieve_and_generate(
+                        prompt,
+                        get_knowledge_base_id(request.query.knowledgeType),
+                        session_id=bedrock_session_id,
+                        kb_path=kb_path,
+                    )
+                answer = resp["output"]["text"]
+                citations = extract_file_locations(resp)
+                _bedrock_sessions[ui_session_id] = resp["sessionId"]
+            except Exception as e:
+                logger.exception("Document retrieval failed")
+                raise HTTPException(
+                    HTTP_500_INTERNAL_SERVER_ERROR,
+                    f"Doc retrieval failed: {e}",
+                )
         # Retrieval: Standard if no prioritized answer
         if not answer:
             try:
