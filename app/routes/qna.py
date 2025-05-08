@@ -337,6 +337,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         except Exception as e:
             logger.warning(f"Direct context generation failed: {e}")
 
+        # Define query to document mapping
+        query_reference_document_mapping = {
+            "supplier controller processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
+        }
+
+        for keywords, document in query_reference_document_mapping.items():
+            if any(
+                keyword in user_txt.lower() for keyword in keywords.split()
+            ):
+                files = [document]
+
         # Retrieval: Prioritized
         if files:
             try:
