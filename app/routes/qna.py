@@ -125,34 +125,42 @@ def _build_prompt_with_optional_history(
     """
     if tx_count == 0:
         logger.info("FOLLOW-UP | tx=0 | history=skipped")
-        return f"User:{user_txt}", ""
+        return f"User: {user_txt}", ""
 
     history_txt = _get_session_chat_history(ui_session_id)
     if not history_txt.strip():
         logger.info("FOLLOW-UP | tx=%d | history=empty", tx_count)
-        return f"User:{user_txt}", history_txt
+        return f"User: {user_txt}", ""
 
     try:
-        resp = generate_answer_with_context(
-            FOLLOW_UP_PROMPT.format(history_txt, user_txt)
+        classification_prompt = FOLLOW_UP_PROMPT.format(
+            context=history_txt, query=user_txt
         )
-        user_txt = (resp.get("content", [{}])[0].get("text", "")).lower()
+        resp = generate_answer_with_context(classification_prompt)
+        result_text = (resp.get("content", [{}])[0].get("text", "")).strip()
+
+        logger.info(f"[Follow-up Classification] Result: {result_text}")
+
+        if result_text.startswith("IS_FOLLOW_UP"):
+            full_prompt = f"{history_txt} \n User question: {user_txt}"
+        elif result_text.startswith("NEW_QUESTION"):
+            full_prompt = f"{history_txt} \n User question: {user_txt}"
+        else:
+            logger.warning(
+                "Unexpected classification result — defaulting to include history."
+            )
+            full_prompt = f"{history_txt} \n User question: {user_txt}"
 
     except Exception:
         logger.exception(
-            "FOLLOW-UP | detector failed – default include history"
+            "Classification failed — defaulting to include history."
         )
-
-    prompt = (
-        f"{history_txt}User:{user_txt}" if user_txt else f"User:{user_txt}"
-    )
+        full_prompt = f"{history_txt} \n User question: {user_txt}"
 
     logger.info(
-        "FOLLOW-UP | history_preview='%s' | prompt_preview='%s'",
-        history_txt[:200].replace("\n", " "),
-        prompt[:200].replace("\n", " "),
+        "FOLLOW-UP | prompt_preview='%s'", full_prompt[:200].replace("\n", " ")
     )
-    return prompt, history_txt
+    return full_prompt, history_txt
 
 
 def _fallback_qna(
@@ -318,7 +326,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         if files:
             try:
                 resp = retrieve_and_generate_prioritized_doc(
-                    user_txt,
+                    prompt,
                     get_knowledge_base_id(request.query.knowledgeType),
                     get_knowledge_base_folder(request.query.knowledgeType),
                     files,
@@ -344,7 +352,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         "x-amz-bedrock-kb-source-uri", ""
                     ):
                         resp = retrieve_and_generate_prioritized_doc(
-                            user_txt,
+                            prompt,
                             get_knowledge_base_id(request.query.knowledgeType),
                             get_knowledge_base_folder(
                                 request.query.knowledgeType
@@ -355,7 +363,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         break
                 if not resp:
                     resp = retrieve_and_generate(
-                        user_txt,
+                        prompt,
                         get_knowledge_base_id(request.query.knowledgeType),
                         session_id=bedrock_session_id,
                         kb_path=kb_path,

@@ -8,6 +8,7 @@ Bedrock's retrieve-and-generate APIs with optional guardrails and source filteri
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Sequence
 
 from .clients import bedrock_agent_runtime, bedrock_client
@@ -25,6 +26,8 @@ from .config import (
 from .storage import add_prefix
 from .templates import retrieve_template
 
+logger = logging.getLogger(__name__)
+
 
 def generate_answer_with_context(formatted_prompt: str) -> dict:
     """Perform a basic prompt completion call using Bedrock's chat model.
@@ -35,6 +38,9 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
     Returns:
         dict: Parsed JSON result from Bedrock's model invocation.
     """
+    logger.info(
+        "[Checkpoint] Step 1: Building request body for Bedrock model..."
+    )
     body = json.dumps(
         {
             "anthropic_version": "bedrock-2023-05-31",
@@ -42,17 +48,39 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
             "messages": [{"role": "user", "content": formatted_prompt}],
         },
     )
+    logger.info(f"[Checkpoint] Request body built: {body}")
 
-    # TODO(@kvcn639): Handle timeout, invalid response, or empty completions gracefully
-    response = bedrock_client.invoke_model(
-        body=body,
-        modelId=MODEL_ID,
-        accept="application/json",
-        contentType="application/json",
-        guardrailIdentifier=GUARDRAIL_ID,
-        guardrailVersion=GUARDRAIL_VERSION_ID,
-    )
-    return json.loads(response["body"].read().decode())
+    logger.info("[Checkpoint] Step 2: Invoking Bedrock model...")
+    try:
+        response = bedrock_client.invoke_model(
+            body=body,
+            modelId=MODEL_ID,
+            accept="application/json",
+            contentType="application/json",
+            guardrailIdentifier=GUARDRAIL_ID,
+            guardrailVersion=GUARDRAIL_VERSION_ID,
+        )
+        logger.info("[Checkpoint] Bedrock model invoked successfully.")
+    except Exception as e:
+        logger.info(
+            f"[Error] Failed to invoke Bedrock model: {str(e)}",
+        )
+        raise
+
+    logger.info("[Checkpoint] Step 3: Reading and decoding response...")
+    try:
+        raw_response = response["body"].read().decode()
+        logger.info(
+            f"[Checkpoint] Raw response: {raw_response} ",
+        )
+        result = json.loads(raw_response)
+        logger.info("[Checkpoint] JSON parsed successfully.")
+        return result
+    except Exception as e:
+        logger.info(
+            f"[Error] Failed to decode or parse response: {str(e)}",
+        )
+        raise
 
 
 def _render_prompt(user_query: str, base_prompt: str | None = None) -> str:

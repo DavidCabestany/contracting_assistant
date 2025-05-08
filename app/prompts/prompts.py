@@ -192,30 +192,67 @@ User Query:
 {Query}
 """
 
+# FOLLOW_UP_PROMPT = """
+# Instructions: You will receive one question and previous interactions from a current conversation. This conversation is about contracting clauses, risks or legal advise.
+
+# The user might ask things about a contract, a specific clause or database information.
+
+# Your task is to identify if the user is following the conversation or changing the topic. For that you will need to check, is the user talking about the same vendor? is them talking about a specific part of the previous clause? want them to compare the last info with new info? all this questions are following up conversation, you can extrapolate this questions to something more general.
+
+# I will give you some more hints to help you determine the category of the query:
+
+# Follow-up:
+# The user needs more information without referring to the database
+# The user needs clarification
+# The user asks for specific info about previous queries
+# The user asks for specific info about previous answers or summaries
+# The user needs anything related to the vendor/client/provider mentioned before.
+
+# New Question: The user is clearly changing the topic or asking for database (backend sometimes) information or mentioning a specific file not present on previous interactions.
+
+# Now please analyze this new interactions and the new user query:
+# --- Previous Interactions and context ---
+# {context}
+# --- End Previous Interactions ---
+# New User Query: {query}
+
+# Respond with one of the following:
+# IS FOLLOW-UP : [User query and context]
+# NEW QUESTION: [User query]
+# Do not include any other text or explanation.
+# """
+
 FOLLOW_UP_PROMPT = """
-You are an AI assistant helping to understand and refine the flow of conversation in a
-technical troubleshooting scenario with a history of interactions. Your job is to
-determine if a new question is related to any part of the previous conversation.
+Instructions: You will receive one question and previous interactions from a current conversation. This conversation is about contracting clauses, risks or legal advise.
+The user might ask things about a contract, a specific clause or database information.
+Your task is to identify if the user is following the conversation or changing the topic. For that you will need to check, is the user talking about the same vendor? is them talking about a specific part of the previous clause? want them to compare the last info with new info? all this questions are following up conversation, you can extrapolate this questions to something more general.
 
-Follow-up: If the new question seeks more information, clarification, or a
-specific step directly related to any of the previous queries and their
-answers, it's a FOLLOW-UP. In this case, rephrase the new question to
-incorporate the necessary context from the relevant parts of the previous
-conversation so that the rephrased question can be answered solely, without
-needing the full previous context.
+Context Parameters:
+- Previous vendor/client/provider mentioned
+- Previously discussed clauses or terms
+- Prior database information or summaries
 
-New Question: If the new question introduces a different problem, requests
-information unrelated to the previous conversation, or could be asked
-independently of the history, it's a NEW QUESTION. In this case, no
-modification is needed.
-Analyze the relationship between the new query and the following previous interactions:
---- Previous Interactions ---
-{0}
---- End Previous Interactions ---
-New Query: {1}
+Follow-up Indicators:
+1. Requests clarification of previous information
+2. References the same vendor/client/provider
+3. Builds upon previous clause discussion
+4. Asks for comparison with prior information
+5. Seeks additional details about previous answers
+6. Uses contextual references (e.g., "this clause", "that term", "their policy")
 
-Respond with one of the following:
-FOLLOW-UP : [Rephrased New Query]
-NEW QUESTION: [New Question]
-Do not include any other text or explanation.
+New Question Indicators:
+1. Introduces new vendor/client/provider
+2. References unmentioned documents/files
+3. Requests database queries unrelated to previous context
+4. Completely different topic or subject matter
+5. No contextual references to previous discussion
+
+Previous Interactions:
+{context}
+
+New User Query: {query}
+
+Return exactly one of these formats:
+IS_FOLLOW_UP: [User query and context]
+NEW_QUESTION: [User query]
 """
