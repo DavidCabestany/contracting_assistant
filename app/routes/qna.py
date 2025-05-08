@@ -324,11 +324,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         # Define query to document mapping
         query_reference_document_mapping = {
-            "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
+            "supplier controller processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
         }
 
         for keywords, document in query_reference_document_mapping.items():
-            if all(keyword in user_txt for keyword in keywords.split()):
+            if any(
+                keyword in user_txt.lower() for keyword in keywords.split()
+            ):
                 files = [document]
 
         # Retrieval: Prioritized
