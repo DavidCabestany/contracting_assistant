@@ -321,6 +321,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         resp = None
         answer = None
         citations = []
+        try:
+            if not files:
+                # Fallback to direct LLM generation if nothing is retrieved
+                if not answer:
+                    logger.info(
+                        "No documents/files provided — using generate_answer_with_context."
+                    )
+                    direct_resp = generate_answer_with_context(prompt)
+                    answer = (
+                        direct_resp.get("content", [{}])[0]
+                        .get("text", "")
+                        .strip()
+                    )
+        except Exception as e:
+            logger.warning(f"Direct context generation failed: {e}")
 
         # Retrieval: Prioritized
         if files:
@@ -388,9 +403,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             answer += note_if_off
 
         try:
-            cat = prompt_query_cat(user_txt.lower())
+            cat = prompt_query_cat(prompt.lower())
             answer = _fallback_qna(
-                user_txt, answer, ui_session_id, cat, "general", history_txt
+                prompt, answer, ui_session_id, cat, "general", history_txt
             )
         except Exception as e:
             logger.warning(f"Fallback QnA logic failed: {e}")
