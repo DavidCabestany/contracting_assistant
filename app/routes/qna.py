@@ -142,23 +142,23 @@ def _build_prompt_with_optional_history(
         logger.info(f"[Follow-up Classification] Result: {result_text}")
 
         if result_text.startswith("IS_FOLLOW_UP"):
-            full_prompt = f"{history_txt} \n User question: {user_txt}"
+            full_prompt = f"{history_txt}\nUser: {user_txt}"
         elif result_text.startswith("NEW_QUESTION"):
-            full_prompt = f"{history_txt} \n User question: {user_txt}"
+            full_prompt = f"{history_txt}\nUser: {user_txt}"
         else:
             logger.warning(
                 "Unexpected classification result — defaulting to include history."
             )
-            full_prompt = f"{history_txt} \n User question: {user_txt}"
+            full_prompt = f"{history_txt}\nUser: {user_txt}"
 
     except Exception:
         logger.exception(
             "Classification failed — defaulting to include history."
         )
-        full_prompt = f"{history_txt} \n User question: {user_txt}"
+        full_prompt = f"{history_txt}\nUser: {user_txt}"
 
     logger.info(
-        "FOLLOW-UP | prompt_preview='%s'", full_prompt[:200].replace("\n", " ")
+        "FOLLOW-UP | prompt_preview='%s'", full_prompt.replace("\n", " ")
     )
     return full_prompt, history_txt
 
@@ -189,7 +189,7 @@ def _fallback_qna(
 
     try:
         bedrock_session = _bedrock_sessions.get(ui_session_id)
-        prompt = f"{hist_txt}User:{query}"
+        prompt = f"{hist_txt}\nUser:{query}"
 
         if category == "2":
             resp = retrieve_and_generate_prioritized_doc(
