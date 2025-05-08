@@ -1,233 +1,268 @@
 {
-    "Termination Clause": {
-      "description": "Clause related to the conditions and penalties for terminating a contract.",
-      "importance": "High",
-      "risks": [
+    "clauses": [
         {
-          "risk_description": "Difficult or costly to terminate, with severe penalties",
-          "importance": "High",
-          "risk_ID": "risk_001"
+            "name": "Termination Clause",
+            "details": {
+                "description": "Clause related to the conditions and penalties for terminating a contract.",
+                "importance": "High",
+                "risks": [
+                    {
+                        "risk_description": "Difficult or costly to terminate, with severe penalties",
+                        "importance": "High",
+                        "risk_ID": "risk_001"
+                    },
+                    {
+                        "risk_description": "Moderate penalties for termination",
+                        "importance": "Medium",
+                        "risk_ID": "risk_002"
+                    },
+                    {
+                        "risk_description": "Easy to terminate with minimal penalties",
+                        "importance": "Low",
+                        "risk_ID": "risk_003"
+                    }
+                ]
+            }
         },
         {
-          "risk_description": "Moderate penalties for termination",
-          "importance": "Medium",
-          "risk_ID": "risk_002"
+            "name": "Liability Clause",
+            "details": {
+                "description": "Clause outlining the extent and limitations of liability in the contract.",
+                "importance": "High",
+                "risks": [
+                    {
+                        "risk_description": "Unlimited liability or high liability caps to Astrazeneca, low or no liability for the other contractual party than AZ, it should also take into context the cap vs the total spend of the agreement",
+                        "importance": "High",
+                        "risk_ID": "risk_004"
+                    },
+                    {
+                        "risk_description": "Moderate liability caps for both Astrazeneca and 2nd party, it should also take into context the cap vs the total spend of the agreement",
+                        "importance": "Medium",
+                        "risk_ID": "risk_005"
+                    },
+                    {
+                        "risk_description": "Low liability caps for or limited liability to Astrazeneca and high liability caps for the 2nd party, it should also take into context the cap vs the total spend of the agreement",
+                        "importance": "Low",
+                        "risk_ID": "risk_006"
+                    }
+                ]
+            }
         },
         {
-          "risk_description": "Easy to terminate with minimal penalties",
-          "importance": "Low",
-          "risk_ID": "risk_003"
+            "name": "Compliance Requirements",
+            "details": {
+                "description": "Clause addressing adherence to relevant laws, regulations, and industry standards.",
+                "importance": "High",
+                "risks": [
+                    {
+                        "risk_description": "High likelihood of non-compliance with critical regulations",
+                        "importance": "High",
+                        "risk_ID": "risk_007"
+                    },
+                    {
+                        "risk_description": "Some compliance requirements with moderate risk",
+                        "importance": "Medium",
+                        "risk_ID": "risk_008"
+                    },
+                    {
+                        "risk_description": "Low likelihood of non-compliance with minimal regulatory impact",
+                        "importance": "Low",
+                        "risk_ID": "risk_009"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Sustainability Terms",
+            "details": {
+                "description": "Clause related to environmental, social, and governance (ESG) considerations.",
+                "importance": "High",
+                "risks": [
+                    {
+                        "risk_description": "No sustainability commitments or poor environmental practices, lack of commitments to achieve proper Ecovadis score, no Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP) commitments",
+                        "importance": "High",
+                        "risk_ID": "risk_010"
+                    },
+                    {
+                        "risk_description": "Some sustainability commitments to Ecovadis, Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP)",
+                        "importance": "Medium",
+                        "risk_ID": "risk_011"
+                    },
+                    {
+                        "risk_description": "Strong sustainability commitments to high Ecovadis score, and compliance with Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP) and excellent environmental practices",
+                        "importance": "Low",
+                        "risk_ID": "risk_012"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Spend Under Contract",
+            "details": {
+                "description": "Clause pertaining to budget management, spending limits, and financial thresholds.",
+                "importance": "High",
+                "risks": [
+                    {
+                        "risk_description": "Exceeds budget or financial thresholds",
+                        "importance": "High",
+                        "risk_ID": "risk_013"
+                    },
+                    {
+                        "risk_description": "Within budget but close to financial thresholds",
+                        "importance": "Medium",
+                        "risk_ID": "risk_014"
+                    },
+                    {
+                        "risk_description": "Well within budget and financial thresholds",
+                        "importance": "Low",
+                        "risk_ID": "risk_015"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Payment Terms",
+            "details": {
+                "description": "Clause governing the methods, timing, and conditions of payment with AZ standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions;60 days within the United Kingdom and the European Union;45 days within France.",
+                "importance": "Medium",
+                "risks": [
+                    {
+                        "risk_description": "Unfavorable payment terms to Astrazeneca, not in line with AZ standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions;60 days within the United Kingdom and the European Union;45 days within France., such as advance payments or long payment periods. Based on 2nd party location",
+                        "importance": "High",
+                        "risk_ID": "risk_016"
+                    },
+                    {
+                        "risk_description": "Balanced payment terms in line with az standard: 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France. Or approved deviations. Based on 2nd party location",
+                        "importance": "Medium",
+                        "risk_ID": "risk_017"
+                    },
+                    {
+                        "risk_description": "Favorable payment terms longer than AZ standard, such as prompt payments or in line with our standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France. Based on 2nd party location",
+                        "importance": "Low",
+                        "risk_ID": "risk_018"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Performance Metrics",
+            "details": {
+                "description": "Clause defining how the contract's success will be measured and assessed.",
+                "importance": "Medium",
+                "risks": [
+                    {
+                        "risk_description": "Strict performance metrics with severe penalties for non-compliance",
+                        "importance": "High",
+                        "risk_ID": "risk_019"
+                    },
+                    {
+                        "risk_description": "Moderate performance metrics with reasonable penalties",
+                        "importance": "Medium",
+                        "risk_ID": "risk_020"
+                    },
+                    {
+                        "risk_description": "Flexible performance metrics with minimal penalties",
+                        "importance": "Low",
+                        "risk_ID": "risk_021"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Confidentiality Clause",
+            "details": {
+                "description": "Clause protecting sensitive information shared during the contract.",
+                "importance": "Medium",
+                "risks": [
+                    {
+                        "risk_description": "Weak confidentiality protections",
+                        "importance": "High",
+                        "risk_ID": "risk_022"
+                    },
+                    {
+                        "risk_description": "Standard confidentiality protections",
+                        "importance": "Medium",
+                        "risk_ID": "risk_023"
+                    },
+                    {
+                        "risk_description": "Strong confidentiality protections",
+                        "importance": "Low",
+                        "risk_ID": "risk_024"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Dispute Resolution",
+            "details": {
+                "description": "Clause outlining procedures for resolving disagreements or conflicts.",
+                "importance": "Low",
+                "risks": [
+                    {
+                        "risk_description": "Complex and costly dispute resolution mechanisms",
+                        "importance": "High",
+                        "risk_ID": "risk_025"
+                    },
+                    {
+                        "risk_description": "Standard dispute resolution mechanisms",
+                        "importance": "Medium",
+                        "risk_ID": "risk_026"
+                    },
+                    {
+                        "risk_description": "Simple and cost-effective dispute resolution mechanisms",
+                        "importance": "Low",
+                        "risk_ID": "risk_027"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Force Majeure Clause",
+            "details": {
+                "description": "Clause excusing parties from obligations due to unforeseen events.",
+                "importance": "Low",
+                "risks": [
+                    {
+                        "risk_description": "Limited or no force majeure protections",
+                        "importance": "High",
+                        "risk_ID": "risk_028"
+                    },
+                    {
+                        "risk_description": "Standard force majeure protections",
+                        "importance": "Medium",
+                        "risk_ID": "risk_029"
+                    },
+                    {
+                        "risk_description": "Comprehensive force majeure protections",
+                        "importance": "Low",
+                        "risk_ID": "risk_030"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Renewal Terms",
+            "details": {
+                "description": "Clause outlining the conditions and procedures for extending a contract.",
+                "importance": "Low",
+                "risks": [
+                    {
+                        "risk_description": "Automatic renewal with unfavorable terms",
+                        "importance": "High",
+                        "risk_ID": "risk_031"
+                    },
+                    {
+                        "risk_description": "Standard renewal terms",
+                        "importance": "Medium",
+                        "risk_ID": "risk_032"
+                    },
+                    {
+                        "risk_description": "Favorable renewal terms",
+                        "importance": "Low",
+                        "risk_ID": "risk_033"
+                    }
+                ]
+            }
         }
-      ]
-    },
-    "Liability Clause": {
-      "description": "Clause outlining the extent and limitations of liability in the contract.",
-      "importance": "High",
-      "risks": [
-        {
-          "risk_description": "Unlimited liability or high liability caps to Astrazeneca, low or no liability for the other contractual party than AZ, it should also take into context the cap vs the total spend of the agreement",
-          "importance": "High",
-          "risk_ID": "risk_004"
-        },
-        {
-          "risk_description": "Moderate liability caps for both Astrazeneca and 2nd party, it should also take into context the cap vs the total spend of the agreement",
-          "importance": "Medium",
-          "risk_ID": "risk_005"
-        },
-        {
-          "risk_description": "Low liability caps for or limited liability to Astrazeneca and high liability caps for the 2nd party, it should also take into context the cap vs the total spend of the agreement",
-          "importance": "Low",
-          "risk_ID": "risk_006"
-        }
-      ]
-    },
-    "Compliance Requirements": {
-      "description": "Clause addressing adherence to relevant laws, regulations, and industry standards.",
-      "importance": "High",
-      "risks": [
-        {
-          "risk_description": "High likelihood of non-compliance with critical regulations",
-          "importance": "High",
-          "risk_ID": "risk_007"
-        },
-        {
-          "risk_description": "Some compliance requirements with moderate risk",
-          "importance": "Medium",
-          "risk_ID": "risk_008"
-        },
-        {
-          "risk_description": "Low likelihood of non-compliance with minimal regulatory impact",
-          "importance": "Low",
-          "risk_ID": "risk_009"
-        }
-      ]
-    },
-    "Sustainability Terms": {
-      "description": "Clause related to environmental, social, and governance (ESG) considerations.",
-      "importance": "High",
-      "risks": [
-        {
-          "risk_description": "No sustainability commitments or poor environmental practices, lack of commitments to achieve proper Ecovadis score, no Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP) commitments",
-          "importance": "High",
-          "risk_ID": "risk_010"
-        },
-        {
-          "risk_description": "Some sustainability commitments to Ecovadis, Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP)",
-          "importance": "Medium",
-          "risk_ID": "risk_011"
-        },
-        {
-          "risk_description": "Strong sustainability commitments to high Ecovadis score, and compliance with Science Based Targets initiative (SBTI), and Carbon Disclosure Project (CDP) and excellent environmental practices",
-          "importance": "Low",
-          "risk_ID": "risk_012"
-        }
-      ]
-    },
-    "Spend Under Contract": {
-      "description": "Clause pertaining to budget management, spending limits, and financial thresholds.",
-      "importance": "High",
-      "risks": [
-        {
-          "risk_description": "Exceeds budget or financial thresholds",
-          "importance": "High",
-          "risk_ID": "risk_013"
-        },
-        {
-          "risk_description": "Within budget but close to financial thresholds",
-          "importance": "Medium",
-          "risk_ID": "risk_014"
-        },
-        {
-          "risk_description": "Well within budget and financial thresholds",
-          "importance": "Low",
-          "risk_ID": "risk_015"
-        }
-      ]
-    },
-    "Payment Terms": {
-      "description": "Clause governing the methods, timing, and conditions of payment with AZ standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions;60 days within the United Kingdom and the European Union;45 days within France.",
-      "importance": "Medium",
-      "risks": [
-        {
-          "risk_description": "Unfavorable payment terms to Astrazeneca, not in line with AZ standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions;60 days within the United Kingdom and the European Union;45 days within France., such as advance payments or long payment periods. Based on 2nd party location",
-          "importance": "High",
-          "risk_ID": "risk_016"
-        },
-        {
-          "risk_description": "Balanced payment terms in line with az standard: 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France. Or approved deviations. Based on 2nd party location",
-          "importance": "Medium",
-          "risk_ID": "risk_017"
-        },
-        {
-          "risk_description": "Favorable payment terms longer than AZ standard, such as prompt payments or in line with our standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France. Based on 2nd party location",
-          "importance": "Low",
-          "risk_ID": "risk_018"
-        }
-      ]
-    },
-    "Performance Metrics": {
-      "description": "Clause defining how the contract's success will be measured and assessed.",
-      "importance": "Medium",
-      "risks": [
-        {
-          "risk_description": "Strict performance metrics with severe penalties for non-compliance",
-          "importance": "High",
-          "risk_ID": "risk_019"
-        },
-        {
-          "risk_description": "Moderate performance metrics with reasonable penalties",
-          "importance": "Medium",
-          "risk_ID": "risk_020"
-        },
-        {
-          "risk_description": "Flexible performance metrics with minimal penalties",
-          "importance": "Low",
-          "risk_ID": "risk_021"
-        }
-      ]
-    },
-    "Confidentiality Clause": {
-      "description": "Clause protecting sensitive information shared during the contract.",
-      "importance": "Medium",
-      "risks": [
-        {
-          "risk_description": "Weak confidentiality protections",
-          "importance": "High",
-          "risk_ID": "risk_022"
-        },
-        {
-          "risk_description": "Standard confidentiality protections",
-          "importance": "Medium",
-          "risk_ID": "risk_023"
-        },
-        {
-          "risk_description": "Strong confidentiality protections",
-          "importance": "Low",
-          "risk_ID": "risk_024"
-        }
-      ]
-    },
-    "Dispute Resolution": {
-      "description": "Clause outlining procedures for resolving disagreements or conflicts.",
-      "importance": "Low",
-      "risks": [
-        {
-          "risk_description": "Complex and costly dispute resolution mechanisms",
-          "importance": "High",
-          "risk_ID": "risk_025"
-        },
-        {
-          "risk_description": "Standard dispute resolution mechanisms",
-          "importance": "Medium",
-          "risk_ID": "risk_026"
-        },
-        {
-          "risk_description": "Simple and cost-effective dispute resolution mechanisms",
-          "importance": "Low",
-          "risk_ID": "risk_027"
-        }
-      ]
-    },
-    "Force Majeure Clause": {
-      "description": "Clause excusing parties from obligations due to unforeseen events.",
-      "importance": "Low",
-      "risks": [
-        {
-          "risk_description": "Limited or no force majeure protections",
-          "importance": "High",
-          "risk_ID": "risk_028"
-        },
-        {
-          "risk_description": "Standard force majeure protections",
-          "importance": "Medium",
-          "risk_ID": "risk_029"
-        },
-        {
-          "risk_description": "Comprehensive force majeure protections",
-          "importance": "Low",
-          "risk_ID": "risk_030"
-        }
-      ]
-    },
-    "Renewal Terms": {
-      "description": "Clause outlining the conditions and procedures for extending a contract.",
-      "importance": "Low",
-      "risks": [
-        {
-          "risk_description": "Automatic renewal with unfavorable terms",
-          "importance": "High",
-          "risk_ID": "risk_031"
-        },
-        {
-          "risk_description": "Standard renewal terms",
-          "importance": "Medium",
-          "risk_ID": "risk_032"
-        },
-        {
-          "risk_description": "Favorable renewal terms",
-          "importance": "Low",
-          "risk_ID": "risk_033"
-        }
-      ]
-    }
-  }
+    ]
+}
