@@ -198,3 +198,12 @@ Return exactly one of these formats:
 IS_FOLLOW_UP: [User query and context]
 NEW_QUESTION: [User query]
 """
+
+RISK_MITIGATION_PROMPT = """
+You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to provide mitiagtion to the above risks.
+Content:
+{content}
+
+User Query:
+{Query}
+"""
