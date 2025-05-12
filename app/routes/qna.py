@@ -113,7 +113,7 @@ def _get_kb_classification(
 def _build_prompt_with_optional_history(
     user_txt: str, tx_count: int, ui_session_id: str
 ) -> tuple[str, str]:
-    """Build a user prompt, optionally including session history.
+    """Build a User prompt, optionally including session history.
 
     Args:
         user_txt: Current user message.
