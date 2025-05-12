@@ -63,19 +63,19 @@ Respond strictly using the following JSON-style format:
   "ans": "Short summary paragraph that explains the overall risk findings.",
   "ContractualRisks":{{
     "HighRisksClauses": [
-      {{"title": "Contract Clause Name", "description": "Risk reason and justification (Checklist item is present in contract, noting its risk level or deviation from ideal if applicable)."}}
+      {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
     ],
     "MediumRisksClauses": [
-      {{"title": Contract Clause Name", "description": "Risk reason and justification (Checklist item is present in contract, noting its risk level or deviation from ideal if applicable)."}}
+      {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
     ],
     "LowRisksClauses": [
-      {{"title": "Contract Clause Name", "description": "Risk reason and justification (Checklist item is present in contract, noting its risk level or deviation from ideal if applicable)."}}
+      {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
     ]}},
   "StandardAZRisks":[
-      {{"title": "Contract Clause Name", "description": "Reason for inclusion (e.g., 'Provide details of the clause which is completely ABSENT from the contract')"}}
+      {{"title": "Checklist Clause Name", "description": "List all the left out clauses from Risk Rules Checklist if user asked about all the risks, else just mention about the asked risks.}}
     ],
   "AdditionalPotentialRisks":[
-      {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that is not on the checklist."}}
+      {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
     ],
     "similarities": [],
     "differences": []
@@ -84,80 +84,22 @@ Respond strictly using the following JSON-style format:
 Do not add any extra commentary outside of the JSON structure. Do not explicitly mention risk_id.
 Only fill in arrays when you have items to add, do not mention as null for any arrays.
 
-You are an expert in procurement, specializing in analyzing contract clauses and assessing associated risks.
-
-**Core Principle for Risk Categorization:**
-While a single contract clause may be associated with multiple distinct risk findings, each individual risk finding you identify must be exclusively categorized into only ONE of the following primary output sections: ContractualRisks, StandardAZRisks, or AdditionalPotentialRisks.
-1.If a finding falls under ContractualRisks, it must then be placed into only one of its sub-categories (High, Medium, or Low).
-2.A specific risk finding should not be duplicated across these categories or sub-categories.
-
-
-**Your Task:** Analyze the provided Contract and identify potential risks, reporting them according to the Risk Rules Checklist and other identified risks, adhering to the core principle above.
-
-The identified clauses findings will be categorized for output as follows:
-  1.ContractualRisks: Specific clauses findings where:
-    a.A provision or clause described in the 'Risk Rules Checklist' IS PRESENT OR ADDRESSED in the contract (categorized H/M/L based on checklist importance).
-    b.OR, the 'Risk Rules Checklist' explicitly defines the ABSENCE of a certain provision/commitment as a specific risk (e.g., "No sustainability commitments = High Risk"), and that absence is confirmed in the contract.
-  2.StandardAZRisks: Specific clause items from the 'Risk Rules Checklist' that are completely ABSENT from the contract AND their absence is not itself defined by the checklist as a specific contractual risk level (as per the point above). This is for generic missing standard terms.
-  3.AdditionalPotentialRisks: Specific risk findings identified within the contract that are not covered by any item in the 'Risk Rules Checklist'.
-
-
-**Part 1: Risk Rules Checklist Analysis**
-
-  1. **Clause Type Context:**  For each clause type in the Risk Rules Checklist, understand its general purpose.
-
-  2. **Checklist Item Evaluation Against Contract:** For every individual clause item in the Risk Rules Checklist:
-      a.**Understand the risk rules checklist:** Analyze the checklist clause item's risk_description and importance. Determine if the checklist is describing:
-          - A clause associated with the presence of certain contract language.
-          - A clause associated with the complete absence of a certain provision or commitment, where this absence itself is defined as a specific risk level (e.g., "No [X] = High Risk").
-          - An expectation for a standard provision whose absence is not itself defined as a specific H/M/L risk by the checklist, but is simply a missing standard term.
-
-      b.**Examine the Contract:** Based on your understanding from the previous step, check the Contract.
-      c.**Decision Point & Categorization:**
-          - Scenario A (Clause in Present Language): If the checklist item describes a risk in present contract language (or sub-optimal language that is present), and the contract contains such language: This finding goes to ContractualRisks. Categorize as High, Medium, or Low based on the checklist's importance for that item and the severity of any deviation from an ideal standard. The title should reference the contract clause.
-          - Scenario B (Absence IS the Defined Risk): If the checklist item explicitly defines the absence of something as a specific risk (e.g., "No sustainability commitments = High Risk"), AND that thing is indeed absent from the contract: This finding goes to ContractualRisks. Categorize as High, Medium, or Low based directly on the risk level specified by the checklist for that absence.
-          - Scenario C (Generic Absence of Standard Term): If the checklist item implies an expectation for a standard provision (e.g., "Standard indemnity clause"), its absence is not explicitly defined by the checklist as a H/M/L contractual risk itself, AND this provision is completely absent from the contract: This finding goes to StandardAZRisks.
-
-  3. **Consolidate Findings:** Collect all ContractualRisks (sub-categorized) and StandardAZRisks, ensuring all checklist clauses have been accounted for.
-
-**Part 2: Identification of Additional Potential Risks (Not Covered by Checklist)**
-
-  1. **Identify Additional Risks:** After completing the Risk Rules Checklist analysis (Part 1), review the contract again to identify any other potential risks or problematic clauses/terms that are present in the contract but are not explicitly covered by any item in the Risk Rules Checklist. These are distinct findings.
-
-  2. **Document Additional Risks:** For each such additional risk identified, provide a brief description and justification, noting the contract clause or term it relates to. These findings populate the AdditionalPotentialRisks JSON section.
-
-**Part 3: Handling User Queries and Populating JSON Output**
-  **Query Interpretation and Filtering:**Analyze the User Query to determine the scope of the request. Filter the risk findings (derived from Parts 1 & 2, and already exclusively categorized) accordingly.
-  Example Scenarios:
-  1. "What are all the risks in the contract?" - Analyze the entire contract and report all applicable findings from Parts 1 & 2 in the final output format.
-  2. "What are the risks associated with the Termination Clause?"
-      a.If checklist item "Unilateral termination right for other party..." (High) is found, -> ContractualRisks.HighRisksClauses.
-      b.If checklist item "Minimum 30-day notice..." (High importance if not met) is present but sub-optimal (e.g., 10 days), -> ContractualRisks.HighRisksClauses.
-      c.If checklist expects "Specific process for dispute before termination" and this is absent (and absence itself isn't defined as H/M/L risk by checklist), -> StandardAZRisks.
-  3. "What are the risks regarding sustainability?"
-      a.If checklist says: "Sustainability Terms: High Risk: No sustainability commitments or poor environmental practices", AND the contract has no sustainability commitments: This goes to ContractualRisks.HighRisksClauses and description reflecting the checklist.
-      b.If the contract has sustainability commitments, but they reflect "poor environmental practices" as defined by another (or the same) checklist item, that would also be a ContractualRisks finding, likely High.
-
-**JSON Output Population:**
-  ans: Provide a brief summary paragraph explaining the overall risk findings.
-  ContractualRisks:
-    HighRisksClauses: title (Contract Clause Name where the checklist-defined risk/provision is found), description to explain how the contract meets the condition for this checklist risk (presence of risky term, or absence that checklist flags as risky).
-    MediumRisksClauses: As above.
-    LowRisksClauses: As above.
-  StandardAZRisks: title  (Contract Clause Name where it's a generic absence not otherwise defined as a specific H/M/L risk by the checklist.).
-  AdditionalPotentialRisks: title (Reference to the specific contract term/clause where a novel risk is found), description (Risk reason and justification for this contract-originated risk not on the checklist).
-  similarities and differences: Leave as []
-
-
-**Final Check and Output Generation:**
-  **Confirm Comprehensive Checklist Coverage**: Ensure that each and every clause from the provided Risk rules checklist has been processed and its finding is reflected EITHER in the ContractualRisks (under an appropriate H/M/L sub-category) OR in the StandardAZRisks.
-  Please make sure No checklist item should be omitted from this categorization.
-
 Context Information:
 Contract: {Contract}
-Risk rules checklist: {risk_rules}
+
+**Your Task :** Analyze the provided Contract and use the above explanation to fill in the json.
+Clause Categorization:
+Each clause should be categorized into ONE of the sections:ContractualRisks, StandardAZRisks, or AdditionalPotentialRisks.
+If a finding falls under ContractualRisks, it must then be placed into only one of its sub-categories (High, Medium, or Low).
+
+
+Clause rules checklist: {risk_rules}
+Thought : Are all the clauses covered from Risk rules checklist? Let me count the total number of clauses in Risk Rules Checklist and now let me count the clauses in ContractualRisks and StandardAZRisks. Are the number same?
+Action : If not, find out what all clauses are left ,I need to add them inside StandardAZRisks.
+
 User Query Handling: Now address the user's query by providing the requested analysis in the specified final format.
 User Query: {Query} """
+
 
 BASE_PROMPT = """
 

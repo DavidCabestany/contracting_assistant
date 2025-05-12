@@ -24,9 +24,9 @@ from models import (
     QueryResponse,
     Result,
 )
-from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT
+from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT, RISK_MITIGATION_PROMPT
 from routes.qna import (
-    retrieve_and_generate_prioritized_doc,
+    retrieve_and_generate,
 )
 from services.chat_history_service import store_interaction
 from services.memory import ChatMessageHistory
@@ -108,12 +108,11 @@ def _fallback_kb(prompt: str, session_id: str, folder: str = "general") -> str:
         Text response from fallback knowledge base or empty string if failed.
     """
     try:
-        resp = retrieve_and_generate_prioritized_doc(
+        resp = retrieve_and_generate(
             prompt,
             get_secret("GEN_ENQ_KB_ID"),
-            "general",
-            [PRIOR_DOC],
             session_id=session_id,
+            kb_path=folder,
         )
         if resp.get("citations"):
             return resp["output"]["text"]
@@ -235,12 +234,16 @@ async def generate_summary(
 
     # Step 5: Generate prompt based on category
     try:
-        if category in {"1", "2"}:
+        if category in {"1"}:
             body_prompt = generate_prompt_risk(
                 content,
                 get_risk_matrix_details(),
                 queryText,
                 RISK_MATRIX_PROMPT,
+            )
+        elif category == "2":
+            body_prompt = generate_prompt(
+                content, queryText, RISK_MITIGATION_PROMPT
             )
         elif category == "3":
             body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
@@ -255,54 +258,64 @@ async def generate_summary(
     logger.debug(
         f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
     )
+    if category in {"1", "3"}:
+        # Step 6: Call LLM
+        try:
+            llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
+            raw_answer = llm_resp.content.strip()
+            logger.info(f"[{msg_id}] LLM responded successfully")
+            logger.debug(
+                f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
+            )
+        except Exception as exc:
+            logger.exception(f"[{msg_id}] LLM call failed")
+            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
 
-    # Step 6: Call LLM
-    try:
-        llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
-        raw_answer = llm_resp.content.strip()
-        logger.info(f"[{msg_id}] LLM responded successfully")
-        logger.debug(
-            f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
-        )
-    except Exception as exc:
-        logger.exception(f"[{msg_id}] LLM call failed")
-        raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
+        # Step 7: Normalize response
+        payload = _extract_json(raw_answer)
+        logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
 
-    # Step 7: Normalize response
-    payload = _extract_json(raw_answer)
-    logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
-
-    if payload is None:
-        inner = _extract_json(raw_answer.replace("```json", "```"))
-        if inner and "response" in inner:
-            answer = _wrap_plain(inner["response"])
-            inner2 = _extract_json(answer["ans"])
-            if inner2 and "response" in inner2:
-                answer["ans"] = inner2["response"]
-            elif inner2:
-                inner2.setdefault("similarities", [])
-                inner2.setdefault("differences", [])
-                answer = inner2
-        elif inner:
-            answer = inner | {"similarities": [], "differences": []}
+        if payload is None:
+            inner = _extract_json(raw_answer.replace("```json", "```"))
+            if inner and "response" in inner:
+                answer = _wrap_plain(inner["response"])
+                inner2 = _extract_json(answer["ans"])
+                if inner2 and "response" in inner2:
+                    answer["ans"] = inner2["response"]
+                elif inner2:
+                    inner2.setdefault("similarities", [])
+                    inner2.setdefault("differences", [])
+                    answer = inner2
+            elif inner:
+                answer = inner | {"similarities": [], "differences": []}
+            else:
+                answer = _wrap_plain(raw_answer)
+            logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
+        elif "response" in payload:
+            answer = _wrap_plain(payload["response"])
+            logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
         else:
-            answer = _wrap_plain(raw_answer)
-        logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
-    elif "response" in payload:
-        answer = _wrap_plain(payload["response"])
-        logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
+            answer = payload
+            answer.setdefault("similarities", [])
+            answer.setdefault("differences", [])
+            logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
     else:
-        answer = payload
-        answer.setdefault("similarities", [])
-        answer.setdefault("differences", [])
-        logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
-
+        raw_answer = IRRELEVANT
+        logger.info("User requires Risk mitigation strategies")
     # Step 8: Fallback if response is irrelevant
-    if IRRELEVANT in raw_answer:
+    if IRRELEVANT in raw_answer or "2" in category:
         logger.warning(
-            f"[{msg_id}] Detected IRRELEVANT content, trying KB fallback"
+            f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
         )
-        fb = _fallback_kb(full_prompt, session_id)
+        if len(full_prompt) > 18000:
+            llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
+                full_prompt
+                + "User : Just provide the user history along with summarization of contract in 18000 character length so that my query can be answered"
+            )
+            query_summary = llm_resp.content.strip()
+            full_prompt = query_summary + "User:" + queryText
+
+        fb = _fallback_kb(full_prompt, session_id=None)
         if fb:
             raw_answer = fb
             payload = _extract_json(raw_answer)

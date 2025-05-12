@@ -7,6 +7,7 @@ from .prompts import (
     DEFAULT_INSTRUCTION,
     FOLLOW_UP_PROMPT,
     RISK_MATRIX_PROMPT,
+    RISK_MITIGATION_PROMPT,
     TEMPLATE,
 )
 
@@ -18,4 +19,5 @@ __all__ = [
     "FOLLOW_UP_PROMPT",
     "RISK_MATRIX_PROMPT",
     "TEMPLATE",
+    "RISK_MITIGATION_PROMPT",
 ]
