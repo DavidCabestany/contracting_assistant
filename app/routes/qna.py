@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import re
 import uuid
 
 from auth.utils import verify_token
@@ -464,12 +465,22 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             logger.info("220 ▶ post-fallback answer = %.100s", answer)
         except Exception as e:
             logger.warning("230 ⚠ fallback QnA failed: %s", e)
+        answer = re.split(r"\nUser:\s", answer)[0].strip()
+        # user_echo_pattern = re.compile(r"\n?User: .+$", re.IGNORECASE | re.DOTALL)
+        # cleaned_answer = re.sub(user_echo_pattern, "", answer).strip()
 
+        # if cleaned_answer != answer:
+        #     logger.warning("Cleaned user echo from end of answer.")
+        #     answer = cleaned_answer
         # store
         logger.info("240 ▶ storing chat log")
         _store_chat_log(request, answer, msg_id, ui_session_id)
 
         logger.info("250 ◀ exit ask_question SUCCESS")
+        # if answer.strip().lower().startswith("user:"):
+        #     logger.warning("Answer starts with 'User:', cleaning up.")
+        #     answer = answer.partition("\n")[2].strip()
+
         return QueryResponse(
             status="success",
             sessionId=ui_session_id,
