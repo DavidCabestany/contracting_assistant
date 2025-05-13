@@ -195,7 +195,7 @@ Previous Interactions:
 New User Query: {query}
 
 Return exactly one of these formats:
-IS_FOLLOW_UP: [User query and context]
+IS_FOLLOW_UP: [User query and the original clause and context]
 NEW_QUESTION: [User query]
 """
 
