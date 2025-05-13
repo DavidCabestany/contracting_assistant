@@ -40,6 +40,7 @@ from utils import (
 
 from .constants import (
     GEN_ENQ_KB_ID,
+    HIGH_PRIORITY_QUERIES,
     IRRELEVANT,
     PRIOR_DOC,
     QNA_FLOW_NAME,
@@ -52,6 +53,15 @@ router = APIRouter(tags=["QnA"], dependencies=[Depends(verify_token)])
 
 # Mapping from UI session IDs to Bedrock session IDs.
 _bedrock_sessions: dict[str, str] = {}
+
+
+def is_high_priority_query(query: str, category: str) -> bool:
+    """Check if teh initial user query is part of the standard queries."""
+    normalized_query = query.lower().strip()
+    normalized_category = category.strip().title()
+    return normalized_query in HIGH_PRIORITY_QUERIES.get(
+        normalized_category, set()
+    )
 
 
 def _get_session_chat_history(session_id: str) -> str:
@@ -87,31 +97,6 @@ def _get_session_chat_history(session_id: str) -> str:
         history_txt.replace("\n", " "),
     )
     return history_txt
-
-
-# def _get_kb_classification(user_txt: str, knowledge_type: str) -> tuple[str, str]:
-#     logger.info("ENTER ▶ _get_kb_classification(user_txt=%.100s, knowledge_type=%s)", user_txt, knowledge_type)
-#     try:
-#         prompt = business_unit_prompt(user_txt)
-#         logger.info("  ▶ classification prompt: %.200s", prompt.replace("\n", " "))
-#         detected_unit = ChatBedrock(model_id=MODEL_ID).invoke(prompt).content.strip()
-#         logger.info("  ▶ ChatBedrock returned detected_unit=%s", detected_unit)
-#         note_if_off = "n<b>Note</b>: The search results do not contain specific information: regarding your query. Please consider switching tabs …"
-#         logger.info("  ▶ knowledge mismatch -> note_if_off set")
-#         logger.info("EXIT  ◀ _get_kb_classification -> (%s, %.100s)", detected_unit, note_if_off)
-#         return detected_unit, note_if_off
-#     except Exception as e:
-#         logger.warning("  ⚠ Classification failed: %s", e)
-#         logger.info("EXIT  ◀ _get_kb_classification -> fallback (%s, '')", knowledge_type)
-#         return knowledge_type, ""
-
-
-def _get_kb_classification(
-    user_txt: str, knowledge_type: str
-) -> tuple[str, str]:
-    # KB classification bypassed — always use the incoming knowledge_type, no “note if off”
-    logger.debug("KB classification bypassed for query: %s", user_txt)
-    return knowledge_type, ""
 
 
 def _build_prompt_with_optional_history(
@@ -341,7 +326,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("060 ▶ kb_path = %s", kb_path)
         logger.info("070 ▶ bedrock_session_id = %s", bedrock_session_id)
 
-        # early summary
+        # early summarykb_answer
         if needs_summary(user_txt):
             logger.info("080 ▶ summary needed")
             summary_text = llm_summarise(user_txt)
@@ -445,9 +430,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "sessionId", bedrock_session_id
             )
 
-            if not llm_answer_only:
-                answer = resp.get("output", {}).get("text", "").strip()
-            logger.info("180 ▶ KB content processed")
+            kb_answer = resp.get("output", {}).get("text", "").strip()
+            if kb_answer:
+                is_priority = is_high_priority_query(user_txt, detected_unit)
+                if is_priority:
+                    logger.info(
+                        "180 ▶ Overwriting LLM answer due to high-priority query match"
+                    )
+                    answer = kb_answer
+                elif not llm_answer_only:
+                    answer = kb_answer
         except Exception as e:
             logger.warning("190 ⚠ KB retrieval failed: %s", e)
             if not answer:
