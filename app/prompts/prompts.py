@@ -72,7 +72,7 @@ Respond strictly using the following JSON-style format:
       {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
     ]}},
   "StandardAZRisks":[
-      {{"title": "Checklist Clause Name", "description": "List all the left out clauses from Risk Rules Checklist if user asked about all the risks, else just mention about the asked risks.}}
+      {{"title": "Checklist Clause Name", "description": "List all the omitted clauses from the Risk Rules Checklist.}}
     ],
   "AdditionalPotentialRisks":[
       {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
@@ -83,20 +83,21 @@ Respond strictly using the following JSON-style format:
 ```
 Do not add any extra commentary outside of the JSON structure. Do not explicitly mention risk_id.
 Only fill in arrays when you have items to add, do not mention as null for any arrays.
-
 Context Information:
 Contract: {Contract}
-
 **Your Task :** Analyze the provided Contract and use the above explanation to fill in the json.
 Clause Categorization:
-Each clause should be categorized into ONE of the sections:ContractualRisks, StandardAZRisks, or AdditionalPotentialRisks.
+Each clause should be categorized into any ONE of the sections : ContractualRisks, StandardAZRisks, or AdditionalPotentialRisks.
 If a finding falls under ContractualRisks, it must then be placed into only one of its sub-categories (High, Medium, or Low).
-
-
+If a clause is explicitly asked by the user, provide the risk information from whichever category it belongs to.
 Clause rules checklist: {risk_rules}
-Thought : Are all the clauses covered from Risk rules checklist? Let me count the total number of clauses in Risk Rules Checklist and now let me count the clauses in ContractualRisks and StandardAZRisks. Are the number same?
-Action : If not, find out what all clauses are left ,I need to add them inside StandardAZRisks.
-
+Thought : Did the user asked about any one/few of the risks?
+Thought : If yes, I just need to provide the risks/clauses asked and make the categorizantion consistent with what I provided for the first time of this contract. I need to make sure each risk is categorized into any ONE of the section only.
+Action  : Need to allocate each risk into any ONE of the section only.
+Thought : If user asked about all the risks, I need to check if all the clauses are covered from Risk rules checklist? Let me count the total number of clauses in Risk Rules Checklist and now let me count the clauses in ContractualRisks and StandardAZRisks. Are the number same?
+Action  : If not, find out what all clauses are not present in the contract ,I need to add them inside StandardAZRisks.
+Thought : Let me check Risk Rules checklist one more time and see if the clauses/risks are classified correctly. Also let me check specifically for "Sustanability Clause" , if its not present it will considered as "HighRiskClause".
+Action  : Let me prepare a final response based upon my above findings.
 User Query Handling: Now address the user's query by providing the requested analysis in the specified final format.
 User Query: {Query} """
 
