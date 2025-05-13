@@ -90,13 +90,13 @@ Each clause should be categorized into any ONE of the sections : ContractualRisk
 If a finding falls under ContractualRisks, it must then be placed into only one of its sub-categories (High, Medium, or Low).
 If a clause is explicitly asked by the user, provide the risk information from whichever category it belongs to.
 Clause rules checklist: {risk_rules}
-Follow below thinking process to answer the User Query - 
+Follow below thinking process to answer the User Query -
 Thought 1 : Does the user history contains any information around the risks in contract?
 Action 1  : If yes, then only use it else ignore it.
 Thought 2 : Did the user asked specifically about any one of the risk?
 Thought 3 : If yes, I just need to provide the risk/clause asked and make the categorizantion consistent with what I provided for the first time of this contract. I need to make sure the risk is categorized into any ONE of the section only.
 Action 2  : IMPORTANT! Need to allocate risk into only *ONE* of the section only (ContractualRisks (High, Medium, or Low) or StandardAZRisks or AdditionalPotentialRisks)
-Thought 4 : If user asked about all the risks, I need to check if all the clauses are covered from Risk rules checklist? 
+Thought 4 : If user asked about all the risks, I need to check if all the clauses are covered from Risk rules checklist?
 Action 3  : Let me count the total number of clauses in Risk Rules Checklist and now let me count the clauses in ContractualRisks and StandardAZRisks. Are the number same? If they are not equal,I need to add the left out risks inside StandardAZRisks.
 Thought 5 : Let me check Risk Rules checklist one more time and see if the clauses/risks are classified correctly. Also let me check specifically for "Sustanability Clause" , if its not present it will considered as "HighRiskClause".
 Action 5  : Let me prepare a final response based upon my above findings.
