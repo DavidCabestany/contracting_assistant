@@ -92,7 +92,9 @@ def _was_last_answer_from_kb(session_id: str) -> bool:
         return is_kb_used
 
     except Exception as e:
-        logger.warning("⚠ 070 ▶ Failed to check KB usage from history: %s", e)
+        logger.warning(
+            "EXCEPTION:  070 ▶ Failed to check KB usage from history: %s", e
+        )
         logger.info(
             "080 ◀ EXIT _was_last_answer_from_kb with False (exception)"
         )
@@ -113,20 +115,20 @@ def _get_session_chat_history(session_id: str) -> str:
     try:
         history = session_history(session_id)
         logger.info(
-            "  ▶ fetched raw history for session: %s", history.get(session_id)
+            "▶ fetched raw history for session: %s", history.get(session_id)
         )
         for i, item in enumerate(history.get(session_id, [])):
             user_msg, bot_msg = item.get("UserMessage"), item.get(
                 "BotResponse"
             )
             logger.info(
-                "    ▶ loop[%d] user_msg=%s | bot_msg=%s", i, user_msg, bot_msg
+                "  ▶ loop[%d] user_msg=%s | bot_msg=%s", i, user_msg, bot_msg
             )
             if user_msg and bot_msg:
                 history_txt += f"User: {user_msg}\nAssistant: {bot_msg}\n"
-        logger.info("  ▶ built history_txt (len=%d)", len(history_txt))
+        logger.info("▶ built history_txt (len=%d)", len(history_txt))
     except Exception as e:
-        logger.warning("  ⚠ Failed to fetch session history: %s", e)
+        logger.warning("EXCEPTION:  Failed to fetch session history: %s", e)
     logger.info(
         "EXIT  ◀ _get_session_chat_history -> %.200s",
         history_txt.replace("\n", " "),
@@ -148,10 +150,10 @@ def _build_prompt_with_optional_history(
     if tx_count == 0:
         existing_history = session_history(ui_session_id)
         logger.info(
-            "  ▶ tx_count==0, existing_history=%s", bool(existing_history)
+            "▶ tx_count==0, existing_history=%s", bool(existing_history)
         )
         if existing_history:
-            logger.warning("  ⚠ tx_count==0 but session has history")
+            logger.warning("EXCEPTION:  tx_count==0 but session has history")
             history_txt = _get_session_chat_history(ui_session_id)
             prompt = f"{history_txt}\nUser: {user_txt}"
             logger.info(
@@ -160,7 +162,7 @@ def _build_prompt_with_optional_history(
             )
             return prompt, history_txt, is_follow_up
         else:
-            logger.info("  ▶ no existing_history — skipping history")
+            logger.info("▶ no existing_history — skipping history")
             prompt = f"User: {user_txt}"
             logger.info(
                 "EXIT  ◀ _build_prompt | new session -> prompt=%s", prompt
@@ -168,9 +170,9 @@ def _build_prompt_with_optional_history(
             return prompt, "", is_follow_up
 
     history_txt = _get_session_chat_history(ui_session_id)
-    logger.info("  ▶ loaded history_txt (len=%d)", len(history_txt))
+    logger.info("▶ loaded history_txt (len=%d)", len(history_txt))
     if not history_txt.strip():
-        logger.info("  ▶ history empty for tx_count=%d", tx_count)
+        logger.info("▶ history empty for tx_count=%d", tx_count)
         prompt = f"User: {user_txt}"
         logger.info(
             "EXIT  ◀ _build_prompt | empty history -> prompt=%s", prompt
@@ -182,19 +184,20 @@ def _build_prompt_with_optional_history(
             context=history_txt, query=user_txt
         )
         logger.info(
-            "  ▶ follow-up classification_prompt=%.200s",
+            "▶ follow-up classification_prompt=%.200s",
             classification_prompt.replace("\n", " "),
         )
         resp = generate_answer_with_context(classification_prompt)
-        logger.info(f"!!!!!!!!! follow up response line 148 {resp}")
+        logger.info(f"▶ follow up response line 148 {resp}")
 
         result_text = resp.get("content", [{}])[0].get("text", "").strip()
-        logger.info("  ▶ classification result_text=%.200s", result_text)
+        logger.info("▶ classification result_text=%.200s", result_text)
         is_follow_up = result_text.startswith("IS_FOLLOW_UP:")
         full_prompt = f"{history_txt}\nUser: {user_txt}"
     except Exception as e:
         logger.exception(
-            "  ⚠ Classification failed, defaulting to include history: %s", e
+            "EXCEPTION: Classification failed, defaulting to include history: %s",
+            e,
         )
         full_prompt = f"{history_txt}\nUser: {user_txt}"
 
@@ -222,13 +225,13 @@ def _fallback_qna(
         kb_folder,
     )
     if IRRELEVANT not in answer:
-        logger.info("  ▶ answer clean, skipping fallback")
+        logger.info("▶ answer clean, skipping fallback")
         return answer
 
     try:
         bedrock_session = _bedrock_sessions.get(ui_session_id)
         prompt = f"History: {hist_txt}\nUser:{query}"
-        logger.info("  ▶ fallback prompt=%.200s", prompt.replace("\n", " "))
+        logger.info("▶ fallback prompt=%.200s", prompt.replace("\n", " "))
         if category == "2":
             resp = retrieve_and_generate_prioritized_doc(
                 prompt,
@@ -237,7 +240,7 @@ def _fallback_qna(
                 [PRIOR_DOC],
                 session_id=bedrock_session,
             )
-            logger.info("  ▶ used prioritized fallback")
+            logger.info("▶ used prioritized fallback")
         else:
             resp = retrieve_and_generate(
                 prompt,
@@ -245,10 +248,10 @@ def _fallback_qna(
                 session_id=bedrock_session,
                 kb_path=kb_folder,
             )
-            logger.info("  ▶ used standard fallback")
+            logger.info("▶ used standard fallback")
 
         _bedrock_sessions[ui_session_id] = resp["sessionId"]
-        logger.info("  ▶ new bedrock_session_id=%s", resp["sessionId"])
+        logger.info("▶ new bedrock_session_id=%s", resp["sessionId"])
 
         if resp.get("citations") and resp["citations"][0].get(
             "retrievedReferences"
@@ -257,7 +260,7 @@ def _fallback_qna(
             logger.info("EXIT  ◀ _fallback_qna -> new answer=%.200s", new_ans)
             return new_ans
     except Exception as e:
-        logger.warning("  ⚠ Fallback QnA failed: %s", e)
+        logger.warning("EXCEPTION:  Fallback QnA failed: %s", e)
 
     cleaned = answer.replace(IRRELEVANT, "")
     logger.info("EXIT  ◀ _fallback_qna -> cleaned answer=%.200s", cleaned)
@@ -274,20 +277,20 @@ def _store_chat_log(
         session_id,
     )
     if not request.user.id:
-        logger.info("  ▶ no user.id — skipping store_interaction")
+        logger.info("▶ no user.id — skipping store_interaction")
         return
 
     try:
         now = datetime.datetime.now().isoformat()
-        logger.info("  ▶ timestamp = %s", now)
+        logger.info("▶ timestamp = %s", now)
         if len(request.query.text) > 2046:
             user_msg_search = extract_keywords_from_query(
                 request.query.text.lower()
             )
-            logger.info("  ▶ extracted keywords for long text")
+            logger.info("▶ extracted keywords for long text")
         else:
             user_msg_search = request.query.text.lower()
-            logger.info("  ▶ user_msg_search = %.200s", user_msg_search)
+            logger.info("▶ user_msg_search = %.200s", user_msg_search)
 
         chat_meta = ChatMetadata(
             FileName="",
@@ -295,7 +298,7 @@ def _store_chat_log(
             FlowName=QNA_FLOW_NAME,
             KbType=request.query.knowledgeType,
         )
-        logger.info("  ▶ chat_meta = %s", chat_meta)
+        logger.info("▶ chat_meta = %s", chat_meta)
         store_interaction(
             ChatInteraction(
                 UserId=request.user.id,
@@ -311,9 +314,9 @@ def _store_chat_log(
                 ChatMetadata=chat_meta,
             )
         )
-        logger.info("  ▶ store_interaction completed")
+        logger.info("▶ store_interaction completed")
     except Exception as e:
-        logger.exception("  ⚠ Failed to store interaction: %s", e)
+        logger.exception("EXCEPTION:  Failed to store interaction: %s", e)
         raise
 
 
@@ -424,7 +427,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     llm_answer_only = bool(answer)
                     logger.info("120 ▶ Direct LLM answer retrieved")
             except Exception as e:
-                logger.warning("130 ⚠ Direct LLM failed: %s", e)
+                logger.warning("130 EXCEPTION:  Direct LLM failed: %s", e)
 
         # always fetch KB documents for continuity (even if LLM answered)
         try:
@@ -485,7 +488,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     )
                     answer = kb_answer
         except Exception as e:
-            logger.warning("190 ⚠ KB retrieval failed: %s", e)
+            logger.warning("190 EXCEPTION:  KB retrieval failed: %s", e)
             if not answer:
                 raise HTTPException(
                     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -507,7 +510,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             )
             logger.info("220 ▶ post-fallback answer = %.100s", answer)
         except Exception as e:
-            logger.warning("230 ⚠ fallback QnA failed: %s", e)
+            logger.warning("230 EXCEPTION:  fallback QnA failed: %s", e)
         answer = re.split(r"\nUser:\s", answer)[0].strip()
         sanitized_answer = response_sanitizer(answer)
 
@@ -542,7 +545,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("260 ◀ exit ask_question HTTPException: %s", http_exc)
         raise http_exc
     except Exception as e:
-        logger.exception("270 ⚠ unhandled exception in ask_question")
+        logger.exception("270 EXCEPTION:  unhandled exception in ask_question")
         raise HTTPException(
             HTTP_500_INTERNAL_SERVER_ERROR, f"Unexpected error: {e}"
         )
