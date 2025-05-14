@@ -411,6 +411,24 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         llm_answer_only = False
         resp = None
 
+        if files:
+            logger.info("190 ▶ files present — PRIORITIZED retrieval")
+            try:
+                resp = retrieve_and_generate_prioritized_doc(
+                    prompt,
+                    get_knowledge_base_id(request.query.knowledgeType),
+                    kb_path,
+                    files,
+                    session_id=bedrock_session_id,
+                )
+                answer = resp["output"]["text"]
+                citations = extract_file_locations(resp)
+                _bedrock_sessions[ui_session_id] = resp["sessionId"]
+                bedrock_session_id = resp["sessionId"]
+                logger.info("200 ▶ prioritized answer = %.100s", answer)
+            except Exception as e:
+                logger.warning("210 ⚠ prioritized retrieval failed: %s", e)
+
         # direct LLM if no files
         if not files:
             try:
@@ -432,39 +450,50 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         # always fetch KB documents for continuity (even if LLM answered)
         try:
             logger.info("140 ▶ Performing KB-based retrieval")
-            doc = retrieve_documents(
-                prompt,
-                get_knowledge_base_id(request.query.knowledgeType),
-                REGION_ID,
-            )
-            hits = doc.get("retrievalResults", [])
-            logger.info("150 ▶ retrieved %d documents", len(hits))
-
-            for hit in hits:
-                uri = hit.get("metadata", {}).get(
-                    "x-amz-bedrock-kb-source-uri", ""
-                )
-                if PRIOR_DOC in uri:
-                    logger.info("160 ▶ PRIOR_DOC matched")
-                    resp = retrieve_and_generate_prioritized_doc(
-                        prompt,
-                        get_knowledge_base_id(request.query.knowledgeType),
-                        kb_path,
-                        [PRIOR_DOC],
-                        session_id=bedrock_session_id,
-                    )
-                    break
-
-            if not resp:
-                logger.info(
-                    "170 ▶ No PRIOR_DOC – using standard retrieve_and_generate"
-                )
-                resp = retrieve_and_generate(
-                    prompt,
-                    get_knowledge_base_id(request.query.knowledgeType),
+            if files:
+                logger.info("145 ▶ Files provided by user: %s", files)
+                resp = retrieve_and_generate_prioritized_doc(
+                    query=user_txt,
+                    kb_id=get_knowledge_base_id(detected_unit),
+                    knowledge_base_folder=kb_path,
+                    files=files,
                     session_id=bedrock_session_id,
-                    kb_path=kb_path,
                 )
+            else:
+                logger.info("145 ▶ No user files — performing full KB search")
+                doc = retrieve_documents(
+                    prompt,
+                    get_knowledge_base_id(detected_unit),
+                    REGION_ID,
+                )
+                hits = doc.get("retrievalResults", [])
+                logger.info("150 ▶ retrieved %d documents", len(hits))
+
+                for hit in hits:
+                    uri = hit.get("metadata", {}).get(
+                        "x-amz-bedrock-kb-source-uri", ""
+                    )
+                    if PRIOR_DOC in uri:
+                        logger.info("160 ▶ PRIOR_DOC matched")
+                        resp = retrieve_and_generate_prioritized_doc(
+                            query=prompt,
+                            kb_id=get_knowledge_base_id(detected_unit),
+                            knowledge_base_folder=kb_path,
+                            files=[PRIOR_DOC],
+                            session_id=bedrock_session_id,
+                        )
+                        break
+
+                if not resp:
+                    logger.info(
+                        "170 ▶ No PRIOR_DOC – using standard retrieve_and_generate"
+                    )
+                    resp = retrieve_and_generate(
+                        prompt,
+                        get_knowledge_base_id(detected_unit),
+                        session_id=bedrock_session_id,
+                        kb_path=kb_path,
+                    )
 
             citations = extract_file_locations(resp)
             _bedrock_sessions[ui_session_id] = resp.get(
@@ -487,8 +516,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         "180 ▶ Overwriting LLM answer due to KB relevance logic"
                     )
                     answer = kb_answer
+
         except Exception as e:
-            logger.warning("190 EXCEPTION:  KB retrieval failed: %s", e)
+            logger.warning("190 ⚠ KB retrieval failed: %s", e)
             if not answer:
                 raise HTTPException(
                     HTTP_500_INTERNAL_SERVER_ERROR,

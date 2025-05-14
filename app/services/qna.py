@@ -28,6 +28,8 @@ from .templates import retrieve_template
 
 logger = logging.getLogger(__name__)
 
+QNA_MAX_RESULTS = 3
+
 
 def generate_answer_with_context(formatted_prompt: str) -> dict:
     """Perform a basic prompt completion call using Bedrock's chat model.
@@ -174,7 +176,7 @@ def retrieve_and_generate(
                 "retrievalConfiguration": {
                     "vectorSearchConfiguration": {
                         "overrideSearchType": QNA_SEARCH_TYPE,
-                        "numberOfResults": 3,
+                        "numberOfResults": QNA_MAX_RESULTS,
                         **({"filter": filter_config} if filter_config else {}),
                     },
                 },
@@ -223,7 +225,7 @@ def retrieve_and_generate_prioritized_doc(
                                 "value": allowed_paths,
                             },
                         },
-                        "numberOfResults": 3,
+                        "numberOfResults": QNA_MAX_RESULTS,
                     },
                 },
                 "generationConfiguration": _build_gen_cfg(),

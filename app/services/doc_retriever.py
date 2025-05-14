@@ -11,6 +11,8 @@ from typing import Any, Dict
 from .clients import bedrock_agent_runtime
 from .config import QNA_SEARCH_TYPE
 
+QNA_MAX_RESULTS = 3
+
 
 def retrieve_documents(
     query: str,
@@ -34,7 +36,7 @@ def retrieve_documents(
 
     vector_cfg = {
         "overrideSearchType": QNA_SEARCH_TYPE,  # e.g., semantic or keyword
-        "numberOfResults": 3,  # TODO(@kvcn639): Make result count configurable
+        "numberOfResults": QNA_MAX_RESULTS,  # TODO(@kvcn639): Make result count configurable
     }
 
     if filter_value:
