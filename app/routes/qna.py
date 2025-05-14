@@ -227,7 +227,7 @@ def _fallback_qna(
 
     try:
         bedrock_session = _bedrock_sessions.get(ui_session_id)
-        prompt = f"Basic instruction: give just the requested info, and don't apologise. \nHistory: {hist_txt}\nUser:{query}"
+        prompt = f"History: {hist_txt}\nUser:{query}"
         logger.info("  ▶ fallback prompt=%.200s", prompt.replace("\n", " "))
         if category == "2":
             resp = retrieve_and_generate_prioritized_doc(
