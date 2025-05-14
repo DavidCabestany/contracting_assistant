@@ -116,7 +116,7 @@ Follow below thinking process to answer the User Query -
 Thought 1 : Does the user history contains any information around the risks in contract?
 Action 1  : If yes, then only use it else ignore it.
 Thought 2 : Did the user asked specifically about any one of the risk?
-Thought 3 : If yes, I just need to provide the risk/clause asked and make the categorizantion consistent with what I provided for the first time for this contract. I need to make sure the risk is categorized into any ONE of the section only.
+Thought 3 : If yes, I just need to provide the risk/clause asked and make the categorizantion consistent of that particular risk with what I provided for the first time for this contract. I need to make sure the particular risk is categorized into any ONE of the section only.
 Action 2  : IMPORTANT! Need to allocate risk into *ONE* of the section only (ContractualRisks (High, Medium, or Low) or StandardAZRisks or AdditionalPotentialRisks)
 Thought 4 : If user asked about all the risks, I need to check if all the clauses are covered from Risk rules checklist?
 Action 3  : Let me count the total number of clauses in Risk Rules Checklist and now let me count the clauses in ContractualRisks and StandardAZRisks. Are the number same? If they are not equal,I need to re-analyze the risks and accordingly make sure to add the left out risks inside ContractualRisks (High, Medium, or Low) or StandardAZRisks.The final count of StandardAZRisks and ContractualRisks MUST be 11.
