@@ -148,7 +148,10 @@ def retrieve_and_generate(
         "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
     }
 
-    prompt_text = _render_prompt(query)
+    basic_instruction = (
+        "Basic instruction: Give just the requested info, and don't apologise."
+    )
+    prompt_text = _render_prompt(basic_instruction + query)
 
     # Determine document filter based on query content
     filter_config = {}
@@ -206,7 +209,10 @@ def retrieve_and_generate_prioritized_doc(
     Returns:
         dict: Retrieved and generated output limited to selected files.
     """
-    prompt_text = _render_prompt(query)
+    basic_instruction = (
+        "Basic instruction: Give just the requested info, and don't apologise."
+    )
+    prompt_text = _render_prompt(basic_instruction + query)
     allowed_paths = add_prefix(files, BUCKET_CONTAINER, knowledge_base_folder)
     return bedrock_agent_runtime.retrieve_and_generate(
         input={"text": prompt_text},

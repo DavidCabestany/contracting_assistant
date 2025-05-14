@@ -37,6 +37,7 @@ from utils import (
     llm_summarise,
     needs_summary,
     prompt_query_cat,
+    response_sanitizer,
 )
 
 from .constants import (
@@ -63,6 +64,39 @@ def is_high_priority_query(query: str, category: str) -> bool:
     return normalized_query in HIGH_PRIORITY_QUERIES.get(
         normalized_category, set()
     )
+
+
+def _was_last_answer_from_kb(session_id: str) -> bool:
+    """Check if the last answer in session history came from the knowledge base."""
+    logger.info(
+        "000 ▶ ENTER _was_last_answer_from_kb(session_id=%s)", session_id
+    )
+    try:
+        history = session_history(session_id).get(session_id, [])
+        logger.info("010 ▶ Retrieved %d history entries", len(history))
+
+        if not history:
+            logger.info("020 ▶ No history found – returning False")
+            return False
+
+        last = history[-1]
+        logger.info("030 ▶ Last history entry: %s", last)
+
+        file_used = last.get("ChatMetadata", {}).get("FileName")
+        logger.info("040 ▶ FileName in last entry = %s", file_used)
+
+        is_kb_used = file_used == "USED_KB"
+        logger.info("050 ▶ is_kb_used = %s", is_kb_used)
+
+        logger.info("060 ◀ EXIT _was_last_answer_from_kb")
+        return is_kb_used
+
+    except Exception as e:
+        logger.warning("⚠ 070 ▶ Failed to check KB usage from history: %s", e)
+        logger.info(
+            "080 ◀ EXIT _was_last_answer_from_kb with False (exception)"
+        )
+        return False
 
 
 def _get_session_chat_history(session_id: str) -> str:
@@ -110,6 +144,7 @@ def _build_prompt_with_optional_history(
         ui_session_id,
     )
     # first message in session
+    is_follow_up = False
     if tx_count == 0:
         existing_history = session_history(ui_session_id)
         logger.info(
@@ -123,16 +158,15 @@ def _build_prompt_with_optional_history(
                 "EXIT  ◀ _build_prompt | using existing_history -> prompt_preview=%.200s",
                 prompt.replace("\n", " "),
             )
-            return prompt, history_txt
+            return prompt, history_txt, is_follow_up
         else:
             logger.info("  ▶ no existing_history — skipping history")
             prompt = f"User: {user_txt}"
             logger.info(
                 "EXIT  ◀ _build_prompt | new session -> prompt=%s", prompt
             )
-            return prompt, ""
+            return prompt, "", is_follow_up
 
-    # normal flow
     history_txt = _get_session_chat_history(ui_session_id)
     logger.info("  ▶ loaded history_txt (len=%d)", len(history_txt))
     if not history_txt.strip():
@@ -141,7 +175,7 @@ def _build_prompt_with_optional_history(
         logger.info(
             "EXIT  ◀ _build_prompt | empty history -> prompt=%s", prompt
         )
-        return prompt, ""
+        return prompt, "", is_follow_up
 
     try:
         classification_prompt = FOLLOW_UP_PROMPT.format(
@@ -156,6 +190,7 @@ def _build_prompt_with_optional_history(
 
         result_text = resp.get("content", [{}])[0].get("text", "").strip()
         logger.info("  ▶ classification result_text=%.200s", result_text)
+        is_follow_up = result_text.startswith("IS_FOLLOW_UP:")
         full_prompt = f"{history_txt}\nUser: {user_txt}"
     except Exception as e:
         logger.exception(
@@ -167,7 +202,7 @@ def _build_prompt_with_optional_history(
         "EXIT  ◀ _build_prompt | full_prompt_preview=%.200s",
         full_prompt.replace("\n", " "),
     )
-    return full_prompt, history_txt
+    return full_prompt, history_txt, is_follow_up
 
 
 def _fallback_qna(
@@ -192,7 +227,7 @@ def _fallback_qna(
 
     try:
         bedrock_session = _bedrock_sessions.get(ui_session_id)
-        prompt = f"{hist_txt}\nUser:{query}"
+        prompt = f"Basic instruction: give just the requested info, and don't apologise. \nHistory: {hist_txt}\nUser:{query}"
         logger.info("  ▶ fallback prompt=%.200s", prompt.replace("\n", " "))
         if category == "2":
             resp = retrieve_and_generate_prioritized_doc(
@@ -351,8 +386,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             )
 
         # prompt construction
-        prompt, history_txt = _build_prompt_with_optional_history(
-            user_txt, tx_count, ui_session_id
+        prompt, history_txt, is_follow_up = (
+            _build_prompt_with_optional_history(
+                user_txt, tx_count, ui_session_id
+            )
         )
 
         # keyword-based file mapping
@@ -434,12 +471,18 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             kb_answer = resp.get("output", {}).get("text", "").strip()
             if kb_answer:
                 is_priority = is_high_priority_query(user_txt, detected_unit)
-                if is_priority:
-                    logger.info(
-                        "180 ▶ Overwriting LLM answer due to high-priority query match"
+                should_overwrite_llm = (
+                    is_priority
+                    or not llm_answer_only
+                    or (
+                        is_follow_up
+                        and _was_last_answer_from_kb(ui_session_id)
                     )
-                    answer = kb_answer
-                elif not llm_answer_only:
+                )
+                if should_overwrite_llm:
+                    logger.info(
+                        "180 ▶ Overwriting LLM answer due to KB relevance logic"
+                    )
                     answer = kb_answer
         except Exception as e:
             logger.warning("190 ⚠ KB retrieval failed: %s", e)
@@ -466,20 +509,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         except Exception as e:
             logger.warning("230 ⚠ fallback QnA failed: %s", e)
         answer = re.split(r"\nUser:\s", answer)[0].strip()
-        # user_echo_pattern = re.compile(r"\n?User: .+$", re.IGNORECASE | re.DOTALL)
-        # cleaned_answer = re.sub(user_echo_pattern, "", answer).strip()
+        sanitized_answer = response_sanitizer(answer)
 
-        # if cleaned_answer != answer:
-        #     logger.warning("Cleaned user echo from end of answer.")
-        #     answer = cleaned_answer
+        logger.info(
+            f"230 ▶ Sanitized final answer before logging and return --> \n answer: {answer} \n sanitized answer {sanitized_answer}"
+        )
+
         # store
         logger.info("240 ▶ storing chat log")
-        _store_chat_log(request, answer, msg_id, ui_session_id)
+        _store_chat_log(request, sanitized_answer, msg_id, ui_session_id)
 
         logger.info("250 ◀ exit ask_question SUCCESS")
-        # if answer.strip().lower().startswith("user:"):
-        #     logger.warning("Answer starts with 'User:', cleaning up.")
-        #     answer = answer.partition("\n")[2].strip()
 
         return QueryResponse(
             status="success",
@@ -487,7 +527,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             userQuery=user_txt,
             result=Result(
                 messageId=msg_id,
-                answer=QnAAnswer(ans=answer),
+                answer=QnAAnswer(ans=sanitized_answer),
                 transactionCount=tx_count,
                 citations=citations,
                 feedback=Feedback(

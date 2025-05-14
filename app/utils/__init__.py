@@ -27,6 +27,7 @@ from .llm_utils import (
     llm_summarise,
     needs_summary,
     parse_risk_assessment_output,
+    response_sanitizer,
 )
 from .prompt_utils import (
     business_unit_prompt,
@@ -56,6 +57,7 @@ __all__ = [
     "API_KEY",
     "MODEL_ID",
     # llm_utils
+    "response_sanitizer",
     "needs_summary",
     "llm_summarise",
     "parse_risk_assessment_output",

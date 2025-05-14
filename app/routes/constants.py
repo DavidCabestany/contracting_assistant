@@ -25,12 +25,17 @@ HIGH_PRIORITY_QUERIES = {
         "what minimum audit rights do we require in a contract?",
         "the supplier doesn't want to accept out standard payment terms, what can i do?",
         "who decides on the liability cap?",
+        "What payment terms should be used in France",
+        "What payment terms should be used in Germany",
     },
     "Privacy": {
         "what are the mandatory incident reporting timeframes depending on jurisdiction?",
         "when should i add swiss or uk addendum to privacy terms?",
         "i have technological measures listed already in data privacy appendix. can i refer to them in sccs or i should copy them explicitly?",
         "i do not see list of affiliates covered by data privacy terms and sccs in the documents. where should relevant controllers (affiliates) be listed?",
+        "Can the liability for a cyber security incydent be capped?",
+        "What to do in case of an cyber security incident?",
+        "Im in procurement, can I decide on the liability cap?",
     },
     "Alexion": {
         "what are the thresholds for legal review of contracts at alexion?",

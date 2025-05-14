@@ -11,6 +11,13 @@ from config import get_secret
 
 logger = logging.getLogger(__name__)
 
+HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
+SONNET_V1 = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+SONNET_V2 = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+SONNET_37 = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+OPUS_3_V1 = "us.anthropic.claude-3-opus-20240229-v1:0"
+
+
 # — Paths — #
 ROOT_DIR = Path(__file__).resolve().parent
 DOCS_DIR = (

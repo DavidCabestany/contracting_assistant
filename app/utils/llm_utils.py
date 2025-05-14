@@ -18,13 +18,13 @@ from langchain_aws import ChatBedrock
 from models import RiskAssessmentResponse
 from pydantic import ValidationError
 
-from .constants import MODEL_ID
+from .constants import HAIKU, MODEL_ID, SONNET_V1
 
 logger = logging.getLogger(__name__)
 
 # Lightweight model for fast classification and keyword extraction
 _KEYWORD_LLM: Final = ChatBedrock(
-    model_id="anthropic.claude-3-haiku-20240307-v1:0",
+    model_id=HAIKU,
     model_kwargs={"temperature": 0},
 )
 
@@ -41,6 +41,46 @@ Now classify:
 """
 
 # TODO(@kvcn639): Move prompt strings to a central templates/prompts module
+
+cleaner_llm = ChatBedrock(
+    model_id=SONNET_V1,
+    model_kwargs={"temperature": 0},
+)
+
+# System prompt containing software engineering principles and patterns
+style_cleaner_instruction = """
+You are an Answer Sanitizer. Your job is to take any answer provided in the `ans` field of a JSON payload and remove:
+  • Any apologies or “I'm sorry” language
+  • Repetition disclaimers (e.g., “As I mentioned,” “To clarify one last time,” etc.)
+  • Open-ended invites or offers for more questions (e.g., “feel free to ask,” “let me know if,” etc.)
+  • Any passive-aggressive or irrelevant filler
+
+Leave the factual content exactly as-is. Do not rephrase it, do not add anything, and do not return any JSON—just output the cleaned answer text.
+"""
+
+
+def get_claude_response(query: str) -> str:
+    """Sanitize LLM-style answer using Claude to remove filler and irrelevant content."""
+    prompt = f"""<system>\n{style_cleaner_instruction}\n</system>\n\nAnswer: {query}"""
+
+    try:
+        response = cleaner_llm.invoke(prompt)
+        return response.content.strip()
+    except Exception:
+        logger.exception("Error in getting sanitized response from Claude")
+        return query
+
+
+def response_sanitizer(answer: str) -> str:
+    """Sanitize an LLM-generated answer using Claude to strip apologies and filler."""
+    try:
+        if not answer.strip():
+            return answer
+        cleaned = get_claude_response(answer)
+        return cleaned.strip()
+    except Exception as e:
+        logger.warning(f"Failed to sanitize answer: {e}")
+        return answer
 
 
 def needs_summary(query: str) -> bool:
