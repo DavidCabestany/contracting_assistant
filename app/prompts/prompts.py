@@ -55,6 +55,22 @@ CATEGORY_PROMPT = """
     Respond with ONLY the category number (1, 2, or 3). Do not include any other text or explanation.
     """
 
+CATEGORY_PROMPT_QNA = """
+    You are an expert in understanding user queries related to contracts.
+    Your task is to determine the category of a given query. The categories are:
+
+    1.  The user wants to compare a clause to a file of the database
+
+    2.  the user wants to
+    3.  **General Contract Inquiry:** The query is a general question about the contract that doesn't fall into the above categories.
+
+    Given the following user query, determine which category it belongs to:
+
+    User Query: {Query}
+
+    Respond with ONLY the category number (1, 2, or 3). Do not include any other text or explanation.
+    """
+
 RISK_MATRIX_PROMPT = """
 Respond strictly using the following JSON-style format:
 ```json

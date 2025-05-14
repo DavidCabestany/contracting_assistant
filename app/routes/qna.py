@@ -7,6 +7,7 @@ import logging
 import re
 import uuid
 
+import boto3
 from auth.utils import verify_token
 from fastapi import APIRouter, Depends, HTTPException
 from models import (
@@ -57,6 +58,67 @@ router = APIRouter(tags=["QnA"], dependencies=[Depends(verify_token)])
 _bedrock_sessions: dict[str, str] = {}
 
 
+def load_known_files_from_s3() -> dict[str, str]:
+    """Build a filename-to-kb_path mapping from S3 buckets."""
+    s3 = boto3.client("s3")
+    bucket = "azcdi-us-ops-procure-ds-dev"
+    kb_paths = ["general", "privacy", "alexion"]
+    known_files = {}
+
+    for kb_path in kb_paths:
+        prefix = f"{kb_path}/"
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith(".pdf"):
+                    file_name = key.split("/")[-1]
+                    known_files[file_name] = kb_path
+
+    return known_files
+
+
+KNOWN_FILES = load_known_files_from_s3()
+
+
+def auto_attach_files(user_txt: str) -> list[str]:
+    """Auto-match files from S3 based on query contents."""
+    query_lc = user_txt.lower()
+    start_end_query = query_lc[:100] + query_lc[-100:]
+    matched_files = []
+
+    for file_name, kb_path in KNOWN_FILES.items():
+        base_name = file_name.lower().replace(".pdf", "")
+        words = re.findall(r"\b\w+\b", base_name)
+
+        # Build sliding windows of 2+ consecutive words
+        for i in range(len(words) - 1):
+            phrase = " ".join(words[i : i + 2])
+            if phrase in start_end_query:
+                matched_files.append((file_name, kb_path))
+                break
+
+    print("matched files", matched_files)
+
+    return matched_files
+
+
+def is_invalid_response(text: str) -> bool:
+    """Check whether the response text is considered invalid or irrelevant."""
+    lowered = text.lower().strip()
+    return (
+        not lowered
+        or lowered in {"sorry, i am unable to assist you with this request."}
+        or "unable to assist" in lowered
+        or "i cannot help" in lowered
+        or "no information available" in lowered
+        or "i'm not sure" in lowered
+        or IRRELEVANT in lowered
+    )
+
+
 def is_high_priority_query(query: str, category: str) -> bool:
     """Check if teh initial user query is part of the standard queries."""
     normalized_query = query.lower().strip()
@@ -64,6 +126,21 @@ def is_high_priority_query(query: str, category: str) -> bool:
     return normalized_query in HIGH_PRIORITY_QUERIES.get(
         normalized_category, set()
     )
+
+
+def detect_prior_doc_from_query(query: str) -> str:
+    """Detect a relevant prior document from the user query."""
+    DOCUMENT_TOPICS = [
+        {
+            "file": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+            "keywords": ["supplier", "controller", "processor"],
+        }
+    ]
+    query_lower = query.lower()
+    for doc in DOCUMENT_TOPICS:
+        if all(k in query_lower for k in doc["keywords"]):
+            return doc["file"]
+    return PRIOR_DOC
 
 
 def _was_last_answer_from_kb(session_id: str) -> bool:
@@ -215,6 +292,7 @@ def _fallback_qna(
     category: str,
     kb_folder: str,
     hist_txt: str,
+    fallback_doc: str = PRIOR_DOC,
 ) -> str:
     logger.info(
         "ENTER ▶ _fallback_qna(query=%.100s, answer=%.100s, ui_session_id=%s, category=%s, kb_folder=%s)",
@@ -232,7 +310,15 @@ def _fallback_qna(
         bedrock_session = _bedrock_sessions.get(ui_session_id)
         prompt = f"History: {hist_txt}\nUser:{query}"
         logger.info("▶ fallback prompt=%.200s", prompt.replace("\n", " "))
-        if category == "2":
+        if category == "2" or fallback_doc != PRIOR_DOC:
+            resp = retrieve_and_generate(
+                prompt,
+                GEN_ENQ_KB_ID,
+                document=fallback_doc,
+                session_id=bedrock_session,
+                kb_path=kb_folder,
+            )
+        if category == "3":
             resp = retrieve_and_generate_prioritized_doc(
                 prompt,
                 GEN_ENQ_KB_ID,
@@ -365,7 +451,23 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("060 ▶ kb_path = %s", kb_path)
         logger.info("070 ▶ bedrock_session_id = %s", bedrock_session_id)
 
+        matches = auto_attach_files(user_txt)
+        if matches:
+            files, kb_path = zip(*matches)
+            files = list(files)
+            kb_path = kb_path[0]
+            logger.info(
+                "💡 Auto-attached files = %s | from kb_path = %s",
+                files,
+                kb_path,
+            )
+
+        # if "can handbook" in user_txt.lower() and not files:
+        #     files = ["CAN HANDBOOK 4.0.pdf"]
+        #     logger.info("💡 Auto-attached CAN HANDBOOK 4.0.pdf based on user query")
+
         # early summarykb_answer
+
         if needs_summary(user_txt):
             logger.info("080 ▶ summary needed")
             summary_text = llm_summarise(user_txt)
@@ -395,15 +497,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             )
         )
 
-        # keyword-based file mapping
-        query_reference_document_mapping = {
-            "supplier controller processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-        }
-        for keywords, document in query_reference_document_mapping.items():
-            if all(k in user_txt.lower() for k in keywords.split()):
-                files = [document]
-                logger.info("100 ▶ mapped query to file: %s", document)
-                break
+        selected_doc = detect_prior_doc_from_query(user_txt)
+        if selected_doc != PRIOR_DOC:
+            files = [selected_doc]
+            logger.info(
+                "100 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
+            )
 
         # INIT
         answer = ""
@@ -501,7 +600,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             )
 
             kb_answer = resp.get("output", {}).get("text", "").strip()
-            if kb_answer:
+            if kb_answer and not is_invalid_response(kb_answer):
                 is_priority = is_high_priority_query(user_txt, detected_unit)
                 should_overwrite_llm = (
                     is_priority
@@ -516,6 +615,14 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         "180 ▶ Overwriting LLM answer due to KB relevance logic"
                     )
                     answer = kb_answer
+                else:
+                    logger.info(
+                        "180 ▶ Skipped KB overwrite due to relevance policy"
+                    )
+            else:
+                logger.warning(
+                    "⚠ KB retrieval returned an invalid response, skipping overwrite."
+                )
 
         except Exception as e:
             logger.warning("190 ⚠ KB retrieval failed: %s", e)
@@ -533,12 +640,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         # fallback QnA
         try:
-            cat = prompt_query_cat(prompt.lower())
-            logger.info("210 ▶ prompt_query_cat = %s", cat)
-            answer = _fallback_qna(
-                prompt, answer, ui_session_id, cat, "general", history_txt
-            )
-            logger.info("220 ▶ post-fallback answer = %.100s", answer)
+            if answer and not is_invalid_response(answer):
+                logger.info(
+                    "🛑 Skipping fallback — valid KB answer already present"
+                )
+            else:
+                cat = prompt_query_cat(user_txt.lower())
+                logger.info("210 ▶ prompt_query_cat = %s", cat)
+                answer = _fallback_qna(
+                    prompt, answer, ui_session_id, "2", kb_path, history_txt
+                )
+                logger.info("220 ▶ post-fallback answer = %.100s", answer)
         except Exception as e:
             logger.warning("230 EXCEPTION:  fallback QnA failed: %s", e)
         answer = re.split(r"\nUser:\s", answer)[0].strip()

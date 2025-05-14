@@ -28,6 +28,7 @@ from .templates import retrieve_template
 
 logger = logging.getLogger(__name__)
 
+
 QNA_MAX_RESULTS = 3
 
 
@@ -131,41 +132,44 @@ def retrieve_and_generate(
     query: str,
     kb_id: str,
     *,
+    document: str | None = None,
     session_id: str | None = None,
     kb_path: str | None = None,
 ):
     """Run Bedrock's retrieve-and-generate pipeline using the general KB.
 
     Args:
-        query (str): The user query.
-        kb_id (str): Knowledge base ID.
-        session_id (Optional[str]): Optional session identifier.
-        kb_path (Optional[str]): S3 prefix path for the documents.
+        query: The user query text.
+        kb_id: Knowledge base identifier.
+        session_id: Optional Bedrock session ID.
+        kb_path: Knowledge base folder name.
+        document: Optional specific document to prioritize in the search.
 
     Returns:
         dict: Retrieved and generated output from Bedrock.
     """
     # Define query to document mapping
-    query_reference_document_mapping = {
-        "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-    }
-
+    # query_reference_document_mapping = {
+    #     "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
+    # }
+    # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf
+    # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix - Controller to Dual Role Processor.pdf
     prompt_text = _render_prompt(query)
 
     # Determine document filter based on query content
     filter_config = {}
-    query_lower = query.lower()
+    # query_lower = query.lower()
 
     # Find matching document based on keywords
-    for keywords, document in query_reference_document_mapping.items():
-        if all(keyword in query_lower for keyword in keywords.split()):
-            filter_config = {
-                "equals": {
-                    "key": "x-amz-bedrock-kb-source-uri",
-                    "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}",
-                }
-            }
-            break
+    # for keywords, document in query_reference_document_mapping.items():
+    #     if all(keyword in query_lower for keyword in keywords.split()):
+    filter_config = {
+        "equals": {
+            "key": "x-amz-bedrock-kb-source-uri",
+            "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}",
+        }
+    }
+    # break
 
     return bedrock_agent_runtime.retrieve_and_generate(
         input={"text": prompt_text},
@@ -208,11 +212,24 @@ def retrieve_and_generate_prioritized_doc(
     Returns:
         dict: Retrieved and generated output limited to selected files.
     """
+    logger.info("ENTER ▶ retrieve_and_generate_prioritized_doc")
+    logger.info("Step 1 ▶ Building prompt for query: %.100s", query)
     prompt_text = _render_prompt(query)
+    logger.info(
+        "Step 2 ▶ Prompt built (length=%d): %.200s",
+        len(prompt_text),
+        prompt_text.replace("\n", " "),
+    )
+
+    logger.info(
+        "Step 3 ▶ Resolving allowed file paths from input files: %s", files
+    )
     allowed_paths = add_prefix(files, BUCKET_CONTAINER, knowledge_base_folder)
-    return bedrock_agent_runtime.retrieve_and_generate(
-        input={"text": prompt_text},
-        retrieveAndGenerateConfiguration={
+    logger.info("Step 4 ▶ Allowed S3 paths: %s", allowed_paths)
+
+    request_body = {
+        "input": {"text": prompt_text},
+        "retrieveAndGenerateConfiguration": {
             "knowledgeBaseConfiguration": {
                 "knowledgeBaseId": kb_id,
                 "modelArn": MODEL_ARN,
@@ -232,5 +249,24 @@ def retrieve_and_generate_prioritized_doc(
             },
             "type": "KNOWLEDGE_BASE",
         },
-        **({"sessionId": session_id} if session_id else {}),
-    )
+    }
+
+    if session_id:
+        request_body["sessionId"] = session_id
+        logger.info("Step 5 ▶ Using existing session_id: %s", session_id)
+    else:
+        logger.info("Step 5 ▶ No session_id provided — starting new session")
+
+    logger.info("Step 6 ▶ Final request payload ready for Bedrock call.")
+    try:
+        response = bedrock_agent_runtime.retrieve_and_generate(**request_body)
+        logger.info(
+            "EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESSFUL call"
+        )
+        return response
+    except Exception as e:
+        logger.error(
+            "EXIT  ◀ retrieve_and_generate_prioritized_doc — FAILED call: %s",
+            str(e),
+        )
+        raise

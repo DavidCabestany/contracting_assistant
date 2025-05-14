@@ -51,7 +51,7 @@ BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
 MODEL_ID = get_secret("MODEL_ID")
 IRRELEVANT = get_secret("IRRELEVANT_KEYWORD")
 SUMMARY_FLOW_NAME = get_secret("SUMMARY_FLOW_NAME")
-PRIOR_DOC = "CAN HANDBOOK Third Edition.pdf"
+PRIOR_DOC = "CAN HANDBOOK 4.0.pdf"
 
 router = APIRouter(tags=["Summary"], dependencies=[Depends(verify_token)])
 
