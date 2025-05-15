@@ -464,8 +464,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
             else:
                 files = []
-        print("matches", matches)
-        print("files", files)
+
+        # print("matches", matches)
+        # print("files", files)
 
         # if "can handbook" in user_txt.lower() and not files:
         #     files = ["CAN HANDBOOK 4.0.pdf"]
@@ -573,7 +574,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
                 hits = doc.get("retrievalResults", [])
                 logger.info("150 ▶ retrieved %d documents", len(hits))
-                print("hits", hits)
+                # print("hits", hits)
 
                 for hit in hits:
                     uri = hit.get("metadata", {}).get(
@@ -611,7 +612,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
             kb_answer = resp.get("output", {}).get("text", "").strip()
             kb_citations = extract_file_locations(resp)
-            print("kb_citations", kb_citations)
+            # print("kb_citations", kb_citations)
 
             if kb_answer and not is_invalid_response(kb_answer):
                 logger.info(
