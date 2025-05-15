@@ -39,7 +39,6 @@ from utils import (
     llm_summarise,
     needs_summary,
     prompt_query_cat,
-    response_sanitizer,
 )
 
 from .constants import (
@@ -445,7 +444,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         detected_unit = request.query.knowledgeType
         kb_path = get_knowledge_base_folder(detected_unit)
         bedrock_session_id = _bedrock_sessions.get(ui_session_id)
-
+        citations = []
         logger.info("020 ▶ user_txt = %s", user_txt)
         logger.info("030 ▶ ui_session_id = %s", ui_session_id)
         logger.info("040 ▶ tx_count = %s", tx_count)
@@ -512,7 +511,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         # INIT
         answer = ""
-        citations = []
+
         # llm_answer_only = False
         resp = None
         # best_kb_resp = None
@@ -606,7 +605,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "📦 Raw KB response before extracting citations: %s",
                 json.dumps(resp, indent=2),
             )
-            citations = extract_file_locations(resp)
+            # citations = extract_file_locations(resp)
             _bedrock_sessions[ui_session_id] = resp.get(
                 "sessionId", bedrock_session_id
             )
@@ -634,8 +633,11 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 logger.info(
                     "🧪 Raw KB response before extracting citations: %s", resp
                 )
-                citations = kb_citations
-                logger.info("180 ▶ Final extracted citations = %s", citations)
+                if not citations and kb_citations:
+                    citations = kb_citations
+                    logger.info(
+                        "180 ▶ Final extracted citations = %s", citations
+                    )
             else:
                 logger.warning(
                     "⚠ KB retrieval returned an invalid response, skipping overwrite."
@@ -662,10 +664,11 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     "593 ▶ HERE WE ARE  post-fallback answer = %.100s", answer
                 )
                 logger.info("✅ Citations after fallback: %s", citations)
-                citations = extract_file_locations(resp)
-                logger.info(
-                    "🛑 Skipping fallback — valid KB answer already present"
-                )
+                if not citations:
+                    citations = extract_file_locations(resp)
+                    logger.info(
+                        "🛑 Skipping fallback — valid KB answer already present"
+                    )
             else:
                 cat = prompt_query_cat(user_txt.lower())
                 logger.info("210 ▶ prompt_query_cat = %s", cat)
@@ -675,8 +678,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 logger.info("220 ▶ post-fallback answer = %.100s", answer)
         except Exception as e:
             logger.warning("230 EXCEPTION:  fallback QnA failed: %s", e)
-        answer = re.split(r"\nUser:\s", answer)[0].strip()
-        sanitized_answer = response_sanitizer(answer)
+        # answer = re.split(r"\nUser:\s", answer)[0].strip()
+        # sanitized_answer = response_sanitizer(answer)
         if not citations and "retrievalResults" in doc:
             logger.info(
                 "📌 Citations empty — attaching fallback citations from doc retrieval."
@@ -697,13 +700,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             "fileName": uri.split("/")[-1],
                         }
                     )
-        logger.info(
-            f"230 ▶ Sanitized final answer before logging and return --> \n answer: {answer} \n sanitized answer {sanitized_answer}"
-        )
+        # logger.info(
+        #     f"230 ▶ Sanitized final answer before logging and return --> \n answer: {answer} \n sanitized answer {sanitized_answer}"
+        # )
 
         # store
         logger.info("240 ▶ storing chat log")
-        _store_chat_log(request, sanitized_answer, msg_id, ui_session_id)
+        _store_chat_log(request, answer, msg_id, ui_session_id)
 
         logger.info("250 ◀ exit ask_question SUCCESS")
 
@@ -713,7 +716,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             userQuery=user_txt,
             result=Result(
                 messageId=msg_id,
-                answer=QnAAnswer(ans=sanitized_answer),
+                answer=QnAAnswer(ans=answer),
                 transactionCount=tx_count,
                 citations=citations,
                 feedback=Feedback(
