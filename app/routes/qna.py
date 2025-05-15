@@ -100,7 +100,7 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
         for i in range(len(words) - 1):
             phrase = " ".join(words[i : i + 2])
             if phrase in start_end_query:
-                matched_files.append((file_name, file_kb_path))
+                matched_files.append(file_name)
                 break
 
     return matched_files
@@ -452,15 +452,19 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("060 ▶ kb_path = %s", kb_path)
         logger.info("070 ▶ bedrock_session_id = %s", bedrock_session_id)
 
-        matches = auto_attach_files(user_txt, kb_path)
-        if matches:
-            files, kb_path = zip(*matches)
-            files = list(files)
-            logger.info(
-                "💡 Auto-attached files = %s | from kb_path = %s",
-                files,
-                kb_path,
-            )
+        if not files:
+            matches = auto_attach_files(user_txt, kb_path)
+            if matches:
+                files = matches
+                logger.info(
+                    "💡 Auto-attached files = %s | from kb_path = %s",
+                    files,
+                    kb_path,
+                )
+            else:
+                files = []
+        print("matches", matches)
+        print("files", files)
 
         # if "can handbook" in user_txt.lower() and not files:
         #     files = ["CAN HANDBOOK 4.0.pdf"]

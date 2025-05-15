@@ -206,7 +206,7 @@ Follow-up Indicators:
 4. Asks for comparison with prior information
 5. Seeks additional details about previous answers
 6. Uses contextual references (e.g., "this clause", "that term", "their policy")
-7. tell me about {country}
+7. tell me about country
 
 
 New Question Indicators:
