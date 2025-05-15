@@ -83,24 +83,25 @@ def load_known_files_from_s3() -> dict[str, str]:
 KNOWN_FILES = load_known_files_from_s3()
 
 
-def auto_attach_files(user_txt: str) -> list[str]:
-    """Auto-match files from S3 based on query contents."""
+def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
+    """Auto-match files from S3 based on query contents and restrict to given kb_path."""
     query_lc = user_txt.lower()
-    start_end_query = query_lc[:100] + query_lc[-100:]
+    start_end_query = query_lc[:50] + query_lc[-50:]
     matched_files = []
 
-    for file_name, kb_path in KNOWN_FILES.items():
+    for file_name, file_kb_path in KNOWN_FILES.items():
+        # Only consider files from the active kb_path
+        if file_kb_path != kb_path:
+            continue
+
         base_name = file_name.lower().replace(".pdf", "")
         words = re.findall(r"\b\w+\b", base_name)
 
-        # Build sliding windows of 2+ consecutive words
         for i in range(len(words) - 1):
             phrase = " ".join(words[i : i + 2])
             if phrase in start_end_query:
-                matched_files.append((file_name, kb_path))
+                matched_files.append((file_name, file_kb_path))
                 break
-
-    print("matched files", matched_files)
 
     return matched_files
 
@@ -451,11 +452,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("060 ▶ kb_path = %s", kb_path)
         logger.info("070 ▶ bedrock_session_id = %s", bedrock_session_id)
 
-        matches = auto_attach_files(user_txt)
+        matches = auto_attach_files(user_txt, kb_path)
         if matches:
             files, kb_path = zip(*matches)
             files = list(files)
-            kb_path = kb_path[0]
             logger.info(
                 "💡 Auto-attached files = %s | from kb_path = %s",
                 files,
