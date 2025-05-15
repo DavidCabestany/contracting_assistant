@@ -100,6 +100,7 @@ def extract_file_locations(data: dict[str, Any]) -> list[dict[str, Any]]:
                 for x in citations
             ):
                 citations.append(obj)
+    logger.info("🧪 Extracting citations from: %s", citations)
     return citations
 
 

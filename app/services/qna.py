@@ -128,6 +128,70 @@ def _build_gen_cfg() -> dict:
     }
 
 
+# def retrieve_and_generate(
+#     query: str,
+#     kb_id: str,
+#     *,
+#     document: str | None = None,
+#     session_id: str | None = None,
+#     kb_path: str | None = None,
+# ):
+#     """Run Bedrock's retrieve-and-generate pipeline using the general KB.
+
+#     Args:
+#         query: The user query text.
+#         kb_id: Knowledge base identifier.
+#         session_id: Optional Bedrock session ID.
+#         kb_path: Knowledge base folder name.
+#         document: Optional specific document to prioritize in the search.
+
+#     Returns:
+#         dict: Retrieved and generated output from Bedrock.
+#     """
+#     # Define query to document mapping
+#     # query_reference_document_mapping = {
+#     #     "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
+#     # }
+#     # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf
+#     # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix - Controller to Dual Role Processor.pdf
+#     prompt_text = _render_prompt(query)
+
+#     # Determine document filter based on query content
+#     filter_config = {}
+#     # query_lower = query.lower()
+
+#     # Find matching document based on keywords
+#     # for keywords, document in query_reference_document_mapping.items():
+#     #     if all(keyword in query_lower for keyword in keywords.split()):
+#     filter_config = {
+#         "equals": {
+#             "key": "x-amz-bedrock-kb-source-uri",
+#             "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}",
+#         }
+#     }
+#     # break
+
+#     return bedrock_agent_runtime.retrieve_and_generate(
+#         input={"text": prompt_text},
+#         retrieveAndGenerateConfiguration={
+#             "knowledgeBaseConfiguration": {
+#                 "knowledgeBaseId": kb_id,
+#                 "modelArn": MODEL_ARN,
+#                 "retrievalConfiguration": {
+#                     "vectorSearchConfiguration": {
+#                         "overrideSearchType": QNA_SEARCH_TYPE,
+#                         "numberOfResults": QNA_MAX_RESULTS,
+#                         **({"filter": filter_config} if filter_config else {}),
+#                     },
+#                 },
+#                 "generationConfiguration": _build_gen_cfg(),
+#             },
+#             "type": "KNOWLEDGE_BASE",
+#         },
+#         **({"sessionId": session_id} if session_id else {}),
+#     )
+
+
 def retrieve_and_generate(
     query: str,
     kb_id: str,
@@ -136,44 +200,35 @@ def retrieve_and_generate(
     session_id: str | None = None,
     kb_path: str | None = None,
 ):
-    """Run Bedrock's retrieve-and-generate pipeline using the general KB.
+    """Run Bedrock's retrieve-and-generate pipeline using the general KB."""
+    logger.info("ENTER ▶ retrieve_and_generate")
 
-    Args:
-        query: The user query text.
-        kb_id: Knowledge base identifier.
-        session_id: Optional Bedrock session ID.
-        kb_path: Knowledge base folder name.
-        document: Optional specific document to prioritize in the search.
-
-    Returns:
-        dict: Retrieved and generated output from Bedrock.
-    """
-    # Define query to document mapping
-    # query_reference_document_mapping = {
-    #     "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-    # }
-    # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf
-    # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix - Controller to Dual Role Processor.pdf
     prompt_text = _render_prompt(query)
+    logger.debug("Prompt: %.200s", prompt_text.replace("\n", " "))
+    logger.debug(
+        "KB ID: %s | kb_path: %s | document: %s | session_id: %s",
+        kb_id,
+        kb_path,
+        document,
+        session_id,
+    )
 
-    # Determine document filter based on query content
     filter_config = {}
-    # query_lower = query.lower()
-
-    # Find matching document based on keywords
-    # for keywords, document in query_reference_document_mapping.items():
-    #     if all(keyword in query_lower for keyword in keywords.split()):
-    filter_config = {
-        "equals": {
-            "key": "x-amz-bedrock-kb-source-uri",
-            "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}",
+    if document and kb_path:
+        s3_uri = f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}"
+        filter_config = {
+            "equals": {
+                "key": "x-amz-bedrock-kb-source-uri",
+                "value": s3_uri,
+            }
         }
-    }
-    # break
+        logger.info("Applying document filter on: %s", s3_uri)
+    else:
+        logger.info("No specific document filter applied — full KB search")
 
-    return bedrock_agent_runtime.retrieve_and_generate(
-        input={"text": prompt_text},
-        retrieveAndGenerateConfiguration={
+    request_body = {
+        "input": {"text": prompt_text},
+        "retrieveAndGenerateConfiguration": {
             "knowledgeBaseConfiguration": {
                 "knowledgeBaseId": kb_id,
                 "modelArn": MODEL_ARN,
@@ -189,7 +244,18 @@ def retrieve_and_generate(
             "type": "KNOWLEDGE_BASE",
         },
         **({"sessionId": session_id} if session_id else {}),
-    )
+    }
+
+    logger.debug("Request payload: %s", json.dumps(request_body, indent=2))
+
+    try:
+        response = bedrock_agent_runtime.retrieve_and_generate(**request_body)
+        logger.info("EXIT ▶ retrieve_and_generate — success")
+        logger.debug("Bedrock response: %s", json.dumps(response, indent=2))
+        return response
+    except Exception:
+        logger.exception("Bedrock retrieve_and_generate FAILED")
+        raise
 
 
 def retrieve_and_generate_prioritized_doc(

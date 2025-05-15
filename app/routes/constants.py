@@ -22,6 +22,8 @@ PRIOR_DOC = "CAN HANDBOOK 4.0.pdf"
 HIGH_PRIORITY_QUERIES = {
     "General Queries": {
         "what are az standard payment terms?",
+        "what are AZ standard payment terms for Vendors located in France?",
+        "what are AZ standard payment terms for France",
         "what minimum audit rights do we require in a contract?",
         "the supplier doesn't want to accept out standard payment terms, what can i do?",
         "who decides on the liability cap?",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import re
 import uuid
@@ -511,8 +512,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         # INIT
         answer = ""
         citations = []
-        llm_answer_only = False
+        # llm_answer_only = False
         resp = None
+        # best_kb_resp = None
 
         if files:
             logger.info("190 ▶ files present — PRIORITIZED retrieval")
@@ -545,7 +547,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     and isinstance(raw_content[0], dict)
                 ):
                     answer = raw_content[0].get("text", "").strip()
-                    llm_answer_only = bool(answer)
+                    # llm_answer_only = bool(answer)
                     logger.info("120 ▶ Direct LLM answer retrieved")
             except Exception as e:
                 logger.warning("130 EXCEPTION:  Direct LLM failed: %s", e)
@@ -571,6 +573,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
                 hits = doc.get("retrievalResults", [])
                 logger.info("150 ▶ retrieved %d documents", len(hits))
+                print("hits", hits)
 
                 for hit in hits:
                     uri = hit.get("metadata", {}).get(
@@ -597,32 +600,40 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         session_id=bedrock_session_id,
                         kb_path=kb_path,
                     )
-
+            logger.info(
+                "📦 Raw KB response before extracting citations: %s",
+                json.dumps(resp, indent=2),
+            )
             citations = extract_file_locations(resp)
             _bedrock_sessions[ui_session_id] = resp.get(
                 "sessionId", bedrock_session_id
             )
 
             kb_answer = resp.get("output", {}).get("text", "").strip()
+            kb_citations = extract_file_locations(resp)
+            print("kb_citations", kb_citations)
+
             if kb_answer and not is_invalid_response(kb_answer):
-                is_priority = is_high_priority_query(user_txt, detected_unit)
-                should_overwrite_llm = (
-                    is_priority
-                    or not llm_answer_only
-                    or (
-                        is_follow_up
-                        and _was_last_answer_from_kb(ui_session_id)
-                    )
+                logger.info(
+                    "📦 Raw KB response before extracting citations: %s",
+                    json.dumps(resp, indent=2),
                 )
-                if should_overwrite_llm:
-                    logger.info(
-                        "180 ▶ Overwriting LLM answer due to KB relevance logic"
-                    )
-                    answer = kb_answer
-                else:
-                    logger.info(
-                        "180 ▶ Skipped KB overwrite due to relevance policy"
-                    )
+                logger.info("175 ▶ Final extracted citations = %s", citations)
+                # is_priority = is_high_priority_query(user_txt, detected_unit)
+                # should_overwrite_llm = (
+                #     is_priority or not llm_answer_only or (is_follow_up and _was_last_answer_from_kb(ui_session_id))
+                # )
+                # if should_overwrite_llm:
+
+                logger.info(
+                    "180 ▶ Overwriting LLM answer due to KB relevance logic"
+                )
+                answer = kb_answer
+                logger.info(
+                    "🧪 Raw KB response before extracting citations: %s", resp
+                )
+                citations = kb_citations
+                logger.info("180 ▶ Final extracted citations = %s", citations)
             else:
                 logger.warning(
                     "⚠ KB retrieval returned an invalid response, skipping overwrite."
@@ -646,6 +657,11 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         try:
             if answer and not is_invalid_response(answer):
                 logger.info(
+                    "593 ▶ HERE WE ARE  post-fallback answer = %.100s", answer
+                )
+                logger.info("✅ Citations after fallback: %s", citations)
+                citations = extract_file_locations(resp)
+                logger.info(
                     "🛑 Skipping fallback — valid KB answer already present"
                 )
             else:
@@ -659,7 +675,26 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             logger.warning("230 EXCEPTION:  fallback QnA failed: %s", e)
         answer = re.split(r"\nUser:\s", answer)[0].strip()
         sanitized_answer = response_sanitizer(answer)
-
+        if not citations and "retrievalResults" in doc:
+            logger.info(
+                "📌 Citations empty — attaching fallback citations from doc retrieval."
+            )
+            citations = []
+            for hit in doc["retrievalResults"]:
+                uri = hit.get("metadata", {}).get(
+                    "x-amz-bedrock-kb-source-uri", ""
+                )
+                page = hit.get("metadata", {}).get(
+                    "x-amz-bedrock-kb-document-page-number", 0
+                )
+                if uri:
+                    citations.append(
+                        {
+                            "filePath": uri,  # optional: presign it
+                            "pageNumber": int(page),
+                            "fileName": uri.split("/")[-1],
+                        }
+                    )
         logger.info(
             f"230 ▶ Sanitized final answer before logging and return --> \n answer: {answer} \n sanitized answer {sanitized_answer}"
         )
