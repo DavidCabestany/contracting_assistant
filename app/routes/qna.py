@@ -555,6 +555,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         # always fetch KB documents for continuity (even if LLM answered)
         try:
+            doc = {}
             logger.info("140 ▶ Performing KB-based retrieval")
             if files:
                 logger.info("145 ▶ Files provided by user: %s", files)
