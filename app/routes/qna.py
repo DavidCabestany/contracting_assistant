@@ -442,6 +442,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         files = request.query.files
         detected_unit = request.query.knowledgeType
         kb_path = get_knowledge_base_folder(detected_unit)
+        kb_id = get_knowledge_base_id(detected_unit)
         bedrock_session_id = _bedrock_sessions.get(ui_session_id)
         citations = []
         logger.info("020 ▶ user_txt = %s", user_txt)
