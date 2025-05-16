@@ -645,7 +645,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             elif not files:
                 logger.info("120 ▶ Follow-up with no files")
                 check = (user_txt[:50] + user_txt[-50:]).lower()
-                comparing = r"(compare( the (second )?clause)? with )"
+                comparing = r"(compare( the (second )?clause)? (with|to) )"
 
                 if re.search(comparing, check):
                     if not any(term in check for term in excluded):
@@ -787,33 +787,46 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 "128 ❌ Exception in fallback compare path: %s",
                                 e,
                             )
-                    elif any(term in check for term in excluded):
-                        try:
-                            logger.info(
-                                "129 ▶ No files, excluded term found – using direct LLM"
-                            )
-                            direct_resp = generate_answer_with_context(prompt)
-                            logger.debug(
-                                "130 ▶ LLM raw response: %s", direct_resp
-                            )
-                            raw_content = direct_resp.get("content", [])
-                            if (
-                                isinstance(raw_content, list)
-                                and raw_content
-                                and isinstance(raw_content[0], dict)
-                            ):
-                                answer = raw_content[0].get("text", "").strip()
-                                logger.info(
-                                    "131 ▶ Direct LLM answer retrieved with excluded term"
-                                )
+                elif any(term in check for term in excluded):
+                    try:
+                        logger.info(
+                            "129 ▶ ELIF ANY - No files, excluded term found – using KB"
+                        )
+                        resp = retrieve_and_generate(
+                            prompt,
+                            get_knowledge_base_id(detected_unit),
+                            session_id=bedrock_session_id,
+                            kb_path=kb_path,
+                        )
+                        answer = resp["output"]["text"]
+                        citations = extract_file_locations(resp)
+                        _store_chat_log(request, answer, msg_id, ui_session_id)
+                        return QueryResponse(
+                            status="success",
+                            sessionId=ui_session_id,
+                            userQuery=user_txt,
+                            result=Result(
+                                messageId=msg_id,
+                                answer=QnAAnswer(ans=answer),
+                                transactionCount=tx_count,
+                                citations=citations,
+                                feedback=Feedback(
+                                    feedbackDisplayOptions=FeedbackDisplayOptions(
+                                        thumbsUp="Y",
+                                        thumbsDown="Y",
+                                        feedbackText="Y",
+                                    )
+                                ),
+                            ),
+                        )
 
-                        except Exception as e:
-                            logger.warning(
-                                "132 EXCEPTION:  Direct LLM failed: %s", e
-                            )
+                    except Exception as e:
+                        logger.warning(
+                            "132 EXCEPTION:  Direct LLM failed: %s", e
+                        )
                 elif "compare" in check:
                     logger.info(
-                        "129 ▶ No files, excluded term found – using direct LLM"
+                        "129 ▶ ELIF COMPARE - No files, excluded term found – using direct LLM"
                     )
                     direct_resp = generate_answer_with_context(prompt)
                     logger.debug("130 ▶ LLM raw response: %s", direct_resp)
@@ -851,9 +864,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         ),
                     )
                 else:
-                    logger.info(
-                        "129 ▶ No files, excluded term found – using direct LLM"
-                    )
+                    logger.info("Else, excluded term found – using direct LLM")
                     direct_resp = generate_answer_with_context(prompt)
                     logger.debug("130 ▶ LLM raw response: %s", direct_resp)
                     raw_content = direct_resp.get("content", [])

@@ -200,15 +200,16 @@ Context Parameters:
 - Prior database information or summaries
 
 Follow-up Indicators:
-1. Requests clarification of previous information
-2. References the same vendor/client/provider
-3. Builds upon previous clause discussion
-4. Asks for comparison with prior information
-5. Seeks additional details about previous answers
-6. Uses contextual references (e.g., "this clause", "that term", "their policy")
-7. tell me about country
-8. compare the clause with file
-
+. Requests clarification of previous information
+. References the same vendor/client/provider
+. Builds upon previous clause discussion
+. how does it compares to the az standards
+. compare the clause with file
+. Asks for comparison with prior information
+. Seeks additional details about previous answers
+. Uses contextual references (e.g., "this clause", "that term", "their policy")
+. tell me about country
+. compare the clause with file
 
 New Question Indicators:
 1. Introduces new vendor/client/provider
@@ -217,6 +218,7 @@ New Question Indicators:
 4. Completely different topic or subject matter
 5. No contextual references to previous discussion
 
+this is a follow up always: how does it compares to the az standards
 
 Previous Interactions:
 {context}
