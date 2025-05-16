@@ -11,6 +11,8 @@ import json
 import logging
 from collections.abc import Sequence
 
+from utils import extract_file_locations
+
 from .clients import bedrock_agent_runtime, bedrock_client
 from .config import (
     BUCKET_CONTAINER,
@@ -122,70 +124,6 @@ def _build_gen_cfg() -> dict:
             },
         },
     }
-
-
-# def retrieve_and_generate(
-#     query: str,
-#     kb_id: str,
-#     *,
-#     document: str | None = None,
-#     session_id: str | None = None,
-#     kb_path: str | None = None,
-# ):
-#     """Run Bedrock's retrieve-and-generate pipeline using the general KB.
-
-#     Args:
-#         query: The user query text.
-#         kb_id: Knowledge base identifier.
-#         session_id: Optional Bedrock session ID.
-#         kb_path: Knowledge base folder name.
-#         document: Optional specific document to prioritize in the search.
-
-#     Returns:
-#         dict: Retrieved and generated output from Bedrock.
-#     """
-#     # Define query to document mapping
-#     # query_reference_document_mapping = {
-#     #     "Could you please advise how to solve the situation when Supplier can be a Controller and a Processor": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-#     # }
-#     # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf
-#     # s3://azcdi-us-ops-procure-ds-dev/privacy/Playbook_Data Protection Appendix - Controller to Dual Role Processor.pdf
-#     prompt_text = _render_prompt(query)
-
-#     # Determine document filter based on query content
-#     filter_config = {}
-#     # query_lower = query.lower()
-
-#     # Find matching document based on keywords
-#     # for keywords, document in query_reference_document_mapping.items():
-#     #     if all(keyword in query_lower for keyword in keywords.split()):
-#     filter_config = {
-#         "equals": {
-#             "key": "x-amz-bedrock-kb-source-uri",
-#             "value": f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}",
-#         }
-#     }
-#     # break
-
-#     return bedrock_agent_runtime.retrieve_and_generate(
-#         input={"text": prompt_text},
-#         retrieveAndGenerateConfiguration={
-#             "knowledgeBaseConfiguration": {
-#                 "knowledgeBaseId": kb_id,
-#                 "modelArn": MODEL_ARN,
-#                 "retrievalConfiguration": {
-#                     "vectorSearchConfiguration": {
-#                         "overrideSearchType": QNA_SEARCH_TYPE,
-#                         "numberOfResults": QNA_MAX_RESULTS,
-#                         **({"filter": filter_config} if filter_config else {}),
-#                     },
-#                 },
-#                 "generationConfiguration": _build_gen_cfg(),
-#             },
-#             "type": "KNOWLEDGE_BASE",
-#         },
-#         **({"sessionId": session_id} if session_id else {}),
-#     )
 
 
 def retrieve_file_chunks(
@@ -402,3 +340,42 @@ def retrieve_and_generate_prioritized_doc(
             str(e),
         )
         raise
+
+
+def retrieve_citations_from_query(
+    query: str,
+    kb_id: str,
+    kb_path: str = "general",  # default as needed
+    files: list[str] | None = None,
+    session_id: str | None = None,
+) -> list[dict]:
+    """Run Bedrock retrieve-and-generate and extract only citations.
+
+    Args:
+        query (str): User query string.
+        kb_id (str): Knowledge Base ID.
+        kb_path (str): Folder/prefix path in S3 for documents.
+        files (list[str] | None): Optional list of file names to restrict retrieval.
+        session_id (str | None): Optional session identifier.
+
+    Returns:
+        list[dict]: List of citations as dicts (filePath, pageNumber, fileName).
+    """
+    if files:
+        resp = retrieve_and_generate_prioritized_doc(
+            query=query,
+            kb_id=kb_id,
+            knowledge_base_folder=kb_path,
+            files=files,
+            session_id=session_id,
+        )
+    else:
+        resp = retrieve_and_generate(
+            query=query,
+            kb_id=kb_id,
+            session_id=session_id,
+            kb_path=kb_path,
+        )
+
+    citations = extract_file_locations(resp)
+    return citations

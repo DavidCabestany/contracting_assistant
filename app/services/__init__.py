@@ -16,6 +16,7 @@ from .qna import (
     generate_answer_with_context,
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
+    retrieve_citations_from_query,
     retrieve_file_chunks,
 )
 from .templates import retrieve_template
@@ -24,6 +25,7 @@ __all__ = [
     "get_file_memory",
     # qna
     "retrieve_and_generate",
+    "retrieve_citations_from_query",
     "retrieve_file_chunks",
     "retrieve_and_generate_prioritized_doc",
     "retrieve_documents",

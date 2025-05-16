@@ -26,6 +26,7 @@ from services import (
     generate_answer_with_context,
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
+    retrieve_citations_from_query,
     retrieve_documents,
     retrieve_file_chunks,
     session_history,
@@ -593,9 +594,54 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         logger.warning(
                             "113 ⚠ No content extracted from files – will fallback."
                         )
-                        raise ValueError("Empty file content")
+                        augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content for this query."
 
-                    augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content. Please consider changing tabs."
+                        logger.info(
+                            "114 ▶ Calling LLM with KB-augmented prompt"
+                        )
+                        direct_resp = generate_answer_with_context(
+                            augmented_prompt
+                        )
+                        logger.debug("115 ▶ LLM raw response: %s", direct_resp)
+
+                        raw_content = direct_resp.get("content", [])
+                        if (
+                            isinstance(raw_content, list)
+                            and raw_content
+                            and isinstance(raw_content[0], dict)
+                        ):
+                            answer = raw_content[0].get("text", "").strip()
+                            logger.info(
+                                "116 ▶ Direct LLM answer retrieved with files"
+                            )
+
+                        logger.info(
+                            "117 ▶ Returning success response for follow-up with files"
+                        )
+                        answer = re.split(r"\nUser:\s", answer)[0].strip()
+                        citations = retrieve_citations_from_query(answer)
+
+                        _store_chat_log(request, answer, msg_id, ui_session_id)
+                        return QueryResponse(
+                            status="success",
+                            sessionId=ui_session_id,
+                            userQuery=user_txt,
+                            result=Result(
+                                messageId=msg_id,
+                                answer=QnAAnswer(ans=answer),
+                                transactionCount=tx_count,
+                                citations=citations,
+                                feedback=Feedback(
+                                    feedbackDisplayOptions=FeedbackDisplayOptions(
+                                        thumbsUp="Y",
+                                        thumbsDown="Y",
+                                        feedbackText="Y",
+                                    )
+                                ),
+                            ),
+                        )
+
+                    augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content for this query. Please consider changing tabs or refrasing the question."
 
                     logger.info("114 ▶ Calling LLM with KB-augmented prompt")
                     direct_resp = generate_answer_with_context(
@@ -618,6 +664,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         "117 ▶ Returning success response for follow-up with files"
                     )
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
+                    citations = retrieve_citations_from_query(answer)
                     _store_chat_log(request, answer, msg_id, ui_session_id)
                     return QueryResponse(
                         status="success",
@@ -627,7 +674,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             messageId=msg_id,
                             answer=QnAAnswer(ans=answer),
                             transactionCount=tx_count,
-                            citations=[],
+                            citations=citations,
                             feedback=Feedback(
                                 feedbackDisplayOptions=FeedbackDisplayOptions(
                                     thumbsUp="Y",
@@ -716,6 +763,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 answer = re.split(r"\nUser:\s", answer)[
                                     0
                                 ].strip()
+                                citations = retrieve_citations_from_query(
+                                    answer
+                                )
                                 _store_chat_log(
                                     request, answer, msg_id, ui_session_id
                                 )
@@ -727,7 +777,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                         messageId=msg_id,
                                         answer=QnAAnswer(ans=answer),
                                         transactionCount=tx_count,
-                                        citations=[],
+                                        citations=citations,
                                         feedback=Feedback(
                                             feedbackDisplayOptions=FeedbackDisplayOptions(
                                                 thumbsUp="Y",
@@ -760,7 +810,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 logger.info(
                                     "127 ▶ Fallback LLM answer retrieved"
                                 )
+
                             answer = re.split(r"\nUser:\s", answer)[0].strip()
+                            citations = retrieve_citations_from_query(answer)
                             _store_chat_log(
                                 request, answer, msg_id, ui_session_id
                             )
@@ -772,7 +824,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                     messageId=msg_id,
                                     answer=QnAAnswer(ans=answer),
                                     transactionCount=tx_count,
-                                    citations=[],
+                                    citations=citations,
                                     feedback=Feedback(
                                         feedbackDisplayOptions=FeedbackDisplayOptions(
                                             thumbsUp="Y",
@@ -841,6 +893,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             "131 ▶ Direct LLM answer retrieved with excluded term"
                         )
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
+                    citations = retrieve_citations_from_query(answer)
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -877,7 +930,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         logger.info(
                             "131 ▶ Direct LLM answer retrieved with excluded term"
                         )
+
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
+                    citations = retrieve_citations_from_query(answer)
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -936,6 +991,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 ):
                     answer = raw_content[0].get("text", "").strip()
                     logger.info("222 ▶ Direct LLM answer retrieved")
+                    citations = retrieve_citations_from_query(answer)
             except Exception as e:
                 logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
@@ -1071,6 +1127,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("500 ▶ Final Citations to Results: %s", citations)
         logger.info("510 ▶ Storing chat log")
         answer = re.split(r"\nUser:\s", answer)[0].strip()
+
         _store_chat_log(request, answer, msg_id, ui_session_id)
 
         logger.info("520 ◀ exit ask_question SUCCESS")
