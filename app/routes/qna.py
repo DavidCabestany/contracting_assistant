@@ -619,7 +619,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             "117 ▶ Returning success response for follow-up with files"
                         )
                         answer = re.split(r"\nUser:\s", answer)[0].strip()
-                        citations = retrieve_citations_from_query(answer)
+                        citations = retrieve_citations_from_query(
+                            query=answer,
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            files=files,
+                        )
 
                         _store_chat_log(request, answer, msg_id, ui_session_id)
                         return QueryResponse(
@@ -664,7 +669,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         "117 ▶ Returning success response for follow-up with files"
                     )
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
-                    citations = retrieve_citations_from_query(answer)
+                    citations = retrieve_citations_from_query(
+                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
+                    )
                     _store_chat_log(request, answer, msg_id, ui_session_id)
                     return QueryResponse(
                         status="success",
@@ -812,7 +819,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 )
 
                             answer = re.split(r"\nUser:\s", answer)[0].strip()
-                            citations = retrieve_citations_from_query(answer)
+                            citations = retrieve_citations_from_query(
+                                query=answer,
+                                kb_id=kb_id,
+                                kb_path=kb_path,
+                                files=files,
+                            )
                             _store_chat_log(
                                 request, answer, msg_id, ui_session_id
                             )
@@ -893,7 +905,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             "131 ▶ Direct LLM answer retrieved with excluded term"
                         )
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
-                    citations = retrieve_citations_from_query(answer)
+                    citations = retrieve_citations_from_query(
+                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
+                    )
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -932,7 +946,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         )
 
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
-                    citations = retrieve_citations_from_query(answer)
+                    citations = retrieve_citations_from_query(
+                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
+                    )
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -991,7 +1007,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 ):
                     answer = raw_content[0].get("text", "").strip()
                     logger.info("222 ▶ Direct LLM answer retrieved")
-                    citations = retrieve_citations_from_query(answer)
+                    citations = retrieve_citations_from_query(
+                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
+                    )
             except Exception as e:
                 logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
