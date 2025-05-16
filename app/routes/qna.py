@@ -563,17 +563,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
                     all_chunks = []
 
-                    for file_doc in files:
-                        logger.info(
-                            "112 ▶ Retrieving file content for: %s", file_doc
-                        )
+                    limited_files = files[:3]
+                    logger.info(
+                        "112 ▶ Retrieving file contents for: %s", limited_files
+                    )
 
-                        file_chunks_map = retrieve_file_chunks(
-                            kb_id=kb_id,
-                            documents=files,
-                            kb_path=kb_path,
-                            query=first_user_msg,
-                        )
+                    file_chunks_map = retrieve_file_chunks(
+                        kb_id=kb_id,
+                        documents=limited_files,
+                        kb_path=kb_path,
+                        query=first_user_msg,
+                    )
 
                     for doc_name, file_text in file_chunks_map.items():
                         if file_text:
@@ -646,6 +646,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 logger.info("120 ▶ Follow-up with no files")
                 check = (user_txt[:50] + user_txt[-50:]).lower()
                 comparing = r"(compare( the (second )?clause)? with )"
+
                 if re.search(comparing, check):
                     if not any(term in check for term in excluded):
                         logger.info(
@@ -811,6 +812,45 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 "132 EXCEPTION:  Direct LLM failed: %s", e
                             )
                 elif "compare" in check:
+                    logger.info(
+                        "129 ▶ No files, excluded term found – using direct LLM"
+                    )
+                    direct_resp = generate_answer_with_context(prompt)
+                    logger.debug("130 ▶ LLM raw response: %s", direct_resp)
+                    raw_content = direct_resp.get("content", [])
+                    if (
+                        isinstance(raw_content, list)
+                        and raw_content
+                        and isinstance(raw_content[0], dict)
+                    ):
+                        answer = raw_content[0].get("text", "").strip()
+                        logger.info(
+                            "131 ▶ Direct LLM answer retrieved with excluded term"
+                        )
+                    answer = re.split(r"\nUser:\s", answer)[0].strip()
+                    _store_chat_log(request, answer, msg_id, ui_session_id)
+
+                    logger.info("520 ◀ exit ask_question SUCCESS")
+
+                    return QueryResponse(
+                        status="success",
+                        sessionId=ui_session_id,
+                        userQuery=user_txt,
+                        result=Result(
+                            messageId=msg_id,
+                            answer=QnAAnswer(ans=answer),
+                            transactionCount=tx_count,
+                            citations=citations,
+                            feedback=Feedback(
+                                feedbackDisplayOptions=FeedbackDisplayOptions(
+                                    thumbsUp="Y",
+                                    thumbsDown="Y",
+                                    feedbackText="Y",
+                                )
+                            ),
+                        ),
+                    )
+                else:
                     logger.info(
                         "129 ▶ No files, excluded term found – using direct LLM"
                     )
