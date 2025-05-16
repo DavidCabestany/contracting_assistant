@@ -207,6 +207,7 @@ Follow-up Indicators:
 5. Seeks additional details about previous answers
 6. Uses contextual references (e.g., "this clause", "that term", "their policy")
 7. tell me about country
+8. compare the clause with file
 
 
 New Question Indicators:
@@ -215,6 +216,7 @@ New Question Indicators:
 3. Requests database queries unrelated to previous context
 4. Completely different topic or subject matter
 5. No contextual references to previous discussion
+
 
 Previous Interactions:
 {context}

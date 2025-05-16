@@ -51,8 +51,6 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
             "messages": [{"role": "user", "content": formatted_prompt}],
         },
     )
-    logger.info(f"[Checkpoint] Request body built: {body}")
-
     logger.info("[Checkpoint] Step 2: Invoking Bedrock model...")
     try:
         response = bedrock_client.invoke_model(
@@ -73,9 +71,7 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
     logger.info("[Checkpoint] Step 3: Reading and decoding response...")
     try:
         raw_response = response["body"].read().decode()
-        logger.info(
-            f"[Checkpoint] Raw response: {raw_response} ",
-        )
+
         result = json.loads(raw_response)
         logger.info("[Checkpoint] JSON parsed successfully.")
         return result
@@ -190,6 +186,76 @@ def _build_gen_cfg() -> dict:
 #         },
 #         **({"sessionId": session_id} if session_id else {}),
 #     )
+
+
+def retrieve_file_chunks(
+    kb_id: str,
+    documents: list[str],
+    kb_path: str,
+    query: str,
+) -> dict[str, str]:
+    """Retrieve text specific documents.
+
+    Args:
+        kb_id (str): The Bedrock KB ID.
+        documents (list[str]): List of filenames in S3.
+        kb_path (str): Folder where the docs are stored.
+        query (str): Initial user question for context.
+
+    Returns:
+        dict[str, str]: filename → extracted full text from matched chunks.
+    """
+    from .config import BUCKET_CONTAINER, MODEL_ARN
+
+    file_contents = {}
+    logger.info("starting the retrieval")
+    logger.info("✅ query: %s", query)
+    for doc in documents:
+        s3_uri = f"s3://{BUCKET_CONTAINER}/{kb_path}/{doc}"
+        logger.info("▶ Retrieving content from: %s", s3_uri)
+
+        request_body = {
+            "input": {"text": query},
+            "retrieveAndGenerateConfiguration": {
+                "knowledgeBaseConfiguration": {
+                    "knowledgeBaseId": kb_id,
+                    "modelArn": MODEL_ARN,
+                    "retrievalConfiguration": {
+                        "vectorSearchConfiguration": {
+                            "overrideSearchType": QNA_SEARCH_TYPE,
+                            "numberOfResults": QNA_MAX_RESULTS,
+                            "filter": {
+                                "equals": {
+                                    "key": "x-amz-bedrock-kb-source-uri",
+                                    "value": s3_uri,
+                                }
+                            },
+                        }
+                    },
+                    "generationConfiguration": _build_gen_cfg(),
+                },
+                "type": "KNOWLEDGE_BASE",
+            },
+        }
+        try:
+            response = bedrock_agent_runtime.retrieve_and_generate(
+                **request_body
+            )
+            chunks = response.get("citations", [])
+            file_text = "\n\n".join(
+                c["generatedResponsePart"]["textResponsePart"]["text"]
+                for c in chunks
+                if "generatedResponsePart" in c
+                and "textResponsePart" in c["generatedResponsePart"]
+            )
+            file_contents[doc] = file_text.strip()
+            logger.info("✅ File contents: %s", file_contents)
+            logger.info("✅ File retrieved: %s", doc)
+        except Exception as e:
+            logger.warning("❌ Failed to retrieve %s: %s", doc, e)
+            file_contents[doc] = f"[Error: {e}]"
+
+    return file_contents
 
 
 def retrieve_and_generate(

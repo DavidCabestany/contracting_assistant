@@ -30,15 +30,16 @@ _KEYWORD_LLM: Final = ChatBedrock(
 
 # Prompt to classify the user query intent
 _CLASSIFY_PROMPT: Final = """
-You are a routing agent.
+You are a routing agent of AstraZeneca Policies.
 
-Return exactly one word:
-QUESTION - if the user asks anything, requests a comparison, or wants similarities / differences.
-SUMMARY  - if they merely pasted text or explicitly ask "summarise".
+    Return exactly one word:
+    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts.
+    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons etc.
+    SUMMARY  - if they merely pasted text or explicitly ask "summarise".
 
-Now classify:
-{query}
-"""
+    Now classify:
+    {query}
+    """
 
 # TODO(@kvcn639): Move prompt strings to a central templates/prompts module
 
@@ -98,13 +99,13 @@ def needs_summary(query: str) -> bool:
         resp = ChatBedrock(model_id=MODEL_ID).invoke(
             _CLASSIFY_PROMPT.format(query=query.strip()),
         )
-        return resp.content.strip().upper() == "SUMMARY"
+        return resp.content.strip().upper()
     except Exception as exc:
         logger.warning(
             "LLM classification failed, defaulting to QUESTION: %r",
             exc,
         )
-        return False
+        return "QUESTION"
 
 
 def llm_summarise(text: str) -> str:

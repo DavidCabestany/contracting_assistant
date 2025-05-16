@@ -27,6 +27,7 @@ from services import (
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
     retrieve_documents,
+    retrieve_file_chunks,
     session_history,
 )
 from services.chat_history_service import store_interaction
@@ -38,7 +39,6 @@ from utils import (
     get_knowledge_base_id,
     llm_summarise,
     needs_summary,
-    prompt_query_cat,
 )
 
 from .constants import (
@@ -192,9 +192,7 @@ def _get_session_chat_history(session_id: str) -> str:
     history_txt = ""
     try:
         history = session_history(session_id)
-        logger.info(
-            "▶ fetched raw history for session: %s", history.get(session_id)
-        )
+        # logger.info("▶ fetched raw history for session: %s", history.get(session_id))
         for i, item in enumerate(history.get(session_id, [])):
             user_msg, bot_msg = item.get("UserMessage"), item.get(
                 "BotResponse"
@@ -215,7 +213,7 @@ def _get_session_chat_history(session_id: str) -> str:
 
 
 def _build_prompt_with_optional_history(
-    user_txt: str, tx_count: int, ui_session_id: str
+    user_txt: str, tx_count: int, ui_session_id: str, files: list
 ) -> tuple[str, str]:
     logger.info(
         "ENTER ▶ _build_prompt_with_optional_history(user_txt=%.100s, tx_count=%d, ui_session_id=%s)",
@@ -226,7 +224,8 @@ def _build_prompt_with_optional_history(
     # first message in session
     is_follow_up = False
     if tx_count == 0:
-        existing_history = session_history(ui_session_id)
+        # existing_history = session_history(ui_session_id)
+        existing_history = False
         logger.info(
             "▶ tx_count==0, existing_history=%s", bool(existing_history)
         )
@@ -258,26 +257,45 @@ def _build_prompt_with_optional_history(
         return prompt, "", is_follow_up
 
     try:
-        classification_prompt = FOLLOW_UP_PROMPT.format(
-            context=history_txt, query=user_txt
-        )
-        logger.info(
-            "▶ follow-up classification_prompt=%.200s",
-            classification_prompt.replace("\n", " "),
-        )
-        resp = generate_answer_with_context(classification_prompt)
-        logger.info(f"▶ follow up response line 148 {resp}")
+        if files:
+            classification_prompt = FOLLOW_UP_PROMPT.format(
+                context=history_txt, query=user_txt
+            )
+            # logger.info(
+            #     "▶ follow-up classification_prompt=%.200s",
+            #     classification_prompt.replace("\n", " "),
+            # )
+            resp = generate_answer_with_context(classification_prompt)
 
-        result_text = resp.get("content", [{}])[0].get("text", "").strip()
-        logger.info("▶ classification result_text=%.200s", result_text)
-        is_follow_up = result_text.startswith("IS_FOLLOW_UP:")
-        full_prompt = f"{history_txt}\nUser: {user_txt}"
+            result_text = resp.get("content", [{}])[0].get("text", "").strip()
+            logger.info(f"▶ follow up response line 148 {result_text}")
+            logger.info("▶ classification result_text=%.200s", result_text)
+            is_follow_up = result_text.startswith("IS_FOLLOW_UP:")
+            full_prompt = (
+                f"{history_txt}\nUser: {user_txt} file to compare {files}"
+            )
+        if not files:
+            classification_prompt = FOLLOW_UP_PROMPT.format(
+                context=history_txt, query=user_txt
+            )
+            # logger.info(
+            #     "▶ follow-up classification_prompt=%.200s",
+            #     classification_prompt.replace("\n", " "),
+            # )
+            resp = generate_answer_with_context(classification_prompt)
+
+            result_text = resp.get("content", [{}])[0].get("text", "").strip()
+            logger.info(f"▶ follow up response line 148 {result_text}")
+            logger.info("▶ classification result_text=%.200s", result_text)
+            is_follow_up = result_text.startswith("IS_FOLLOW_UP:")
+            full_prompt = f"{history_txt}\nUser: {user_txt}"
+
     except Exception as e:
         logger.exception(
             "EXCEPTION: Classification failed, defaulting to include history: %s",
             e,
         )
-        full_prompt = f"{history_txt}\nUser: {user_txt}"
+        # full_prompt = f"{history_txt}\nUser: {user_txt}"
 
     logger.info(
         "EXIT  ◀ _build_prompt | full_prompt_preview=%.200s",
@@ -409,33 +427,13 @@ def _store_chat_log(
 
 @router.post("/getqnaanswer/")
 async def ask_question(request: RequestQuery) -> QueryResponse:
-    """Handle a QnA request from the user.
-
-    This function processes the incoming question, determines whether a summary is needed,
-    checks for follow-up context, optionally invokes a language model directly, and/or performs
-    knowledge base retrieval. It supports fallback logic and maintains session-aware continuity.
-
-    Steps:
-    - Check for summary-type input.
-    - Construct a prompt including session history.
-    - Attempt direct LLM response if no files are provided.
-    - Retrieve documents and generate KB-based answer if needed.
-    - Apply fallback classification logic if the initial answer is irrelevant.
-    - Store the interaction and return the final result.
-
-    Args:
-        request (RequestQuery): The incoming user query with session and metadata.
-
-    Returns:
-        QueryResponse: The answer, citations, and feedback metadata wrapped in a standard format.
-    """
+    """Handle a QnA request from the user."""
     logger.info("000 ▶ enter ask_question")
     try:
-        # generate message ID
+        # Step 1: Generate message/session IDs
         msg_id = str(uuid.uuid4())
         logger.info("010 ▶ msg_id = %s", msg_id)
 
-        # extract user text and session
         user_txt = request.query.text.strip()
         ui_session_id = request.user.sessionId.strip() or str(uuid.uuid4())
         request.user.sessionId = ui_session_id
@@ -452,29 +450,59 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("060 ▶ kb_path = %s", kb_path)
         logger.info("070 ▶ bedrock_session_id = %s", bedrock_session_id)
 
+        # Step 2: Attach files based on detected keywords if no files
         if not files:
+            logger.info(
+                "075 ▶ No files provided – checking for auto-attach opportunities"
+            )
             matches = auto_attach_files(user_txt, kb_path)
             if matches:
                 files = matches
                 logger.info(
-                    "💡 Auto-attached files = %s | from kb_path = %s",
+                    "076 ▶ Auto-attached files based on user query = %s | kb_path = %s",
                     files,
                     kb_path,
                 )
             else:
+                logger.info("077 ▶ No files auto-attached")
                 files = []
+        logger.info(
+            "080 ▶ files after auto attach = %s", files
+        )  # moved log for step clarity
 
-        # print("matches", matches)
-        # print("files", files)
+        # Step 3: Handle summary requests first
+        label = needs_summary(user_txt)
+        logger.info(f"the label {label}")
 
-        # if "can handbook" in user_txt.lower() and not files:
-        #     files = ["CAN HANDBOOK 4.0.pdf"]
-        #     logger.info("💡 Auto-attached CAN HANDBOOK 4.0.pdf based on user query")
+        if label == "IRRELEVANT":
+            logger.info(
+                "080 ▶ Irrelevant query detected – returning default help response"
+            )
+            default_msg = (
+                "Sorry, I can't help you with that request. "
+                "However, I can assist you with Contracting Clauses, confidentiality agreements, and payment terms."
+            )
+            _store_chat_log(request, default_msg, msg_id, ui_session_id)
+            logger.info("090 ◀ returning IRRELEVANT response")
+            return QueryResponse(
+                status="success",
+                sessionId=ui_session_id,
+                userQuery=user_txt,
+                result=Result(
+                    messageId=msg_id,
+                    answer=QnAAnswer(ans=default_msg),
+                    transactionCount=tx_count,
+                    citations=[],
+                    feedback=Feedback(
+                        feedbackDisplayOptions=FeedbackDisplayOptions(
+                            thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+                        )
+                    ),
+                ),
+            )
 
-        # early summarykb_answer
-
-        if needs_summary(user_txt):
-            logger.info("080 ▶ summary needed")
+        elif label == "SUMMARY":
+            logger.info("081 ▶ Summary requested – entering summary flow")
             summary_text = llm_summarise(user_txt)
             _store_chat_log(request, summary_text, msg_id, ui_session_id)
             logger.info("090 ◀ returning summary")
@@ -495,29 +523,326 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 ),
             )
 
-        # prompt construction
+        # Step 4: Prompt construction and follow-up detection
+        logger.info(
+            "100 ▶ Building prompt, loading session history and follow-up detection"
+        )
         prompt, history_txt, is_follow_up = (
             _build_prompt_with_optional_history(
-                user_txt, tx_count, ui_session_id
+                user_txt, tx_count, ui_session_id, files
             )
         )
-
+        first_user_msg = (
+            _get_session_chat_history(ui_session_id)
+            .split("\n")[0]
+            .removeprefix("User: ")
+            .strip()
+        )
         selected_doc = detect_prior_doc_from_query(user_txt)
         if selected_doc != PRIOR_DOC:
             files = [selected_doc]
             logger.info(
-                "100 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
+                "101 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
             )
 
-        # INIT
         answer = ""
-
-        # llm_answer_only = False
         resp = None
-        # best_kb_resp = None
+        excluded = ["database", "standard", "standards", "backend"]
 
-        if files:
-            logger.info("190 ▶ files present — PRIORITIZED retrieval")
+        # Step 5: Main flow – If it's a follow-up
+        if is_follow_up:
+            logger.info("110 ▶ is_follow_up detected")
+            if files:
+                try:
+                    logger.info(
+                        "111 ▶ Follow-up with files: Retrieving KB content"
+                    )
+
+                    kb_path = get_knowledge_base_folder(detected_unit)
+                    kb_id = get_knowledge_base_id(detected_unit)
+
+                    all_chunks = []
+
+                    for file_doc in files:
+                        logger.info(
+                            "112 ▶ Retrieving file content for: %s", file_doc
+                        )
+
+                        file_chunks_map = retrieve_file_chunks(
+                            kb_id=kb_id,
+                            documents=files,
+                            kb_path=kb_path,
+                            query=first_user_msg,
+                        )
+
+                    for doc_name, file_text in file_chunks_map.items():
+                        if file_text:
+                            all_chunks.append(
+                                f"--- Content from {doc_name} ---\n{file_text}"
+                            )
+                            print(
+                                "✅ file text from",
+                                doc_name,
+                                ":",
+                                file_text[:300],
+                            )
+
+                    kb_text = "\n\n".join(all_chunks).strip()
+
+                    if not kb_text:
+                        logger.warning(
+                            "113 ⚠ No content extracted from files – will fallback."
+                        )
+                        raise ValueError("Empty file content")
+
+                    augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content. Please consider changing tabs."
+
+                    logger.info("114 ▶ Calling LLM with KB-augmented prompt")
+                    direct_resp = generate_answer_with_context(
+                        augmented_prompt
+                    )
+                    logger.debug("115 ▶ LLM raw response: %s", direct_resp)
+
+                    raw_content = direct_resp.get("content", [])
+                    if (
+                        isinstance(raw_content, list)
+                        and raw_content
+                        and isinstance(raw_content[0], dict)
+                    ):
+                        answer = raw_content[0].get("text", "").strip()
+                        logger.info(
+                            "116 ▶ Direct LLM answer retrieved with files"
+                        )
+
+                    logger.info(
+                        "117 ▶ Returning success response for follow-up with files"
+                    )
+                    return QueryResponse(
+                        status="success",
+                        sessionId=ui_session_id,
+                        userQuery=user_txt,
+                        result=Result(
+                            messageId=msg_id,
+                            answer=QnAAnswer(ans=answer),
+                            transactionCount=tx_count,
+                            citations=[],
+                            feedback=Feedback(
+                                feedbackDisplayOptions=FeedbackDisplayOptions(
+                                    thumbsUp="Y",
+                                    thumbsDown="Y",
+                                    feedbackText="Y",
+                                )
+                            ),
+                        ),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "130 EXCEPTION: Direct LLM with KB context failed: %s",
+                        e,
+                    )
+            elif not files:
+                logger.info("120 ▶ Follow-up with no files")
+                check = (user_txt[:50] + user_txt[-50:]).lower()
+                if "compare" in check:
+                    if not any(term in check for term in excluded):
+                        logger.info(
+                            "121 ▶ User query is a comparison and no excluded terms found – fallback to PRIOR_DOC"
+                        )
+                        try:
+                            kb_path = get_knowledge_base_folder(detected_unit)
+                            kb_id = get_knowledge_base_id(detected_unit)
+
+                            all_chunks = []
+
+                            # Try retrieving the PRIOR_DOC fallback
+                            selected_doc = detect_prior_doc_from_query(
+                                user_txt
+                            )
+                            fallback_files = (
+                                [selected_doc]
+                                if selected_doc != PRIOR_DOC
+                                else [PRIOR_DOC]
+                            )
+                            logger.info(
+                                "122 ▶ Fallback to file(s): %s", fallback_files
+                            )
+
+                            file_chunks_map = retrieve_file_chunks(
+                                kb_id=kb_id,
+                                documents=fallback_files,
+                                kb_path=kb_path,
+                                query=first_user_msg,
+                            )
+
+                            for doc_name, file_text in file_chunks_map.items():
+                                if file_text:
+                                    all_chunks.append(
+                                        f"--- Content from {doc_name} ---\n{file_text}"
+                                    )
+                                    print(
+                                        "✅ file text from",
+                                        doc_name,
+                                        ":",
+                                        file_text[:300],
+                                    )
+
+                            kb_text = "\n\n".join(all_chunks).strip()
+
+                            if not kb_text:
+                                logger.warning(
+                                    "123 ⚠ No fallback KB content – will use unavailable template"
+                                )
+                                augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content: {kb_text} [Unavailable — file could not be accessed or retrieved.] . If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content. Please consider changing tabs."
+
+                                direct_resp = generate_answer_with_context(
+                                    augmented_prompt
+                                )
+                                raw_content = direct_resp.get("content", [])
+                                if (
+                                    isinstance(raw_content, list)
+                                    and raw_content
+                                    and isinstance(raw_content[0], dict)
+                                ):
+                                    answer = (
+                                        raw_content[0].get("text", "").strip()
+                                    )
+                                    logger.info(
+                                        "124 ▶ No KB content for compare – returning fallback LLM response"
+                                    )
+
+                                return QueryResponse(
+                                    status="success",
+                                    sessionId=ui_session_id,
+                                    userQuery=user_txt,
+                                    result=Result(
+                                        messageId=msg_id,
+                                        answer=QnAAnswer(ans=answer),
+                                        transactionCount=tx_count,
+                                        citations=[],
+                                        feedback=Feedback(
+                                            feedbackDisplayOptions=FeedbackDisplayOptions(
+                                                thumbsUp="Y",
+                                                thumbsDown="Y",
+                                                feedbackText="Y",
+                                            )
+                                        ),
+                                    ),
+                                )
+
+                            augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content. Please consider changing tabs."
+
+                            logger.info(
+                                "125 ▶ Calling LLM for compare fallback"
+                            )
+                            direct_resp = generate_answer_with_context(
+                                augmented_prompt
+                            )
+                            logger.debug(
+                                "126 ▶ Fallback LLM response: %s", direct_resp
+                            )
+
+                            raw_content = direct_resp.get("content", [])
+                            if (
+                                isinstance(raw_content, list)
+                                and raw_content
+                                and isinstance(raw_content[0], dict)
+                            ):
+                                answer = raw_content[0].get("text", "").strip()
+                                logger.info(
+                                    "127 ▶ Fallback LLM answer retrieved"
+                                )
+
+                            return QueryResponse(
+                                status="success",
+                                sessionId=ui_session_id,
+                                userQuery=user_txt,
+                                result=Result(
+                                    messageId=msg_id,
+                                    answer=QnAAnswer(ans=answer),
+                                    transactionCount=tx_count,
+                                    citations=[],
+                                    feedback=Feedback(
+                                        feedbackDisplayOptions=FeedbackDisplayOptions(
+                                            thumbsUp="Y",
+                                            thumbsDown="Y",
+                                            feedbackText="Y",
+                                        )
+                                    ),
+                                ),
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "128 ❌ Exception in fallback compare path: %s",
+                                e,
+                            )
+                    elif any(term in check for term in excluded):
+                        try:
+                            logger.info(
+                                "129 ▶ No files, excluded term found – using direct LLM"
+                            )
+                            direct_resp = generate_answer_with_context(prompt)
+                            logger.debug(
+                                "130 ▶ LLM raw response: %s", direct_resp
+                            )
+                            raw_content = direct_resp.get("content", [])
+                            if (
+                                isinstance(raw_content, list)
+                                and raw_content
+                                and isinstance(raw_content[0], dict)
+                            ):
+                                answer = raw_content[0].get("text", "").strip()
+                                logger.info(
+                                    "131 ▶ Direct LLM answer retrieved with excluded term"
+                                )
+
+                        except Exception as e:
+                            logger.warning(
+                                "132 EXCEPTION:  Direct LLM failed: %s", e
+                            )
+                elif "compare" not in check:
+                    logger.info(
+                        "129 ▶ No files, excluded term found – using direct LLM"
+                    )
+                    direct_resp = generate_answer_with_context(prompt)
+                    logger.debug("130 ▶ LLM raw response: %s", direct_resp)
+                    raw_content = direct_resp.get("content", [])
+                    if (
+                        isinstance(raw_content, list)
+                        and raw_content
+                        and isinstance(raw_content[0], dict)
+                    ):
+                        answer = raw_content[0].get("text", "").strip()
+                        logger.info(
+                            "131 ▶ Direct LLM answer retrieved with excluded term"
+                        )
+                    _store_chat_log(request, answer, msg_id, ui_session_id)
+
+                    logger.info("520 ◀ exit ask_question SUCCESS")
+
+                    return QueryResponse(
+                        status="success",
+                        sessionId=ui_session_id,
+                        userQuery=user_txt,
+                        result=Result(
+                            messageId=msg_id,
+                            answer=QnAAnswer(ans=answer),
+                            transactionCount=tx_count,
+                            citations=citations,
+                            feedback=Feedback(
+                                feedbackDisplayOptions=FeedbackDisplayOptions(
+                                    thumbsUp="Y",
+                                    thumbsDown="Y",
+                                    feedbackText="Y",
+                                )
+                            ),
+                        ),
+                    )
+
+        # Step 6: Not follow-up – If files, prioritize file-based retrieval
+        elif files:
+            logger.info(
+                "190 ▶ Not follow-up but files present – prioritized doc retrieval"
+            )
             try:
                 resp = retrieve_and_generate_prioritized_doc(
                     prompt,
@@ -534,12 +859,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             except Exception as e:
                 logger.warning("210 ⚠ prioritized retrieval failed: %s", e)
 
-        # direct LLM if no files
-        if not files:
+        # Step 7: Not follow-up and no files – use direct LLM
+        elif not files:
+            logger.info("220 ▶ Not follow-up and no files – using direct LLM")
             try:
-                logger.info("110 ▶ No files – trying direct LLM fallback")
                 direct_resp = generate_answer_with_context(prompt)
-                logger.debug("115 ▶ LLM raw response: %s", direct_resp)
+                logger.debug("221 ▶ LLM raw response: %s", direct_resp)
                 raw_content = direct_resp.get("content", [])
                 if (
                     isinstance(raw_content, list)
@@ -547,17 +872,18 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     and isinstance(raw_content[0], dict)
                 ):
                     answer = raw_content[0].get("text", "").strip()
-                    # llm_answer_only = bool(answer)
-                    logger.info("120 ▶ Direct LLM answer retrieved")
+                    logger.info("222 ▶ Direct LLM answer retrieved")
             except Exception as e:
-                logger.warning("130 EXCEPTION:  Direct LLM failed: %s", e)
+                logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
-        # always fetch KB documents for continuity (even if LLM answered)
+        # Step 8: Always try KB retrieval for citation and answer upgrade
         try:
             doc = {}
-            logger.info("140 ▶ Performing KB-based retrieval")
+            logger.info(
+                "300 ▶ Entering KB retrieval for citations and answer refinement"
+            )
             if files:
-                logger.info("145 ▶ Files provided by user: %s", files)
+                logger.info("301 ▶ Files provided for KB retrieval: %s", files)
                 resp = retrieve_and_generate_prioritized_doc(
                     query=user_txt,
                     kb_id=get_knowledge_base_id(detected_unit),
@@ -566,22 +892,22 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     session_id=bedrock_session_id,
                 )
             else:
-                logger.info("145 ▶ No user files — performing full KB search")
+                logger.info("302 ▶ No files for KB retrieval – full KB search")
                 doc = retrieve_documents(
                     prompt,
                     get_knowledge_base_id(detected_unit),
                     REGION_ID,
                 )
                 hits = doc.get("retrievalResults", [])
-                logger.info("150 ▶ retrieved %d documents", len(hits))
-                # print("hits", hits)
-
+                logger.info("303 ▶ KB search returned %d documents", len(hits))
                 for hit in hits:
                     uri = hit.get("metadata", {}).get(
                         "x-amz-bedrock-kb-source-uri", ""
                     )
                     if PRIOR_DOC in uri:
-                        logger.info("160 ▶ PRIOR_DOC matched")
+                        logger.info(
+                            "304 ▶ PRIOR_DOC matched in KB retrieval, using prioritized doc"
+                        )
                         resp = retrieve_and_generate_prioritized_doc(
                             query=prompt,
                             kb_id=get_knowledge_base_id(detected_unit),
@@ -590,10 +916,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             session_id=bedrock_session_id,
                         )
                         break
-
                 if not resp:
                     logger.info(
-                        "170 ▶ No PRIOR_DOC – using standard retrieve_and_generate"
+                        "305 ▶ No PRIOR_DOC found – using standard retrieve_and_generate"
                     )
                     resp = retrieve_and_generate(
                         prompt,
@@ -602,89 +927,68 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         kb_path=kb_path,
                     )
             logger.info(
-                "📦 Raw KB response before extracting citations: %s",
+                "306 ▶ Raw KB response (pre-citation extraction): %s",
                 json.dumps(resp, indent=2),
             )
-            # citations = extract_file_locations(resp)
+
             _bedrock_sessions[ui_session_id] = resp.get(
                 "sessionId", bedrock_session_id
             )
-
             kb_answer = resp.get("output", {}).get("text", "").strip()
             kb_citations = extract_file_locations(resp)
-            # print("kb_citations", kb_citations)
 
             if kb_answer and not is_invalid_response(kb_answer):
                 logger.info(
-                    "📦 Raw KB response before extracting citations: %s",
-                    json.dumps(resp, indent=2),
-                )
-                logger.info("175 ▶ Final extracted citations = %s", citations)
-                # is_priority = is_high_priority_query(user_txt, detected_unit)
-                # should_overwrite_llm = (
-                #     is_priority or not llm_answer_only or (is_follow_up and _was_last_answer_from_kb(ui_session_id))
-                # )
-                # if should_overwrite_llm:
-
-                logger.info(
-                    "180 ▶ Overwriting LLM answer due to KB relevance logic"
+                    "307 ▶ KB answer deemed valid, will overwrite previous LLM answer"
                 )
                 answer = kb_answer
-                logger.info(
-                    "🧪 Raw KB response before extracting citations: %s", resp
-                )
                 if not citations and kb_citations:
                     citations = kb_citations
-                    logger.info(
-                        "180 ▶ Final extracted citations = %s", citations
-                    )
             else:
                 logger.warning(
-                    "⚠ KB retrieval returned an invalid response, skipping overwrite."
+                    "308 ⚠ KB retrieval returned invalid/empty response – keeping prior answer"
                 )
 
         except Exception as e:
-            logger.warning("190 ⚠ KB retrieval failed: %s", e)
+            logger.warning("309 ⚠ KB retrieval failed: %s", e)
             if not answer:
+                logger.error(
+                    "310 ▶ No answer after KB failure – raising HTTPException"
+                )
                 raise HTTPException(
                     HTTP_500_INTERNAL_SERVER_ERROR,
                     f"Doc retrieval failed: {e}",
                 )
 
         if not answer:
-            logger.error("200 ▶ No answer generated – aborting")
+            logger.error("320 ▶ No answer generated – aborting (HTTP 500)")
             raise HTTPException(
                 HTTP_500_INTERNAL_SERVER_ERROR, "Unable to generate an answer."
             )
 
-        # fallback QnA
+        # Step 9: Fallback QnA logic and logging
         try:
             if answer and not is_invalid_response(answer):
                 logger.info(
-                    "593 ▶ HERE WE ARE  post-fallback answer = %.100s", answer
+                    "400 ▶ Valid answer present, skipping further fallback. Answer = %.100s",
+                    answer,
                 )
-                logger.info("✅ Citations after fallback: %s", citations)
                 if not citations:
                     citations = extract_file_locations(resp)
                     logger.info(
-                        "🛑 Skipping fallback — valid KB answer already present"
+                        "401 ▶ No citations on valid answer, extracting from resp."
                     )
             else:
-                cat = prompt_query_cat(user_txt.lower())
-                logger.info("210 ▶ prompt_query_cat = %s", cat)
-                answer = _fallback_qna(
-                    prompt, answer, ui_session_id, "2", kb_path, history_txt
+                logger.info(
+                    f"402 ▶ Answer is invalid/empty, would be falling in FALLBACK QNA: {answer}"
                 )
-                logger.info("220 ▶ post-fallback answer = %.100s", answer)
         except Exception as e:
-            logger.warning("230 EXCEPTION:  fallback QnA failed: %s", e)
-        # answer = re.split(r"\nUser:\s", answer)[0].strip()
-        # sanitized_answer = response_sanitizer(answer)
+            logger.warning("403 EXCEPTION: fallback QnA failed: %s", e)
+
         if not citations and "retrievalResults" in doc:
             logger.info(
-                "📌 Citations empty — attaching fallback citations from doc retrieval."
+                "410 ▶ Citations empty, attaching fallback citations from doc retrieval."
             )
-            citations = []
             for hit in doc["retrievalResults"]:
                 uri = hit.get("metadata", {}).get(
                     "x-amz-bedrock-kb-source-uri", ""
@@ -695,20 +999,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 if uri:
                     citations.append(
                         {
-                            "filePath": uri,  # optional: presign it
+                            "filePath": uri,
                             "pageNumber": int(page),
                             "fileName": uri.split("/")[-1],
                         }
                     )
-        # logger.info(
-        #     f"230 ▶ Sanitized final answer before logging and return --> \n answer: {answer} \n sanitized answer {sanitized_answer}"
-        # )
 
-        # store
-        logger.info("240 ▶ storing chat log")
+        logger.info("500 ▶ Final Citations to Results: %s", citations)
+        logger.info("510 ▶ Storing chat log")
         _store_chat_log(request, answer, msg_id, ui_session_id)
 
-        logger.info("250 ◀ exit ask_question SUCCESS")
+        logger.info("520 ◀ exit ask_question SUCCESS")
 
         return QueryResponse(
             status="success",
@@ -728,10 +1029,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         )
 
     except HTTPException as http_exc:
-        logger.info("260 ◀ exit ask_question HTTPException: %s", http_exc)
+        logger.info("600 ◀ exit ask_question HTTPException: %s", http_exc)
         raise http_exc
     except Exception as e:
-        logger.exception("270 EXCEPTION:  unhandled exception in ask_question")
+        logger.exception("700 EXCEPTION:  unhandled exception in ask_question")
         raise HTTPException(
             HTTP_500_INTERNAL_SERVER_ERROR, f"Unexpected error: {e}"
         )
