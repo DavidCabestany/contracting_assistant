@@ -617,6 +617,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     logger.info(
                         "117 ▶ Returning success response for follow-up with files"
                     )
+                    answer = re.split(r"\nUser:\s", answer)[0].strip()
+                    _store_chat_log(request, answer, msg_id, ui_session_id)
                     return QueryResponse(
                         status="success",
                         sessionId=ui_session_id,
@@ -643,7 +645,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             elif not files:
                 logger.info("120 ▶ Follow-up with no files")
                 check = (user_txt[:50] + user_txt[-50:]).lower()
-                if "compare" in check:
+                comparing = r"(compare( the (second )?clause)? with )"
+                if re.search(comparing, check):
                     if not any(term in check for term in excluded):
                         logger.info(
                             "121 ▶ User query is a comparison and no excluded terms found – fallback to PRIOR_DOC"
@@ -709,7 +712,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                     logger.info(
                                         "124 ▶ No KB content for compare – returning fallback LLM response"
                                     )
-
+                                answer = re.split(r"\nUser:\s", answer)[
+                                    0
+                                ].strip()
+                                _store_chat_log(
+                                    request, answer, msg_id, ui_session_id
+                                )
                                 return QueryResponse(
                                     status="success",
                                     sessionId=ui_session_id,
@@ -751,7 +759,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 logger.info(
                                     "127 ▶ Fallback LLM answer retrieved"
                                 )
-
+                            answer = re.split(r"\nUser:\s", answer)[0].strip()
+                            _store_chat_log(
+                                request, answer, msg_id, ui_session_id
+                            )
                             return QueryResponse(
                                 status="success",
                                 sessionId=ui_session_id,
@@ -799,7 +810,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             logger.warning(
                                 "132 EXCEPTION:  Direct LLM failed: %s", e
                             )
-                elif "compare" not in check:
+                elif "compare" in check:
                     logger.info(
                         "129 ▶ No files, excluded term found – using direct LLM"
                     )
@@ -815,6 +826,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         logger.info(
                             "131 ▶ Direct LLM answer retrieved with excluded term"
                         )
+                    answer = re.split(r"\nUser:\s", answer)[0].strip()
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -1007,6 +1019,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         logger.info("500 ▶ Final Citations to Results: %s", citations)
         logger.info("510 ▶ Storing chat log")
+        answer = re.split(r"\nUser:\s", answer)[0].strip()
         _store_chat_log(request, answer, msg_id, ui_session_id)
 
         logger.info("520 ◀ exit ask_question SUCCESS")
