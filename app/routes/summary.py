@@ -24,7 +24,7 @@ from models import (
     QueryResponse,
     Result,
 )
-from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT, RISK_MITIGATION_PROMPT, RISK_MATRIX_EXT_PROMPT, RISK_MATRIX_CAT_PROMPT
+from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT, RISK_MITIGATION_PROMPT, RISK_MATRIX_SPC_RISK_PROMPT, RISK_MATRIX_ALL_RISKS_PROMPT
 from routes.qna import (
     retrieve_and_generate,
 )
@@ -37,8 +37,6 @@ from utils import (
     extract_text_from_word,
     generate_prompt,
     generate_prompt_risk,
-    generate_prompt_risk_cat,
-    generate_prompt_risk_ext,
     get_file_type,
     get_risk_matrix_details,
     prompt_query_cat,
@@ -229,111 +227,54 @@ async def generate_summary(
                         logger.info(f"Successfully read {len(file_bytes_for_processing)} bytes from S3 object '{retrieved_object_key}'.")
                 else:
                         logger.warning(f"S3 List: No actual file objects found under prefix '{s3_folder_prefix}' in bucket '{BUCKET_CONTAINER}'. Only folder object or empty.")
-
             else:
-
                 logger.warning(f"S3 List: No objects found under prefix '{s3_folder_prefix}' in bucket '{BUCKET_CONTAINER}'.")
-
-        
-
         except ClientError as e:
-
             error_code = e.response.get("Error", {}).get("Code")
-
             if error_code == 'AccessDenied':
-
                 logger.error(f"S3 Error: Access Denied for listing/reading prefix '{s3_folder_prefix}'.")
-
                 raise HTTPException(500, f"S3 access error for session file.") from e
-
             else:
-
                 logger.exception(f"An S3 ClientError occurred for prefix '{s3_folder_prefix}': {e}")
-
                 raise HTTPException(500, f"S3 error retrieving session file.") from e
-
         except Exception as e:
-
             logger.exception(f"An unexpected error occurred with S3 for prefix '{s3_folder_prefix}': {e}")
-
             raise HTTPException(500, f"Error retrieving session file.") from e
-
         
-
         if file_bytes_for_processing and file_name_for_processing:
-
             try:
-
                 ftype = get_file_type(file_name_for_processing)
-
                 logger.info(f"[{msg_id}] Processing file: '{file_name_for_processing}', type: {ftype}")
-
-
-
                 if ftype == ".pdf":
-
                     content = extract_pdf_contents(file_bytes_for_processing)
-
                 elif ftype in {".doc", ".docx"}:
-
                     content = extract_text_from_word(file_bytes_for_processing)
-
                 elif ftype is None and file_bytes_for_processing: # Handle case where extension might be missing but we have bytes
-
                     logger.warning(f"[{msg_id}] Could not determine file type for '{file_name_for_processing}'. Attempting as plain text.")
-
                     try:
-
                         content = file_bytes_for_processing.decode('utf-8', errors='replace')
-
                     except Exception:
-
                         content = f"Binary content of {len(file_bytes_for_processing)} bytes (filename: {file_name_for_processing})."
-
                 elif file_bytes_for_processing: # Has bytes, but type is not pdf/doc/docx and not None (e.g. .txt, .csv)
-
                     logger.info(f"[{msg_id}] File type '{ftype}' not specifically handled for extraction, attempting decode as text.")
-
                     try:
-
                         content = file_bytes_for_processing.decode('utf-8', errors='replace')
-
                     except Exception:
-
                         content = f"Content of {len(file_bytes_for_processing)} bytes for {file_name_for_processing} (type {ftype})."
-
                 else:
-
                     # This case should ideally not be hit if file_bytes_for_processing is None already handled
-
                     logger.error(f"[{msg_id}] Unsupported file type '{ftype}' or no bytes for file '{file_name_for_processing}'.")
-
                     raise ValueError(f"Unsupported file type or no data: {ftype}")
-
-                
-
                 logger.debug(f"[{msg_id}] Extracted content from file '{file_name_for_processing}'")
-
-
-
             except ValueError as ve: # Catch specific ValueError for unsupported types
-
                 logger.error(f"[{msg_id}] Value error during content extraction for '{file_name_for_processing}': {ve}")
-
                 raise HTTPException(400, str(ve)) from ve
-
             except Exception as exc:
-
                 logger.exception(f"[{msg_id}] Failed to extract content from file '{file_name_for_processing}'")
-
                 raise HTTPException(
-
                     400, f"Failed to extract content from file: {exc}"
-
                 ) from exc
-
         else:
-
             logger.info(f"[{msg_id}] error in finding the file")
     # Step 2: Default query if none provided
     if not queryText or not queryText.strip():
@@ -366,16 +307,21 @@ async def generate_summary(
     # Step 5: Generate prompt based on category
     try:
         if category == "1":
-            risk_extraction_body_prompt = generate_prompt_risk_ext(
-                content,
-                RISK_MATRIX_EXT_PROMPT,
+            body_prompt = generate_prompt_risk(
+                content, queryText,
+                RISK_MATRIX_SPC_RISK_PROMPT,
                 risk_rules=get_risk_matrix_details(),
             )
         elif category == "2":
+            body_prompt = generate_prompt_risk(
+                content, queryText, RISK_MATRIX_ALL_RISKS_PROMPT,
+                 risk_rules=get_risk_matrix_details(),
+                 )
+        elif category == "3":
             body_prompt = generate_prompt(
                 content, queryText, RISK_MITIGATION_PROMPT
             )
-        elif category == "3":
+        elif category == "4":
             body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
         else:
             body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
@@ -393,207 +339,90 @@ async def generate_summary(
     #if category in {"1", "3"}:
         # Step 6: Call LLM
 
-    if category == "1":
-
-        logger.info(f"[{msg_id}] Starting process for category 1")
-
-
-
-        # Step 6: Call LLM FOR RISK MATRIX
-
-        try:
-
-            logger.info(
-
-                f"[{msg_id}] Preparing to call LLM for risk extraction"
-
-            )
-
-            llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
-
-                risk_extraction_body_prompt
-
-            )
-
-            raw_answer = llm_resp.content.strip()
-
-            logger.info(
-
-                f"[{msg_id}] LLM responded successfully with raw answer. raw answer: {raw_answer}"
-
-            )
-
-
-
-            logger.info(f"[{msg_id}] Generating risk categorization prompt")
-
-            risk_categorisation_body_prompt = generate_prompt_risk_cat(
-
-                risk_rules=get_risk_matrix_details(),
-
-                query=queryText,
-
-                risks=raw_answer,
-
-                contract=content,
-
-                template=RISK_MATRIX_CAT_PROMPT,
-
-            )
-
-
-
-            logger.info(
-
-                f"[{msg_id}] risk categorization prompt: {risk_categorisation_body_prompt} "
-
-            )
-
-
-
-            logger.info(f"[{msg_id}] Invoking LLM for risk categorization")
-
-            llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
-
-                risk_categorisation_body_prompt
-
-            )
-
-            final_raw_answer = llm_resp.content.strip()
-
-            logger.info(
-
-                f"[{msg_id}] LLM categorization response received, final raw answer: {final_raw_answer}"
-
-            )
-
-
-
-        except Exception as exc:
-
-            logger.info(f"[{msg_id}] LLM call for risk matrix failed")
-
-            logger.exception(f"[{msg_id}] LLM call failed")
-
-            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
-
-
-
-        # Step 7: Normalize response
-
-        logger.info(f"[{msg_id}] Normalizing response from LLM")
-
-        payload = _extract_json(final_raw_answer)
-
-        logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
-
-
-
-        if payload is None:
-
-            logger.info(
-
-                f"[{msg_id}] Initial JSON extraction failed, applying fallback normalization"
-
-            )
-
-            inner = _extract_json(final_raw_answer.replace("```json", "```"))
-
-            if inner and "response" in inner:
-
-                final_raw_answer = _wrap_plain(inner["response"])
-
-                logger.info(
-
-                    f"[{msg_id}] Wrapped plain text response from inner JSON"
-
-                )
-
-                inner2 = _extract_json(final_raw_answer["ans"])
-
-                if inner2 and "response" in inner2:
-
-                    final_raw_answer["ans"] = inner2["response"]
-
-                    logger.info(
-
-                        f"[{msg_id}] Found and extracted nested response"
-
-                    )
-
-                elif inner2:
-
-                    inner2.setdefault("similarities", [])
-
-                    inner2.setdefault("differences", [])
-
-                    final_raw_answer = inner2
-
-                    logger.info(
-
-                        f"[{msg_id}] Completed fallback normalization with defaults"
-
-                    )
-
-            elif inner:
-
-                final_raw_answer = inner | {
-
-                    "similarities": [],
-
-                    "differences": [],
-
-                }
-
-                logger.info(
-
-                    f"[{msg_id}] Fallback normalization produced result"
-
-                )
-
-            else:
-
-                answer = _wrap_plain(final_raw_answer)
-
-                logger.info(f"[{msg_id}] Final fallback to wrapped text")
-
-            logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
-
-        elif "response" in payload:
-
-            answer = _wrap_plain(payload["response"])
-
-            logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
-
-            logger.info(f"[{msg_id}] Response wrapped from TEMPLATE scaffold")
-
-        else:
-
-            final_raw_answer = payload
-
-            final_raw_answer.setdefault("similarities", [])
-
-            final_raw_answer.setdefault("differences", [])
-
-            logger.info(
-
-                f"[{msg_id}] Using parsed JSON directly with added defaults"
-
-            )
-
-            logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
-
-            answer = final_raw_answer
-
-    if category == "3":
-
+    # if category == "1":
+    #     logger.info(f"[{msg_id}] Starting process for category 1")
+    #     # Step 6: Call LLM FOR RISK MATRIX
+    #     try:
+    #         logger.info(
+    #             f"[{msg_id}] Preparing to call LLM for risk extraction")
+    #         llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
+    #             risk_extraction_body_prompt)
+    #         raw_answer = llm_resp.content.strip()
+    #         logger.info(
+    #             f"[{msg_id}] LLM responded successfully with raw answer. raw answer: {raw_answer}")
+
+    #         logger.info(f"[{msg_id}] Generating risk categorization prompt")
+    #         risk_categorisation_body_prompt = generate_prompt_risk_cat(
+    #             risk_rules=get_risk_matrix_details(),
+    #             query=queryText,
+    #             risks=raw_answer,
+    #             contract=content,
+    #             template=RISK_MATRIX_CAT_PROMPT)
+    #         logger.info(
+    #             f"[{msg_id}] risk categorization prompt: {risk_categorisation_body_prompt}")
+            
+    #         logger.info(f"[{msg_id}] Invoking LLM for risk categorization")
+    #         llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
+    #             risk_categorisation_body_prompt)
+
+    #         final_raw_answer = llm_resp.content.strip()
+
+    #         logger.info(f"[{msg_id}] LLM categorization response received, final raw answer: {final_raw_answer}")
+
+    #     except Exception as exc:
+    #         logger.info(f"[{msg_id}] LLM call for risk matrix failed")
+    #         logger.exception(f"[{msg_id}] LLM call failed")
+    #         raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
+
+    #     # Step 7: Normalize response
+    #     logger.info(f"[{msg_id}] Normalizing response from LLM")
+    #     payload = _extract_json(final_raw_answer)
+    #     logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
+    #     if payload is None:
+    #         logger.info( f"[{msg_id}] Initial JSON extraction failed, applying fallback normalization")
+    #         inner = _extract_json(final_raw_answer.replace("```json", "```"))
+    #         if inner and "response" in inner:
+    #             final_raw_answer = _wrap_plain(inner["response"])
+    #             logger.info(
+    #                 f"[{msg_id}] Wrapped plain text response from inner JSON")
+    #             inner2 = _extract_json(final_raw_answer["ans"])
+    #             if inner2 and "response" in inner2:
+    #                 final_raw_answer["ans"] = inner2["response"]
+    #                 logger.info(
+    #                     f"[{msg_id}] Found and extracted nested response" )
+    #             elif inner2:
+    #                 inner2.setdefault("similarities", [])
+    #                 inner2.setdefault("differences", [])
+    #                 final_raw_answer = inner2
+    #                 logger.info(
+    #                     f"[{msg_id}] Completed fallback normalization with defaults")
+    #         elif inner:
+    #             final_raw_answer = inner | {
+    #                 "similarities": [],
+    #                 "differences": [],}
+    #             logger.info(
+    #                 f"[{msg_id}] Fallback normalization produced result")
+    #         else:
+    #             answer = _wrap_plain(final_raw_answer)
+    #             logger.info(f"[{msg_id}] Final fallback to wrapped text")
+    #         logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
+    #     elif "response" in payload:
+    #         answer = _wrap_plain(payload["response"])
+    #         logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
+    #         logger.info(f"[{msg_id}] Response wrapped from TEMPLATE scaffold")
+    #     else:
+    #         final_raw_answer = payload
+    #         final_raw_answer.setdefault("similarities", [])
+    #         final_raw_answer.setdefault("differences", [])
+    #         logger.info(
+    #             f"[{msg_id}] Using parsed JSON directly with added defaults")
+    #         logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
+    #         answer = final_raw_answer
+
+    if category in ("1","2","4"):
         full_prompt = f"{history_block}{body_prompt}"
-
         logger.debug(
-
-            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
-
-        )
+            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}")
         try:
             llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
             raw_answer = llm_resp.content.strip()
@@ -637,7 +466,7 @@ async def generate_summary(
         raw_answer = IRRELEVANT
         logger.info("User requires Risk mitigation strategies")
     # Step 8: Fallback if response is irrelevant
-    if IRRELEVANT in raw_answer or "2" in category:
+    if IRRELEVANT in raw_answer or "3" in category:
         logger.warning(
             f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
         )

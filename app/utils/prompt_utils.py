@@ -106,9 +106,9 @@ def generate_prompt(content: str, query: str, template: str) -> str:
 
 def generate_prompt_risk(
     contract: str,
-    risk_rules: str,
     query: str,
     template: str,
+    risk_rules: str,
 ) -> str:
     """Generate a prompt tailored for contract risk analysis.
 
@@ -124,7 +124,7 @@ def generate_prompt_risk(
     return PromptTemplate(
         input_variables=["contract", "risk_rules", "Query"],
         template=template,
-    ).format(Contract=contract, risk_rules=risk_rules, Query=query)
+    ).format(risk_rules=risk_rules,Contract=contract, Query=query)
 
 
 def prompt_query_cat(query: str) -> str:

@@ -39,14 +39,14 @@ BUSINESS_UNIT_PROMPT = """ "You are a procurement process agent who will classif
     Provide only classified Business Unit in response:
     """
 
-
 CATEGORY_PROMPT = """
     You are an expert in understanding user queries related to contracts.
     Your task is to determine the category of a given query. The categories are:
 
-    1.  **Risk Assessment:** The query asks about identifying risks, clauses, liabilities, or potential problems within the contract.
-    2.  **Risk Mitigation:** The query asks about strategies to reduce, minimize, avoid, or manage risks associated with the contract.
-    3.  **General Contract Inquiry:** The query is a general question about the contract that doesn't fall into the above categories.
+    1.  **One or few Risk Assessment:** The query asks about identifying one or few risks, clauses, liabilities, or potential problems within the contract.
+    2.  **All Risk Assessment:** The query asks about identifying all risks, clauses, liabilities, or potential problems within the contract.
+    3.  **Risk Mitigation:** The query asks about strategies to reduce, minimize, avoid, or manage risks associated with the contract.
+    4.  **General Contract Inquiry:** The query is a general question about the contract that doesn't fall into the above categories.
 
     Given the following user query, determine which category it belongs to:
 
@@ -126,31 +126,20 @@ User Query Handling: Now address the user's query by providing the requested ana
 User Query: {Query} """
 
 
-RISK_MATRIX_EXT_PROMPT = """
-
-   You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
-
-  Here's how you should approach this task:
-  
+RISK_MATRIX_SPC_RISK_PROMPT = """You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
   Clause Rules Checklist: {risk_rules}
-  
   Here you have the contract: {Contract}
-
-
+  Here is the user query : {Query}
+  
+  Here's how you should approach this task:  
   **Steps to Execute**:
-
   1. **Initial Analysis**:
        - Take the reference from Clause Rules Checklist and understand different kinds of risks available.
-
-
   2. **Risk Identification**:
        - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
        - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
-
 Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
-
 Categorize each identified risk/clause/terms in RI1 into only ONE appropriate category (High, Medium and Low) based on following Chain of Thoughts- 
-
     Thought 1 : Does the user history contains any information around the risks in contract?
     Action 1  : If yes, then only use it else ignore it.
 
@@ -216,7 +205,7 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     ```
 """
 
-RISK_MATRIX_CAT_PROMPT = """
+RISK_MATRIX_ALL_RISKS_PROMPT = """
 
   You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
 
@@ -226,6 +215,7 @@ RISK_MATRIX_CAT_PROMPT = """
   
   Here you have the contract: {Contract}
 
+  Here is the user query : {Query}
 
   **Steps to Execute**:
 
