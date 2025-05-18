@@ -240,7 +240,7 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 3: How should each identified risk be aligned with its corresponding entry in the Clause Rules Checklist?
     Action 3: Differentiate each identified risk with that of risk_description mentioned in the Clause Rules Checklist for categorization.
 
-    Thought 4: What is the relevance of each risk in respect to Astra Zeneca based on provided risk_description from Clause Rules Checklist?
+    Thought 4: What is the relevance of each risk in respect to AstraZeneca based on provided risk_description from Clause Rules Checklist?
     Action 4: Determine the risk's relevance to AstraZeneca (AZ).
 
     Thought 5: How should the severity and parties involved in each risk be evaluated?
