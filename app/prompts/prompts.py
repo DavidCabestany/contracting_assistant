@@ -126,6 +126,216 @@ User Query Handling: Now address the user's query by providing the requested ana
 User Query: {Query} """
 
 
+RISK_MATRIX_EXT_PROMPT = """
+
+   You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
+
+  Here's how you should approach this task:
+  
+  Clause Rules Checklist: {risk_rules}
+  
+  Here you have the contract: {Contract}
+
+
+  **Steps to Execute**:
+
+  1. **Initial Analysis**:
+       - Take the reference from Clause Rules Checklist and understand different kinds of risks available.
+
+
+  2. **Risk Identification**:
+       - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
+       - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
+
+Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
+
+Categorize each identified risk/clause/terms in RI1 into only ONE appropriate category (High, Medium and Low) based on following Chain of Thoughts- 
+
+    Thought 1 : Does the user history contains any information around the risks in contract?
+    Action 1  : If yes, then only use it else ignore it.
+
+    Thought 2: Are there any risks present under RI1 ?
+    Action 2: If yes, proceed with categorization.
+
+    Thought 3: How should each identified risk be aligned with its corresponding entry in the Clause Rules Checklist?
+    Action 3: Differentiate each identified risk with that of risk_description mentioned in the Clause Rules Checklist for categorization.
+
+    Thought 4: What is the relevance of each risk in respect to Astra Zeneca based on provided risk_description from Clause Rules Checklist?
+    Action 4: Determine the risk's relevance to AstraZeneca (AZ).
+
+    Thought 5: How should the severity and parties involved in each risk be evaluated?
+    Action 5A: If the risk is predominantly related to AstraZeneca, categorize it as a High Risk.
+    Action 5B: If the risk is associated with both AstraZeneca and a third party, categorize it as a Medium Risk.
+    Action 5C: If the risk predominantly concerns a third party and not specifically AstraZeneca, categorize it as a Low Risk.
+
+    Thought 6: Is the categorization consistent with the risk descriptions indicated in the Clause Rules Checklist?
+    Action 6: Verify alignment and consistency of categorization against the predefined checklist standards.
+
+    Thought 7: Post categorization what should be the order of categorized risks according to their importance?
+    Action 7: Arrange the risks from top to bottom following the order provided in the Clause Rules Checklist.
+    
+    Thought 8: If all the risks have been categorized under High, Medium and Low? 
+    Action 8: If yes, then proceed forward. Else, categorize them on the basis of Clause Rules checklist.
+    
+    Thought 9: IMPORTANT! User Query Categorization:
+    Thought 9A: Has the user asked about a specific risk or a set of specific risks?
+    Action 9A: Modify the JSON generated after Action 8 to include only the specific risks mentioned in the user's query. Do not include any other risks.
+    
+    Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
+    Only fill in arrays when you have items to add, do not mention as null for any arrays.
+    
+    ```json
+    {{
+      "ans": "Short summary paragraph that explains the overall risk findings.",
+      "ContractualRisks":{{
+        "HighRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "MediumRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "LowRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
+        ]}},
+      "StandardAZRisks":{{
+        "HighRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "MediumRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "LowRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
+        ]}},
+      "AdditionalPotentialRisks":[
+          {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
+        ],
+        "similarities": [],
+        "differences": []
+      }}
+    ```
+"""
+
+RISK_MATRIX_CAT_PROMPT = """
+
+  You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
+
+  Here's how you should approach this task:
+  
+  Clause Rules Checklist: {risk_rules}
+  
+  Here you have the contract: {Contract}
+
+
+  **Steps to Execute**:
+
+  1. **Initial Analysis**:
+       - Take the reference from Clause Rules Checklist and understand different kinds of risks available.
+
+
+  2. **Risk Identification**:
+       - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
+       - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
+
+Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
+
+Categorize each identified risk/clause/terms in RI1 into only ONE appropriate category (High, Medium and Low) based on following Chain of Thoughts- 
+
+    Thought 1 : Does the user history contains any information around the risks in contract?
+    Action 1  : If yes, then only use it else ignore it.
+
+    Thought 2: Are there any risks present under RI1 ?
+    Action 2: If yes, proceed with categorization.
+
+    Thought 3: How should each identified risk be aligned with its corresponding entry in the Clause Rules Checklist?
+    Action 3: Differentiate each identified risk with that of risk_description mentioned in the Clause Rules Checklist for categorization.
+
+    Thought 4: What is the relevance of each risk in respect to Astra Zeneca based on provided risk_description from Clause Rules Checklist?
+    Action 4: Determine the risk's relevance to AstraZeneca (AZ).
+
+    Thought 5: How should the severity and parties involved in each risk be evaluated?
+    Action 5A: If the risk is predominantly related to AstraZeneca, categorize it as a High Risk.
+    Action 5B: If the risk is associated with both AstraZeneca and a third party, categorize it as a Medium Risk.
+    Action 5C: If the risk predominantly concerns a third party and not specifically AstraZeneca, categorize it as a Low Risk.
+
+    Thought 6: Is the categorization consistent with the risk descriptions indicated in the Clause Rules Checklist?
+    Action 6: Verify alignment and consistency of categorization against the predefined checklist standards.
+
+    Thought 7: Post categorization what should be the order of categorized risks according to their importance?
+    Action 7: Arrange the risks from top to bottom following the order provided in the Clause Rules Checklist.
+    
+    Thought 8: If all the risks have been categorized under High, Medium and Low? 
+    Action 8: If yes, then proceed forward. Else, categorize them on the basis of Clause Rules checklist.
+        
+    Thought 9: If user is querying about all the risk in the contract, what steps should follow?
+    Action 9: Continue with this process using the subsequent steps and thoughts outlined before making the final decision.
+    
+    Thought 10: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
+    Action 10: Use Following definition to categorize the risks into ContractualRisks or StandardAZRisks:
+                ContractualRisks: If the risks are present in the Contract AND in the Clause Rules Checklist
+                StandardAZRisks: If the risks are NOT present in the Contract BUT are present in Clause Rules Checklist
+    
+    Thought 11:  What is the current count of categorized risks?
+    Action 11: Begin by counting the total number of risks listed under Contractual Risks and Standard AZ Risks.
+    
+    Thought 12: How many risks are specified in the Clause Rules Checklist?
+    Action 12: Refer to the Clause Rules Checklist to determine the total number of risks that need to be accounted for.
+    
+    Thought 13: Is there any discrepancy in the counts?
+    Action 13: Compare the sum of the identified Contractual Risks and Standard AZ Risks against the total number indicated in the Clause Rules Checklist.
+    
+    Thought 14: Are there risks missing from the categorization?
+    Action 14: If the sum of the current risks is less than the number in the Clause Rules Checklist, identify which specific risks are missing.
+    
+    Thought 15: How should missing risks be addressed?
+    Action 15: Re-categorize the missing risks under Standard AZ Risks to ensure they are represented.
+    
+    Thought 16: After adjustments, what is the new total of categorized risks?
+    Action 16: Recalculate the total number of risks now categorized under Contractual Risks and Standard AZ Risks.
+    
+    Thought 17: Does the recalculated total match the Clause Rules Checklist?
+    Action 17: Verify that the updated total matches the expected number from the Clause Rules Checklist to ensure completeness.
+    
+    Thought 18: How can accuracy be ensured?
+    Action 18: Perform a final review and cross-check all risks ctegorized under ContractualRisks and StandardAZRisks to confirm alignment with the Clause Rules Checklist.
+    
+    Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
+    Only fill in arrays when you have items to add, do not mention as null for any arrays.
+    
+    ```json
+    {{
+      "ans": "Short summary paragraph that explains the overall risk findings.",
+      "ContractualRisks":{{
+        "HighRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "MediumRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "LowRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
+        ]}},
+      "StandardAZRisks":{{
+        "HighRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "MediumRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
+        ],
+        "LowRisksClauses": [
+          {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
+        ]}},
+      "AdditionalPotentialRisks":[
+          {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
+        ],
+        "similarities": [],
+        "differences": []
+      }}
+    ```
+"""
+
+
+
 BASE_PROMPT = """
 
 You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
