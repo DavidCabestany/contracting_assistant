@@ -24,7 +24,12 @@ from models import (
     QueryResponse,
     Result,
 )
-from prompts import BASE_PROMPT, RISK_MATRIX_PROMPT, RISK_MITIGATION_PROMPT, RISK_MATRIX_SPC_RISK_PROMPT, RISK_MATRIX_ALL_RISKS_PROMPT
+from prompts import (
+    BASE_PROMPT,
+    RISK_MATRIX_ALL_RISKS_PROMPT,
+    RISK_MATRIX_SPC_RISK_PROMPT,
+    RISK_MITIGATION_PROMPT,
+)
 from routes.qna import (
     retrieve_and_generate,
 )
@@ -205,72 +210,132 @@ async def generate_summary(
                 400, f"Failed to extract content: {exc}"
             ) from exc
 
-
     if file is None:
 
-        logger.info(f"[{msg_id}] No new file uploaded. Attempting to read existing file from S3 for session.")
+        logger.info(
+            f"[{msg_id}] No new file uploaded. Attempting to read existing file from S3 for session."
+        )
         s3_folder_prefix = f"contracts/{userId or 'anonymous'}/{session_id}/"
         retrieved_object_key = None
         try:
-            list_response = s3.list_objects_v2(Bucket=BUCKET_CONTAINER, Prefix=s3_folder_prefix, MaxKeys=2)
-            if 'Contents' in list_response and len(list_response['Contents']) > 0:
-                potential_objects = list_response['Contents']
-                    # Filter out the "folder" object itself if it exists
-                actual_file_objects = [obj for obj in potential_objects if obj['Key'] != s3_folder_prefix and obj['Size'] > 0]
+            list_response = s3.list_objects_v2(
+                Bucket=BUCKET_CONTAINER, Prefix=s3_folder_prefix, MaxKeys=2
+            )
+            if (
+                "Contents" in list_response
+                and len(list_response["Contents"]) > 0
+            ):
+                potential_objects = list_response["Contents"]
+                # Filter out the "folder" object itself if it exists
+                actual_file_objects = [
+                    obj
+                    for obj in potential_objects
+                    if obj["Key"] != s3_folder_prefix and obj["Size"] > 0
+                ]
                 if actual_file_objects:
-                        retrieved_object_key = actual_file_objects[0]['Key'] # Take the first actual file
-                        file_name_for_processing = retrieved_object_key.split('/')[-1]
-                        logger.info(f"S3 List: Found object '{retrieved_object_key}' (filename: '{file_name_for_processing}') under prefix '{s3_folder_prefix}'.")
-                        # Now get the object content
-                        obj_response = s3.get_object(Bucket=BUCKET_CONTAINER, Key=retrieved_object_key)
-                        file_bytes_for_processing = obj_response['Body'].read()
-                        logger.info(f"Successfully read {len(file_bytes_for_processing)} bytes from S3 object '{retrieved_object_key}'.")
+                    retrieved_object_key = actual_file_objects[0][
+                        "Key"
+                    ]  # Take the first actual file
+                    file_name_for_processing = retrieved_object_key.split("/")[
+                        -1
+                    ]
+                    logger.info(
+                        f"S3 List: Found object '{retrieved_object_key}' (filename: '{file_name_for_processing}') under prefix '{s3_folder_prefix}'."
+                    )
+                    # Now get the object content
+                    obj_response = s3.get_object(
+                        Bucket=BUCKET_CONTAINER, Key=retrieved_object_key
+                    )
+                    file_bytes_for_processing = obj_response["Body"].read()
+                    logger.info(
+                        f"Successfully read {len(file_bytes_for_processing)} bytes from S3 object '{retrieved_object_key}'."
+                    )
                 else:
-                        logger.warning(f"S3 List: No actual file objects found under prefix '{s3_folder_prefix}' in bucket '{BUCKET_CONTAINER}'. Only folder object or empty.")
+                    logger.warning(
+                        f"S3 List: No actual file objects found under prefix '{s3_folder_prefix}' in bucket '{BUCKET_CONTAINER}'. Only folder object or empty."
+                    )
             else:
-                logger.warning(f"S3 List: No objects found under prefix '{s3_folder_prefix}' in bucket '{BUCKET_CONTAINER}'.")
+                logger.warning(
+                    f"S3 List: No objects found under prefix '{s3_folder_prefix}' in bucket '{BUCKET_CONTAINER}'."
+                )
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
-            if error_code == 'AccessDenied':
-                logger.error(f"S3 Error: Access Denied for listing/reading prefix '{s3_folder_prefix}'.")
-                raise HTTPException(500, f"S3 access error for session file.") from e
+            if error_code == "AccessDenied":
+                logger.error(
+                    f"S3 Error: Access Denied for listing/reading prefix '{s3_folder_prefix}'."
+                )
+                raise HTTPException(
+                    500, "S3 access error for session file."
+                ) from e
             else:
-                logger.exception(f"An S3 ClientError occurred for prefix '{s3_folder_prefix}': {e}")
-                raise HTTPException(500, f"S3 error retrieving session file.") from e
+                logger.exception(
+                    f"An S3 ClientError occurred for prefix '{s3_folder_prefix}': {e}"
+                )
+                raise HTTPException(
+                    500, "S3 error retrieving session file."
+                ) from e
         except Exception as e:
-            logger.exception(f"An unexpected error occurred with S3 for prefix '{s3_folder_prefix}': {e}")
-            raise HTTPException(500, f"Error retrieving session file.") from e
-        
+            logger.exception(
+                f"An unexpected error occurred with S3 for prefix '{s3_folder_prefix}': {e}"
+            )
+            raise HTTPException(500, "Error retrieving session file.") from e
+
         if file_bytes_for_processing and file_name_for_processing:
             try:
                 ftype = get_file_type(file_name_for_processing)
-                logger.info(f"[{msg_id}] Processing file: '{file_name_for_processing}', type: {ftype}")
+                logger.info(
+                    f"[{msg_id}] Processing file: '{file_name_for_processing}', type: {ftype}"
+                )
                 if ftype == ".pdf":
                     content = extract_pdf_contents(file_bytes_for_processing)
                 elif ftype in {".doc", ".docx"}:
                     content = extract_text_from_word(file_bytes_for_processing)
-                elif ftype is None and file_bytes_for_processing: # Handle case where extension might be missing but we have bytes
-                    logger.warning(f"[{msg_id}] Could not determine file type for '{file_name_for_processing}'. Attempting as plain text.")
+                elif (
+                    ftype is None and file_bytes_for_processing
+                ):  # Handle case where extension might be missing but we have bytes
+                    logger.warning(
+                        f"[{msg_id}] Could not determine file type for '{file_name_for_processing}'. Attempting as plain text."
+                    )
                     try:
-                        content = file_bytes_for_processing.decode('utf-8', errors='replace')
+                        content = file_bytes_for_processing.decode(
+                            "utf-8", errors="replace"
+                        )
                     except Exception:
                         content = f"Binary content of {len(file_bytes_for_processing)} bytes (filename: {file_name_for_processing})."
-                elif file_bytes_for_processing: # Has bytes, but type is not pdf/doc/docx and not None (e.g. .txt, .csv)
-                    logger.info(f"[{msg_id}] File type '{ftype}' not specifically handled for extraction, attempting decode as text.")
+                elif (
+                    file_bytes_for_processing
+                ):  # Has bytes, but type is not pdf/doc/docx and not None (e.g. .txt, .csv)
+                    logger.info(
+                        f"[{msg_id}] File type '{ftype}' not specifically handled for extraction, attempting decode as text."
+                    )
                     try:
-                        content = file_bytes_for_processing.decode('utf-8', errors='replace')
+                        content = file_bytes_for_processing.decode(
+                            "utf-8", errors="replace"
+                        )
                     except Exception:
                         content = f"Content of {len(file_bytes_for_processing)} bytes for {file_name_for_processing} (type {ftype})."
                 else:
                     # This case should ideally not be hit if file_bytes_for_processing is None already handled
-                    logger.error(f"[{msg_id}] Unsupported file type '{ftype}' or no bytes for file '{file_name_for_processing}'.")
-                    raise ValueError(f"Unsupported file type or no data: {ftype}")
-                logger.debug(f"[{msg_id}] Extracted content from file '{file_name_for_processing}'")
-            except ValueError as ve: # Catch specific ValueError for unsupported types
-                logger.error(f"[{msg_id}] Value error during content extraction for '{file_name_for_processing}': {ve}")
+                    logger.error(
+                        f"[{msg_id}] Unsupported file type '{ftype}' or no bytes for file '{file_name_for_processing}'."
+                    )
+                    raise ValueError(
+                        f"Unsupported file type or no data: {ftype}"
+                    )
+                logger.debug(
+                    f"[{msg_id}] Extracted content from file '{file_name_for_processing}'"
+                )
+            except (
+                ValueError
+            ) as ve:  # Catch specific ValueError for unsupported types
+                logger.error(
+                    f"[{msg_id}] Value error during content extraction for '{file_name_for_processing}': {ve}"
+                )
                 raise HTTPException(400, str(ve)) from ve
             except Exception as exc:
-                logger.exception(f"[{msg_id}] Failed to extract content from file '{file_name_for_processing}'")
+                logger.exception(
+                    f"[{msg_id}] Failed to extract content from file '{file_name_for_processing}'"
+                )
                 raise HTTPException(
                     400, f"Failed to extract content from file: {exc}"
                 ) from exc
@@ -308,15 +373,18 @@ async def generate_summary(
     try:
         if category == "1":
             body_prompt = generate_prompt_risk(
-                content, queryText,
+                content,
+                queryText,
                 RISK_MATRIX_SPC_RISK_PROMPT,
                 risk_rules=get_risk_matrix_details(),
             )
         elif category == "2":
             body_prompt = generate_prompt_risk(
-                content, queryText, RISK_MATRIX_ALL_RISKS_PROMPT,
-                 risk_rules=get_risk_matrix_details(),
-                 )
+                content,
+                queryText,
+                RISK_MATRIX_ALL_RISKS_PROMPT,
+                risk_rules=get_risk_matrix_details(),
+            )
         elif category == "3":
             body_prompt = generate_prompt(
                 content, queryText, RISK_MITIGATION_PROMPT
@@ -330,14 +398,12 @@ async def generate_summary(
         logger.exception(f"[{msg_id}] Failed to generate body prompt")
         raise HTTPException(500, f"Prompt generation failed: {exc}") from exc
 
-
-
     # full_prompt = f"{history_block}{body_prompt}"
     # logger.debug(
     #     f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
     # )
-    #if category in {"1", "3"}:
-        # Step 6: Call LLM
+    # if category in {"1", "3"}:
+    # Step 6: Call LLM
 
     # if category == "1":
     #     logger.info(f"[{msg_id}] Starting process for category 1")
@@ -360,7 +426,7 @@ async def generate_summary(
     #             template=RISK_MATRIX_CAT_PROMPT)
     #         logger.info(
     #             f"[{msg_id}] risk categorization prompt: {risk_categorisation_body_prompt}")
-            
+
     #         logger.info(f"[{msg_id}] Invoking LLM for risk categorization")
     #         llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
     #             risk_categorisation_body_prompt)
@@ -419,10 +485,11 @@ async def generate_summary(
     #         logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
     #         answer = final_raw_answer
 
-    if category in ("1","2","4"):
+    if category in ("1", "2", "4"):
         full_prompt = f"{history_block}{body_prompt}"
         logger.debug(
-            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}")
+            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
+        )
         try:
             llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
             raw_answer = llm_resp.content.strip()

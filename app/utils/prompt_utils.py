@@ -124,7 +124,7 @@ def generate_prompt_risk(
     return PromptTemplate(
         input_variables=["contract", "risk_rules", "Query"],
         template=template,
-    ).format(risk_rules=risk_rules,Contract=contract, Query=query)
+    ).format(risk_rules=risk_rules, Contract=contract, Query=query)
 
 
 def prompt_query_cat(query: str) -> str:
