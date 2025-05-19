@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RiskClause(BaseModel):
@@ -19,26 +19,43 @@ class RiskClause(BaseModel):
     description: str
 
 
-class RiskAssessmentAnswer(BaseModel):
-    """Detailed structured response for a risk assessment query.
+class RiskCategory(BaseModel):
+    """Represents a HighRisksClauses,MediumRisksClauses and LowRisksClauses identified in a contract or document.
 
     Attributes:
-        ans (str): Main answer or summary.
-        highRisksClauses (Optional[list[RiskClause]]): List of high-risk clauses identified.
-        mediumRisksClauses (Optional[list[RiskClause]]): List of medium-risk clauses identified.
-        lowRisksClauses (Optional[list[RiskClause]]): List of low-risk clauses identified.
-        additionalRisks (Optional[list[RiskClause]]): List of additional risk clauses not classified by severity.
-        similarities (Optional[list[str]]): Descriptions of similarities between compared documents or clauses.
-        differences (Optional[list[str]]): Descriptions of differences between compared documents or clauses.
+       HighRisksClauses
+       MediumRisksClauses
+       LowRisksClauses
     """
 
+    HighRisksClauses: List[RiskClause] = Field(default_factory=list)
+    MediumRisksClauses: List[RiskClause] = Field(default_factory=list)
+    LowRisksClauses: List[RiskClause] = Field(default_factory=list)
+
+
+class AdditionalRisk(BaseModel):
+    """Represents additional risks identified in a contract or document.
+
+    Attributes:
+        title (str): Short title or category of the risk clause.
+        description (str): Full explanation of the risk clause.
+    """
+
+    title: str = ""
+    description: str = ""
+
+
+class RiskAssessmentAnswer(BaseModel):
+    """Structured response detailing the findings of a risk assessment query."""
+
     ans: str
-    highRisksClauses: Optional[list[RiskClause]] = []
-    mediumRisksClauses: Optional[list[RiskClause]] = []
-    lowRisksClauses: Optional[list[RiskClause]] = []
-    additionalRisks: Optional[list[RiskClause]] = []
-    similarities: Optional[list[str]] = []
-    differences: Optional[list[str]] = []
+    ContractualRisks: RiskCategory = Field(default_factory=RiskCategory)
+    StandardAZRisks: RiskCategory = Field(default_factory=RiskCategory)
+    AdditionalPotentialRisks: List[AdditionalRisk] = Field(
+        default_factory=list
+    )
+    similarities: List[Any] = Field(default_factory=list)
+    differences: List[Any] = Field(default_factory=list)
 
 
 class RiskAssessmentResponse(BaseModel):

@@ -23,6 +23,8 @@ from models import (
     FeedbackDisplayOptions,
     QueryResponse,
     Result,
+    RiskAssessmentAnswer,
+    RiskAssessmentResponse,
 )
 from prompts import (
     BASE_PROMPT,
@@ -30,6 +32,7 @@ from prompts import (
     RISK_MATRIX_SPC_RISK_PROMPT,
     RISK_MITIGATION_PROMPT,
 )
+from pydantic import ValidationError
 from routes.qna import (
     retrieve_and_generate,
 )
@@ -72,7 +75,7 @@ def _extract_json(text: str) -> dict | None:
     """
     cleaned = "\n".join(
         ln for ln in text.splitlines() if not ln.lstrip().startswith("```")
-    )
+    ).strip()
     match = re.search(r"{.*}", cleaned, flags=re.S)
     if not match:
         return None
@@ -93,12 +96,140 @@ def _wrap_plain(ans: str) -> dict:
     """
     return {
         "ans": ans,
-        "highRisksClauses": [],
-        "mediumRisksClauses": [],
-        "lowRisksClauses": [],
+        "ContractualRisks": [],
+        "StandardAZRisks": [],
+        "AdditionalPotentialRisks": [],
         "similarities": [],
         "differences": [],
     }
+
+
+def parse_llm_output_to_assessment(
+    raw_json_dict: str, msg_id: str = "parse"
+) -> RiskAssessmentResponse:
+    """Parses a pre-extracted JSON dictionary from LLM output into a structured `RiskAssessmentResponse` or `RiskAssessmentAnswer` Pydantic object.
+
+    Args:
+        raw_json_dict (Optional[Dict[str, Any]]): Dictionary from initial JSON extraction
+            of LLM output, or None if extraction failed.
+        msg_id (str, optional): Logger message ID. Defaults to "parse".
+        raw_llm_text_for_fallback (Optional[str], optional): Original raw LLM text,
+            used if `raw_json_dict` is None or unparsable. Defaults to None.
+
+    Returns:
+        Union[RiskAssessmentResponse, RiskAssessmentAnswer, None]:
+            A parsed Pydantic object (`RiskAssessmentResponse` or `RiskAssessmentAnswer`),
+            or `None` if all parsing fails and no fallback text is available.
+    """
+    extracted_data: Optional[dict] = None
+    parsed_answer_obj: Optional[RiskAssessmentAnswer] = None
+    if raw_json_dict:
+        if "answer" in raw_json_dict and isinstance(
+            raw_json_dict["answer"], dict
+        ):
+            try:
+                response_obj = RiskAssessmentResponse(
+                    **raw_json_dict["answer"]
+                )
+                logger.info(
+                    f"[{msg_id}] Successfully parsed as RiskAssessmentResponse structure."
+                )
+                return response_obj
+            except ValidationError as e:
+                logger.warning(
+                    f"[{msg_id}] Validation failed for RiskAssessmentResponse structure: {e.errors()}"
+                )
+                # Problem was likely within the "answer" part, so extract it for further processing
+                extracted_data = raw_json_dict.get("answer")
+            except Exception as e:
+                logger.error(
+                    f"[{msg_id}] Unexpected error parsing as RiskAssessmentResponse: {e}"
+                )
+                extracted_data = raw_json_dict.get("answer")
+
+        if extracted_data is None:
+            extracted_data = raw_json_dict
+
+        if isinstance(extracted_data, dict):
+            try:
+                parsed_answer_obj = RiskAssessmentAnswer(**extracted_data)
+                logger.info(
+                    f"[{msg_id}] Successfully parsed as RiskAssessmentAnswer structure."
+                )
+                return parsed_answer_obj
+            except ValidationError as e:
+                logger.warning(
+                    f"[{msg_id}] Validation failed for RiskAssessmentAnswer structure: {e.errors()}"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"[{msg_id}] Unexpected error parsing as RiskAssessmentAnswer: {e}"
+                )
+
+        if (
+            isinstance(extracted_data, dict)
+            and "response" in extracted_data
+            and isinstance(extracted_data["response"], str)
+        ):
+            text_from_response_field = extracted_data["response"]
+            logger.info(
+                f"[{msg_id}] Found 'response' field with string content. Attempting to process it."
+            )
+
+            nested_json_dict = _extract_json(text_from_response_field)
+            if nested_json_dict:
+                try:
+                    parsed_answer_obj = RiskAssessmentAnswer(
+                        **nested_json_dict
+                    )
+                    logger.info(
+                        f"[{msg_id}] Successfully parsed nested JSON from 'response' field as RiskAssessmentAnswer."
+                    )
+                    return parsed_answer_obj
+                except ValidationError as e:
+                    logger.warning(
+                        f"[{msg_id}] Validation failed for nested JSON in 'response': {e.errors()}"
+                    )
+
+                    parsed_answer_obj = RiskAssessmentAnswer(
+                        ans=text_from_response_field
+                    )
+                    logger.info(
+                        f"[{msg_id}] Using 'response' field string as 'ans' after nested parse fail."
+                    )
+                    return parsed_answer_obj
+                except Exception as e:
+                    logger.error(
+                        f"[{msg_id}] Unexpected error parsing nested JSON in 'response': {e}"
+                    )
+                    parsed_answer_obj = RiskAssessmentAnswer(
+                        ans=text_from_response_field
+                    )
+                    return parsed_answer_obj
+            else:
+                parsed_answer_obj = RiskAssessmentAnswer(
+                    ans=text_from_response_field
+                )
+                logger.info(
+                    f"[{msg_id}] Using plain text from 'response' field as 'ans'."
+                )
+                return parsed_answer_obj
+    if parsed_answer_obj is None:
+        logger.warning(
+            f"[{msg_id}] All structured parsing attempts failed or no initial JSON. Using raw output as 'ans'."
+        )
+        # parsed_answer_obj = RiskAssessmentAnswer(ans=raw_json_dict)
+        return None
+
+    if parsed_answer_obj:
+        return parsed_answer_obj
+
+    logger.error(
+        f"[{msg_id}] CRITICAL: Reached end of parsing function without a valid return. Using raw output."
+    )
+    final_fallback_answer = RiskAssessmentAnswer(ans=raw_json_dict)
+    return final_fallback_answer
 
 
 def _fallback_kb(prompt: str, session_id: str, folder: str = "general") -> str:
@@ -415,7 +546,9 @@ async def generate_summary(
             raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
 
         # Step 7: Normalize response
-        payload = _extract_json(raw_answer)
+        payload_json = _extract_json(raw_answer)
+        payload = parse_llm_output_to_assessment(payload_json, msg_id)
+
         logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
 
         if payload is None:
@@ -438,9 +571,9 @@ async def generate_summary(
             answer = _wrap_plain(payload["response"])
             logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
         else:
-            answer = payload
-            answer.setdefault("similarities", [])
-            answer.setdefault("differences", [])
+            answer = payload.model_dump()
+            # answer.setdefault("similarities", [])
+            # answer.setdefault("differences", [])
             logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
     else:
         raw_answer = IRRELEVANT

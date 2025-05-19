@@ -170,6 +170,7 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 9A: Has the user asked about a specific risk or a set of specific risks?
     Action 9A: Modify the JSON generated after Action 8 to include only the specific risks mentioned in the user's query. Do not include any other risks.
 
+    Provide the final output in following JSON format -
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
     Only fill in arrays when you have items to add, do not mention as null for any arrays.
 
@@ -289,9 +290,9 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 18: How can accuracy be ensured?
     Action 18: Perform a final review and cross-check all risks ctegorized under ContractualRisks and StandardAZRisks to confirm alignment with the Clause Rules Checklist.
 
+    Provide the final output in following JSON format -
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
     Only fill in arrays when you have items to add, do not mention as null for any arrays.
-
     ```json
     {{
       "ans": "Short summary paragraph that explains the overall risk findings.",
