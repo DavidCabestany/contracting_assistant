@@ -294,6 +294,8 @@ async def generate_summary(
     content = ""
     file_name = ""
     folder_path = ""
+    answer = None
+    raw_answer = None
 
     # Step 1: Process uploaded file, if any
     if file is not None:
@@ -341,8 +343,9 @@ async def generate_summary(
                 400, f"Failed to extract content: {exc}"
             ) from exc
 
-    if file is None:
-
+    elif file is None and transactionCount != "0":
+        file_bytes_for_processing = None
+        file_name_for_processing = None
         logger.info(
             f"[{msg_id}] No new file uploaded. Attempting to read existing file from S3 for session."
         )
@@ -471,140 +474,163 @@ async def generate_summary(
                     400, f"Failed to extract content from file: {exc}"
                 ) from exc
         else:
-            logger.info(f"[{msg_id}] error in finding the file")
-    # Step 2: Default query if none provided
-    if not queryText or not queryText.strip():
-        queryText = "Summarize the document content"
-        logger.info(f"[{msg_id}] No queryText provided. Default applied.")
-
-    # Step 3: Load chat memory
-    chat_mem: ChatMessageHistory = load_history(session_id)
-    logger.debug(
-        f"[{msg_id}] Loaded chat history with {len(chat_mem.messages)} messages"
-    )
-
-    history_block = "".join(
-        ("User: " if isinstance(m, HumanMessage) else "Assistant: ")
-        + m.content
-        + "\n"
-        for m in chat_mem.messages
-    )
-    body_prompt = ""
-
-    # Step 4: Classify query
-    try:
-        cat_prompt = prompt_query_cat(queryText.lower())
-        category = ChatBedrock(model_id=MODEL_ID).invoke(cat_prompt).content
-        logger.info(f"[{msg_id}] Query category determined: {category}")
-    except Exception as exc:
-        logger.exception(f"[{msg_id}] Failed to classify query prompt")
-        raise HTTPException(500, f"Error classifying prompt: {exc}") from exc
-
-    # Step 5: Generate prompt based on category
-    try:
-        if category == "1":
-            body_prompt = generate_prompt_risk(
-                content,
-                queryText,
-                RISK_MATRIX_SPC_RISK_PROMPT,
-                risk_rules=get_risk_matrix_details(),
-            )
-        elif category == "2":
-            body_prompt = generate_prompt_risk(
-                content,
-                queryText,
-                RISK_MATRIX_ALL_RISKS_PROMPT,
-                risk_rules=get_risk_matrix_details(),
-            )
-        elif category == "3":
-            body_prompt = generate_prompt(
-                content, queryText, RISK_MITIGATION_PROMPT
-            )
-        elif category == "4":
-            body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
-        else:
-            body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
-        logger.debug(f"[{msg_id}] Prompt built for LLM.")
-    except Exception as exc:
-        logger.exception(f"[{msg_id}] Failed to generate body prompt")
-        raise HTTPException(500, f"Prompt generation failed: {exc}") from exc
-
-    if category in ("1", "2", "4"):
-        full_prompt = f"{history_block}{body_prompt}"
-        logger.debug(
-            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
-        )
-        try:
-            llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
-            raw_answer = llm_resp.content.strip()
-            logger.info(f"[{msg_id}] LLM responded successfully")
-            logger.debug(
-                f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
-            )
-        except Exception as exc:
-            logger.exception(f"[{msg_id}] LLM call failed")
-            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
-
-        # Step 7: Normalize response
-        payload_json = _extract_json(raw_answer)
-        payload = parse_llm_output_to_assessment(payload_json, msg_id)
-
-        logger.debug(f"[{msg_id}] Primary JSON parsed: {payload is not None}")
-
-        if payload is None:
-            inner = _extract_json(raw_answer.replace("```json", "```"))
-            if inner and "response" in inner:
-                answer = _wrap_plain(inner["response"])
-                inner2 = _extract_json(answer["ans"])
-                if inner2 and "response" in inner2:
-                    answer["ans"] = inner2["response"]
-                elif inner2:
-                    inner2.setdefault("similarities", [])
-                    inner2.setdefault("differences", [])
-                    answer = inner2
-            elif inner:
-                answer = inner | {"similarities": [], "differences": []}
-            else:
-                answer = _wrap_plain(raw_answer)
-            logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
-        elif "response" in payload:
-            answer = _wrap_plain(payload["response"])
-            logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
-        else:
-            answer = payload.model_dump()
-            # answer.setdefault("similarities", [])
-            # answer.setdefault("differences", [])
-            logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
+            logger.info(f"[{msg_id}] No file exists")
+            raw_answer = "Please upload your contract first, then ask a specific question related to it."
     else:
-        raw_answer = IRRELEVANT
-        logger.info("User requires Risk mitigation strategies")
-    # Step 8: Fallback if response is irrelevant
-    if IRRELEVANT in raw_answer or "3" in category:
-        logger.warning(
-            f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
+        logger.info(f"[{msg_id}] No file is uploaded and its a first question")
+        raw_answer = "Please upload your contract first, then ask a specific question related to it."
+        chat_mem: ChatMessageHistory = ChatMessageHistory(session_id)
+        if not queryText or not queryText.strip():
+            queryText = "No text was provided"
+            logger.info(f"[{msg_id}] No queryText provided.")
+
+    if raw_answer is None:
+        # Step 2: Load chat memory
+        chat_mem: ChatMessageHistory = load_history(session_id)
+        logger.debug(
+            f"[{msg_id}] Loaded chat history with {len(chat_mem.messages)} messages"
         )
-        if len(full_prompt) > 18000:
-            llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
-                full_prompt
-                + "User : Just provide the user history along with summarization of contract in 18000 character length so that my query can be answered"
-            )
-            query_summary = llm_resp.content.strip()
-            full_prompt = query_summary + "User:" + queryText
 
-        fb = _fallback_kb(full_prompt, session_id=None)
-        if fb:
-            raw_answer = fb
-            payload = _extract_json(raw_answer)
-            answer = (
-                _wrap_plain(payload["response"])
-                if payload and "response" in payload
-                else _wrap_plain(raw_answer) if payload is None else payload
-            )
-            if isinstance(answer, dict):
-                answer.setdefault("similarities", [])
-                answer.setdefault("differences", [])
-            logger.info(f"[{msg_id}] Fallback response used")
+        history_block = "".join(
+            ("User: " if isinstance(m, HumanMessage) else "Assistant: ")
+            + m.content
+            + "\n"
+            for m in chat_mem.messages
+        )
+        body_prompt = ""
 
+        # Step 3: Default query if none provided
+        if not queryText or not queryText.strip():
+            queryText = "Summarize the document content"
+            logger.info(f"[{msg_id}] No queryText provided. Default applied.")
+        # Step 4: Classify query
+        try:
+            cat_prompt = prompt_query_cat(queryText.lower())
+            category = (
+                ChatBedrock(model_id=MODEL_ID).invoke(cat_prompt).content
+            )
+            logger.info(f"[{msg_id}] Query category determined: {category}")
+        except Exception as exc:
+            logger.exception(f"[{msg_id}] Failed to classify query prompt")
+            raise HTTPException(
+                500, f"Error classifying prompt: {exc}"
+            ) from exc
+
+        # Step 5: Generate prompt based on category
+        try:
+            if category == "5":
+                answer = "Your question doesn't seem related to the contract you uploaded. Please ask something relevant to the document."
+                raw_answer = "Your question doesn't seem related to the contract you uploaded. Please ask something relevant to the document."
+
+            if category == "1":
+                body_prompt = generate_prompt_risk(
+                    content,
+                    queryText,
+                    RISK_MATRIX_SPC_RISK_PROMPT,
+                    risk_rules=get_risk_matrix_details(),
+                )
+            elif category == "2":
+                body_prompt = generate_prompt_risk(
+                    content,
+                    queryText,
+                    RISK_MATRIX_ALL_RISKS_PROMPT,
+                    risk_rules=get_risk_matrix_details(),
+                )
+            elif category == "3":
+                body_prompt = generate_prompt(
+                    content, queryText, RISK_MITIGATION_PROMPT
+                )
+            elif category == "4":
+                body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
+            else:
+                body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
+            logger.debug(f"[{msg_id}] Prompt built for LLM.")
+        except Exception as exc:
+            logger.exception(f"[{msg_id}] Failed to generate body prompt")
+            raise HTTPException(
+                500, f"Prompt generation failed: {exc}"
+            ) from exc
+
+        if category in ("1", "2", "4"):
+            full_prompt = f"{history_block}{body_prompt}"
+            logger.debug(
+                f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
+            )
+            try:
+                llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
+                raw_answer = llm_resp.content.strip()
+                logger.info(f"[{msg_id}] LLM responded successfully")
+                logger.debug(
+                    f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
+                )
+            except Exception as exc:
+                logger.exception(f"[{msg_id}] LLM call failed")
+                raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
+
+            # Step 7: Normalize response
+            payload_json = _extract_json(raw_answer)
+            payload = parse_llm_output_to_assessment(payload_json, msg_id)
+
+            logger.debug(
+                f"[{msg_id}] Primary JSON parsed: {payload is not None}"
+            )
+
+            if payload is None:
+                inner = _extract_json(raw_answer.replace("```json", "```"))
+                if inner and "response" in inner:
+                    answer = _wrap_plain(inner["response"])
+                    inner2 = _extract_json(answer["ans"])
+                    if inner2 and "response" in inner2:
+                        answer["ans"] = inner2["response"]
+                    elif inner2:
+                        inner2.setdefault("similarities", [])
+                        inner2.setdefault("differences", [])
+                        answer = inner2
+                elif inner:
+                    answer = inner | {"similarities": [], "differences": []}
+                else:
+                    answer = _wrap_plain(raw_answer)
+                logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
+            elif "response" in payload:
+                answer = _wrap_plain(payload["response"])
+                logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
+            else:
+                answer = payload.model_dump()
+                # answer.setdefault("similarities", [])
+                # answer.setdefault("differences", [])
+                logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
+        else:
+            logger.info("User requires Risk mitigation strategies")
+        # Step 8: Fallback if response is irrelevant
+        if IRRELEVANT in answer or "3" in category:
+            logger.warning(
+                f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
+            )
+            if len(full_prompt) > 18000:
+                llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
+                    full_prompt
+                    + "User : Just provide the user history along with summarization of contract in 18000 character length so that my query can be answered"
+                )
+                query_summary = llm_resp.content.strip()
+                full_prompt = query_summary + "User:" + queryText
+
+            fb = _fallback_kb(full_prompt, session_id=None)
+            if fb:
+                raw_answer = fb
+                payload = _extract_json(raw_answer)
+                answer = (
+                    _wrap_plain(payload["response"])
+                    if payload and "response" in payload
+                    else (
+                        _wrap_plain(raw_answer) if payload is None else payload
+                    )
+                )
+                if isinstance(answer, dict):
+                    answer.setdefault("similarities", [])
+                    answer.setdefault("differences", [])
+                logger.info(f"[{msg_id}] Fallback response used")
+    else:
+        answer = raw_answer
     # Step 9: Save chat history
     chat_mem.add_user_message(queryText)
     chat_mem.add_ai_message(raw_answer)

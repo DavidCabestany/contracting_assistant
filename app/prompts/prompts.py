@@ -40,19 +40,20 @@ BUSINESS_UNIT_PROMPT = """ "You are a procurement process agent who will classif
     """
 
 CATEGORY_PROMPT = """
-    You are an expert in understanding user queries related to contracts.
+    You are an expert in understanding user queries.
     Your task is to determine the category of a given query. The categories are:
 
     1.  **One or few Risk Assessment:** The query asks about identifying one or few risks, clauses, liabilities, or potential problems within the contract.
     2.  **All Risk Assessment:** The query asks about identifying all risks, clauses, liabilities, or potential problems within the contract.
     3.  **Risk Mitigation:** The query asks about strategies to reduce, minimize, avoid, or manage risks associated with the contract.
     4.  **General Contract Inquiry:** The query is a general question about the contract that doesn't fall into the above categories.
+    5.  **User not asking any question:** The user just pasted some statment and didnt ask anything.
 
     Given the following user query, determine which category it belongs to:
 
     User Query: {Query}
 
-    Respond with ONLY the category number (1, 2, or 3). Do not include any other text or explanation.
+    Respond with ONLY the category number (1, 2, 3 ,4 or 5). Do not include any other text or explanation.
     """
 
 CATEGORY_PROMPT_QNA = """
@@ -139,7 +140,9 @@ RISK_MATRIX_SPC_RISK_PROMPT = """You are tasked with identifying risks involved 
        - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
        - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
 Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
+
 Categorize each identified risk/clause/terms in RI1 into only ONE appropriate category (High, Medium and Low) based on following Chain of Thoughts-
+
     Thought 1 : Does the user history contains any information around the risks in contract?
     Action 1  : If yes, then only use it else ignore it.
 
@@ -166,9 +169,14 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 8: If all the risks have been categorized under High, Medium and Low?
     Action 8: If yes, then proceed forward. Else, categorize them on the basis of Clause Rules checklist.
 
-    Thought 9: IMPORTANT! User Query Categorization:
-    Thought 9A: Has the user asked about a specific risk or a set of specific risks?
-    Action 9A: Modify the JSON generated after Action 8 to include only the specific risks mentioned in the user's query. Do not include any other risks.
+    Thought 9: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
+    Action 9: Use Following definition to categorize the risks into ContractualRisks or StandardAZRisks:
+				ContractualRisks: If the risks are present in the Contract AND in the Clause Rules Checklist
+				StandardAZRisks: If the risks are NOT present in the Contract BUT are present in Clause Rules Checklist 
+
+    Thought 10: IMPORTANT! User Query Categorization:
+    Thought 10A: Has the user asked about a specific risk or a set of specific risks?
+    Action 10A: Modify the JSON generated after Action 8 to include only the specific risks mentioned in the user's query. Do not include any other risks.
 
     Provide the final output in following JSON format -
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
