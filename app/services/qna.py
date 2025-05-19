@@ -46,11 +46,24 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
     logger.info(
         "[Checkpoint] Step 1: Building request body for Bedrock model..."
     )
+
+    style_prompt = """
+        When generating your response, maintain a clear, professional, and direct tone. Strictly avoid the following:
+
+        • Apologies or phrases like "I'm sorry", "Apologies", or similar
+        • Redundant or repetitive disclaimers (e.g., "As previously mentioned", "To clarify again", etc.)
+        • Open-ended invitations or offers for further questions (e.g., "Let me know if you need more", "Feel free to ask", etc.)
+        • Passive-aggressive tone or irrelevant filler — stick to concise and informative language
+
+        Only provide the answer needed. Do not include unnecessary commentary or emotional framing.
+         The question: """
     body = json.dumps(
         {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": QNA_MAX_TOKENS_VALUE,
-            "messages": [{"role": "user", "content": formatted_prompt}],
+            "messages": [
+                {"role": "user", "content": style_prompt + formatted_prompt}
+            ],
         },
     )
     logger.info("[Checkpoint] Step 2: Invoking Bedrock model...")
