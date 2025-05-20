@@ -282,14 +282,14 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 12: How many risks are specified in the Clause Rules Checklist?
     Action 12: Refer to the Clause Rules Checklist to determine the total number of risks that need to be accounted for.
 
-    Thought 13: Is there any discrepancy in the counts?
+    Thought 13: Is there any discrepancy in the counts of above two, as count should match?
     Action 13: Compare the sum of the identified Contractual Risks and Standard AZ Risks against the total number indicated in the Clause Rules Checklist.
 
     Thought 14: Are there risks missing from the categorization?
     Action 14: If the sum of the current risks is less than the number in the Clause Rules Checklist, identify which specific risks are missing.
 
     Thought 15: How should missing risks be addressed?
-    Action 15: Re-categorize the missing risks under Standard AZ Risks to ensure they are represented.
+    Action 15: Re-categorize the missing risks under Standard AZ Risks to ensure they are represented and count matches.
 
     Thought 16: After adjustments, what is the new total of categorized risks?
     Action 16: Recalculate the total number of risks now categorized under Contractual Risks and Standard AZ Risks.
