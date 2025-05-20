@@ -48,15 +48,17 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
     )
 
     style_prompt = """
-        When generating your response, maintain a clear, professional, and direct tone. Strictly avoid the following:
+        When generating your response, maintain a clear, professional, and direct tone. Strictly avoid the comenting.
 
-        • Apologies or phrases like "I'm sorry", "Apologies", or similar
-        • Redundant or repetitive disclaimers (e.g., "As previously mentioned", "To clarify again", etc.)
-        • Open-ended invitations or offers for further questions (e.g., "Let me know if you need more", "Feel free to ask", etc.)
-        • Passive-aggressive tone or irrelevant filler — stick to concise and informative language
+        • Don't apologise. Don't comment about user. don't greet. don't praise.
+        • avoid any kind of disclaimers (e.g., "As previously mentioned", "To clarify again", etc.)
+        • Don't make open-ended invitations or offers for further questions (e.g., "Let me know if you need more", "Feel free to ask", etc.)
+        • avoid irrelevant fillers — stick to concise and informative language.
 
-        Only provide the answer needed. Do not include unnecessary commentary or emotional framing.
-         The question: """
+        JUST GIVE THE REQUESTED INFO.
+
+        Only provide the information requested. Do not include unnecessary commentary or emotional framing.
+        The question: """
     body = json.dumps(
         {
             "anthropic_version": "bedrock-2023-05-31",
