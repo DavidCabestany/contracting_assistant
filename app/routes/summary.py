@@ -519,8 +519,8 @@ async def generate_summary(
         # Step 5: Generate prompt based on category
         try:
             if category == "5":
-                answer = "Your question doesn't seem related to the contract you uploaded. Please ask something relevant to the document."
                 raw_answer = "Your question doesn't seem related to the contract you uploaded. Please ask something relevant to the document."
+                answer = _wrap_plain(raw_answer)
 
             if category == "1":
                 body_prompt = generate_prompt_risk(
@@ -630,7 +630,7 @@ async def generate_summary(
                     answer.setdefault("differences", [])
                 logger.info(f"[{msg_id}] Fallback response used")
     else:
-        answer = raw_answer
+        answer = _wrap_plain(raw_answer)
     # Step 9: Save chat history
     chat_mem.add_user_message(queryText)
     chat_mem.add_ai_message(raw_answer)
