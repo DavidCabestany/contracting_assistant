@@ -349,7 +349,7 @@ async def generate_summary(
         logger.info(
             f"[{msg_id}] No new file uploaded. Attempting to read existing file from S3 for session."
         )
-        s3_folder_prefix = f"contracts/{userId or 'anonymous'}/{session_id}/"
+        s3_folder_prefix = f"contracts/{userId}/{session_id}/"
         retrieved_object_key = None
         try:
             list_response = s3.list_objects_v2(
@@ -476,6 +476,10 @@ async def generate_summary(
         else:
             logger.info(f"[{msg_id}] No file exists")
             raw_answer = "Please upload your contract first, then ask a specific question related to it."
+            chat_mem: ChatMessageHistory = ChatMessageHistory(session_id)
+            if not queryText or not queryText.strip():
+                queryText = "No text was provided"
+            logger.info(f"[{msg_id}] No queryText provided.")
     else:
         logger.info(f"[{msg_id}] No file is uploaded and its a first question")
         raw_answer = "Please upload your contract first, then ask a specific question related to it."
