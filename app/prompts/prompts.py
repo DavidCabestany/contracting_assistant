@@ -130,7 +130,6 @@ User Query: {Query} """
 RISK_MATRIX_SPC_RISK_PROMPT = """You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
   Clause Rules Checklist: {risk_rules}
   Here you have the contract: {Contract}
-  Here is the user query : {Query}
 
   Here's how you should approach this task:
   **Steps to Execute**:
@@ -170,13 +169,16 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Action 8: If yes, then proceed forward. Else, categorize them on the basis of Clause Rules checklist.
 
     Thought 9: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
-    Action 9: Use Following definition to categorize the risks into ContractualRisks or StandardAZRisks:
-				ContractualRisks: If the risks are present in the Contract AND in the Clause Rules Checklist
-				StandardAZRisks: If the risks are NOT present in the Contract BUT are present in Clause Rules Checklist 
+    Action 9: Use Following definition to categorize each risk either into ContractualRisks or StandardAZRisks:
+				ContractualRisks: If the risk is present in the Contract AND in the Clause Rules Checklist
+				StandardAZRisks: If the risk is NOT present in the Contract BUT are present in Clause Rules Checklist 
 
     Thought 10: IMPORTANT! User Query Categorization:
+    Here is the user query : {Query}
     Thought 10A: Has the user asked about a specific risk or a set of specific risks?
     Action 10A: Modify the JSON generated after Action 8 to include only the specific risks mentioned in the user's query. Do not include any other risks.
+    Thought 10B: Need to ensure each identified risk is placed in the appropriate category: ContractualRisks, StandardAZRisks, or AdditionalPotentialRisks.
+    Action 10B: Modify the JSON to assign each risk and its associated pointers to **only** one category.
 
     Provide the final output in following JSON format -
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
