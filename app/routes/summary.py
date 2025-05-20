@@ -7,7 +7,7 @@ import json
 import logging
 import re
 import uuid
-from typing import Optional,Union
+from typing import Optional, Union
 
 import boto3
 from auth.utils import verify_token
@@ -106,12 +106,13 @@ def _wrap_plain(ans: str) -> dict:
 
 # ... (imports and other functions like _extract_json, _wrap_plain remain the same) ...
 
+
 def parse_llm_output_to_assessment(
-    raw_json_dict: Optional[dict],  # MODIFIED: Was str, now Optional[dict]
+    raw_json_dict: Optional[dict], 
     msg_id: str = "parse",
-    raw_llm_text_for_fallback: Optional[str] = None) -> Union[RiskAssessmentResponse, RiskAssessmentAnswer]:  # MODIFIED: No None
-    """Parses a pre-extracted JSON dictionary from LLM output into a structured
-    `RiskAssessmentResponse` or `RiskAssessmentAnswer` Pydantic object.
+    raw_llm_text_for_fallback: Optional[str] = None,
+) -> Union[RiskAssessmentResponse, RiskAssessmentAnswer]:
+    """Parses a pre-extracted JSON dictionary from LLM output into a structured `RiskAssessmentResponse` or `RiskAssessmentAnswer` Pydantic object.
 
     Args:
         raw_json_dict: Dictionary from initial JSON extraction
@@ -124,13 +125,16 @@ def parse_llm_output_to_assessment(
         A parsed Pydantic object (`RiskAssessmentResponse` or `RiskAssessmentAnswer`).
         This function will always return one of these types, using fallbacks if necessary.
     """
-    
     # Handle cases where raw_json_dict is None or empty at the very beginning
     if not raw_json_dict:
         logger.warning(
             f"[{msg_id}] `raw_json_dict` is None or empty. Using fallback text."
         )
-        fallback_text = raw_llm_text_for_fallback if raw_llm_text_for_fallback else "No input data provided to parse."
+        fallback_text = (
+            raw_llm_text_for_fallback
+            if raw_llm_text_for_fallback
+            else "No input data provided to parse."
+        )
         # This call to _wrap_plain now uses the corrected version above
         return RiskAssessmentAnswer(**_wrap_plain(fallback_text))
 
@@ -138,7 +142,9 @@ def parse_llm_output_to_assessment(
 
     # Attempt 1: Parse as RiskAssessmentResponse
     # The `answer` field within RiskAssessmentResponse is of type RiskAssessmentAnswer
-    if "answer" in raw_json_dict and isinstance(raw_json_dict.get("answer"), dict):
+    if "answer" in raw_json_dict and isinstance(
+        raw_json_dict.get("answer"), dict
+    ):
         try:
             # Pydantic will recursively validate. If raw_json_dict["answer"]
             # is missing ContractualRisks, default_factory will kick in.
@@ -161,7 +167,7 @@ def parse_llm_output_to_assessment(
             extracted_data = raw_json_dict.get("answer")
 
     if extracted_data is None:
-        extracted_data = raw_json_dict # Use the whole dict if 'answer' wasn't present or suitable
+        extracted_data = raw_json_dict  # Use the whole dict if 'answer' wasn't present or suitable
 
     # Attempt 2: Parse `extracted_data` as RiskAssessmentAnswer
     if isinstance(extracted_data, dict):
@@ -206,28 +212,44 @@ def parse_llm_output_to_assessment(
                 logger.warning(
                     f"[{msg_id}] Validation failed for nested JSON in 'response': {e.errors()}. Using 'response' string as 'ans'."
                 )
-                return RiskAssessmentAnswer(**_wrap_plain(text_from_response_field))
+                return RiskAssessmentAnswer(
+                    **_wrap_plain(text_from_response_field)
+                )
             except Exception as e:
                 logger.error(
                     f"[{msg_id}] Unexpected error parsing nested JSON in 'response': {e}. Using 'response' string as 'ans'."
                 )
-                return RiskAssessmentAnswer(**_wrap_plain(text_from_response_field))
-        else: # No valid nested JSON
+                return RiskAssessmentAnswer(
+                    **_wrap_plain(text_from_response_field)
+                )
+        else:  # No valid nested JSON
             logger.info(
                 f"[{msg_id}] Using plain text from 'response' field as 'ans'."
             )
-            return RiskAssessmentAnswer(**_wrap_plain(text_from_response_field))
+            return RiskAssessmentAnswer(
+                **_wrap_plain(text_from_response_field)
+            )
 
     # Attempt 4: `extracted_data` has an "ans" field as a string (weakest structured fallback)
-    if isinstance(extracted_data, dict) and "ans" in extracted_data and isinstance(extracted_data["ans"], str):
-        logger.info(f"[{msg_id}] `extracted_data` has 'ans' string. Using it via _wrap_plain.")
+    if (
+        isinstance(extracted_data, dict)
+        and "ans" in extracted_data
+        and isinstance(extracted_data["ans"], str)
+    ):
+        logger.info(
+            f"[{msg_id}] `extracted_data` has 'ans' string. Using it via _wrap_plain."
+        )
         return RiskAssessmentAnswer(**_wrap_plain(extracted_data["ans"]))
 
     # FINAL FALLBACK
     logger.warning(
         f"[{msg_id}] All structured parsing attempts for `raw_json_dict` failed. Using `raw_llm_text_for_fallback` or default."
     )
-    fallback_text = raw_llm_text_for_fallback if raw_llm_text_for_fallback else "Could not interpret LLM output into a structured format."
+    fallback_text = (
+        raw_llm_text_for_fallback
+        if raw_llm_text_for_fallback
+        else "Could not interpret LLM output into a structured format."
+    )
     # This call to _wrap_plain now uses the corrected version
     return RiskAssessmentAnswer(**_wrap_plain(fallback_text))
 
@@ -556,7 +578,8 @@ async def generate_summary(
             ) from exc
         full_prompt = f"{history_block}{body_prompt}"
         logger.debug(
-                f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}")
+            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
+        )
         if category in ("1", "2", "4"):
             try:
                 llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
@@ -571,7 +594,9 @@ async def generate_summary(
 
             # Step 7: Normalize response
             payload_json = _extract_json(raw_answer)
-            payload = parse_llm_output_to_assessment(payload_json, msg_id,raw_llm_text_for_fallback=raw_answer )
+            payload = parse_llm_output_to_assessment(
+                payload_json, msg_id, raw_llm_text_for_fallback=raw_answer
+            )
 
             logger.debug(
                 f"[{msg_id}] Primary JSON parsed: {payload is not None}"
@@ -602,13 +627,19 @@ async def generate_summary(
                 # answer.setdefault("differences", [])
                 logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
         else:
-            if not isinstance(answer, (RiskAssessmentAnswer, RiskAssessmentResponse)) and not isinstance(answer, dict) :
-                current_ans_text = raw_answer if raw_answer else "Response for this category is being processed."
+            if not isinstance(
+                answer, (RiskAssessmentAnswer, RiskAssessmentResponse)
+            ) and not isinstance(answer, dict):
+                current_ans_text = (
+                    raw_answer
+                    if raw_answer
+                    else "Response for this category is being processed."
+                )
                 answer = _wrap_plain(current_ans_text)
 
             logger.info("User requires Risk mitigation strategies")
         # Step 8: Fallback if response is irrelevant
-        if IRRELEVANT in answer.get('ans') or "3" in category:
+        if IRRELEVANT in answer.get("ans") or "3" in category:
             logger.warning(
                 f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
             )
