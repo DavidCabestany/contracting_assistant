@@ -233,7 +233,10 @@ RISK_MATRIX_ALL_RISKS_PROMPT = """
 
 
   2. **Risk Identification**:
-       - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
+       - RI1:Compare all the risks listed in the Clause Rules Checklist with those in the contract.
+			       Document risks as follows:
+			        Risks from the checklist that appear in the contract.
+			        Risks from the checklist that do not appear in the contract.
        - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
 
 Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
@@ -271,8 +274,8 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
 
     Thought 10: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
     Action 10: Use Following definition to categorize the risks into ContractualRisks or StandardAZRisks:
-                ContractualRisks: If the risks are present in the Contract AND in the Clause Rules Checklist
-                StandardAZRisks: If the risks are NOT present in the Contract BUT are present in Clause Rules Checklist
+                ContractualRisks: Risks both in the Contract AND present in the Clause Rules Checklist.
+                StandardAZRisks: Risks from the Clause Rules Checklist that are NOT found in the Contract.
 
     Thought 11:  What is the current count of categorized risks?
     Action 11: Begin by counting the total number of risks listed under Contractual Risks and Standard AZ Risks.
