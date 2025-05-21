@@ -23,8 +23,6 @@ from .config import (
     MODEL_ID,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
-    QNA_TEMPERATURE_VALUE,
-    QNA_TOP_P_VALUE,
 )
 from .storage import add_prefix
 from .templates import retrieve_template
@@ -138,8 +136,8 @@ def _build_gen_cfg() -> dict:
         "inferenceConfig": {
             "textInferenceConfig": {
                 "maxTokens": QNA_MAX_TOKENS_VALUE,
-                "temperature": QNA_TEMPERATURE_VALUE,
-                "topP": QNA_TOP_P_VALUE,
+                "temperature": 0,
+                "topP": 1.0,
             },
         },
     }
