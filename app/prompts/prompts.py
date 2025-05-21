@@ -136,7 +136,10 @@ RISK_MATRIX_SPC_RISK_PROMPT = """You are tasked with identifying risks involved 
   1. **Initial Analysis**:
        - Take the reference from Clause Rules Checklist and understand different kinds of risks available.
   2. **Risk Identification**:
-       - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
+       - RI1:Compare all the risks listed in the Clause Rules Checklist with those in the contract.
+			       Document risks as follows:
+			        Risks from the checklist that appear in the contract.
+			        Risks from the checklist that do not appear in the contract.
        - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
 Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
 
@@ -170,8 +173,8 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
 
     Thought 9: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
     Action 9: Use Following definition to categorize each risk either into ContractualRisks or StandardAZRisks:
-				ContractualRisks: If the risk is present in the Contract AND in the Clause Rules Checklist
-				StandardAZRisks: If the risk is NOT present in the Contract BUT are present in Clause Rules Checklist 
+				 ContractualRisks: Risks both in the Contract AND present in the Clause Rules Checklist.
+         StandardAZRisks: Risks from the Clause Rules Checklist that are NOT found in the Contract.
 
     Thought 10: IMPORTANT! User Query Categorization:
     Here is the user query : {Query}
@@ -180,7 +183,7 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 10B: Need to ensure each identified risk is placed in the appropriate category: ContractualRisks, StandardAZRisks, or AdditionalPotentialRisks.
     Action 10B: Modify the JSON to assign each risk and its associated pointers to **only** one category.
 
-    Provide the final output in following JSON format -
+    Provide the final output in following valid JSON format ONLY-
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
     Only fill in arrays when you have items to add, do not mention as null for any arrays.
 
@@ -210,8 +213,6 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
       "AdditionalPotentialRisks":[
           {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
         ],
-        "similarities": [],
-        "differences": []
       }}
     ```
 """
@@ -235,7 +236,10 @@ RISK_MATRIX_ALL_RISKS_PROMPT = """
 
 
   2. **Risk Identification**:
-       - RI1: Identify and note ALL the risks from the contract that are SPECIFICALLY listed in the Clause Rules Checklist.
+       - RI1:Compare all the risks listed in the Clause Rules Checklist with those in the contract.
+			       Document risks as follows:
+			        Risks from the checklist that appear in the contract.
+			        Risks from the checklist that do not appear in the contract.
        - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
 
 Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
@@ -273,8 +277,8 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
 
     Thought 10: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
     Action 10: Use Following definition to categorize the risks into ContractualRisks or StandardAZRisks:
-                ContractualRisks: If the risks are present in the Contract AND in the Clause Rules Checklist
-                StandardAZRisks: If the risks are NOT present in the Contract BUT are present in Clause Rules Checklist
+                ContractualRisks: Risks both in the Contract AND present in the Clause Rules Checklist.
+                StandardAZRisks: Risks from the Clause Rules Checklist that are NOT found in the Contract.
 
     Thought 11:  What is the current count of categorized risks?
     Action 11: Begin by counting the total number of risks listed under Contractual Risks and Standard AZ Risks.
@@ -300,9 +304,9 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 18: How can accuracy be ensured?
     Action 18: Perform a final review and cross-check all risks ctegorized under ContractualRisks and StandardAZRisks to confirm alignment with the Clause Rules Checklist.
 
-    Provide the final output in following JSON format -
+    Provide the final output in following valid JSON format ONLY-
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
-    Only fill in arrays when you have items to add, do not mention as null for any arrays.
+    Only fill in arrays when you have items to add, or keep it as blank.
     ```json
     {{
       "ans": "Short summary paragraph that explains the overall risk findings.",
@@ -329,8 +333,6 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
       "AdditionalPotentialRisks":[
           {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
         ],
-        "similarities": [],
-        "differences": []
       }}
     ```
 """
@@ -353,7 +355,7 @@ First, identify whether the user's query is a request for a summary or a direct 
    Scope of Work and Associated Costs: Provide a concise overview of the work to be performed and associated costs.
    When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
 
-2. **If the user's query is a direct question ("EXAMPLE(its just and example and not a actual query)", "What are the payment terms?"):**
+2. **If the user's query is a direct question ("EXAMPLE(its just an example and not a actual query)", "What are the payment terms?"):**
    Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
 
 

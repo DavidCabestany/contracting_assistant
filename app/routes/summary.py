@@ -108,7 +108,7 @@ def _wrap_plain(ans: str) -> dict:
 
 
 def parse_llm_output_to_assessment(
-    raw_json_dict: Optional[dict], 
+    raw_json_dict: Optional[dict],
     msg_id: str = "parse",
     raw_llm_text_for_fallback: Optional[str] = None,
 ) -> Union[RiskAssessmentResponse, RiskAssessmentAnswer]:
