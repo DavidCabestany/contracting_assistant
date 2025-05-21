@@ -210,8 +210,6 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
       "AdditionalPotentialRisks":[
           {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
         ],
-        "similarities": [],
-        "differences": []
       }}
     ```
 """
@@ -300,9 +298,9 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     Thought 18: How can accuracy be ensured?
     Action 18: Perform a final review and cross-check all risks ctegorized under ContractualRisks and StandardAZRisks to confirm alignment with the Clause Rules Checklist.
 
-    Provide the final output in following JSON format -
+    Provide the final output in following valid JSON format ONLY-
     Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
-    Only fill in arrays when you have items to add, do not mention as null for any arrays.
+    Only fill in arrays when you have items to add, or keep it as blank.
     ```json
     {{
       "ans": "Short summary paragraph that explains the overall risk findings.",
@@ -329,8 +327,6 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
       "AdditionalPotentialRisks":[
           {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
         ],
-        "similarities": [],
-        "differences": []
       }}
     ```
 """
@@ -353,7 +349,7 @@ First, identify whether the user's query is a request for a summary or a direct 
    Scope of Work and Associated Costs: Provide a concise overview of the work to be performed and associated costs.
    When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
 
-2. **If the user's query is a direct question ("EXAMPLE(its just and example and not a actual query)", "What are the payment terms?"):**
+2. **If the user's query is a direct question ("EXAMPLE(its just an example and not a actual query)", "What are the payment terms?"):**
    Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
 
 
