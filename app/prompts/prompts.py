@@ -422,6 +422,7 @@ Follow-up Indicators:
 . compare the clause with file
 
 New Question Indicators:
+IMPORTANT: The user asks about contract particularities trat as new question
 1. Introduces new vendor/client/provider
 2. References unmentioned documents/files
 3. Requests database queries unrelated to previous context
@@ -429,6 +430,14 @@ New Question Indicators:
 5. No contextual references to previous discussion
 
 this is a follow up always: how does it compares to the az standards
+
+
+
+NEVER FOLLOW UP:
+  can supplier ask to shorten payment terms, for example to 21 days?
+  who is the controller?
+  can we do backdating in contracts?
+  can we do backdating?
 
 Previous Interactions:
 {context}

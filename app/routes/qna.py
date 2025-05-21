@@ -864,7 +864,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_path=kb_path,
                         )
                         answer = resp["output"]["text"]
-                        citations = extract_file_locations(resp)
+                        citations = extract_file_locations(
+                            resp, allowed_files=files if files else None
+                        )
                         _store_chat_log(request, answer, msg_id, ui_session_id)
                         return QueryResponse(
                             status="success",
@@ -987,7 +989,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     session_id=bedrock_session_id,
                 )
                 answer = resp["output"]["text"]
-                citations = extract_file_locations(resp)
+                citations = extract_file_locations(
+                    resp, allowed_files=files if files else None
+                )
                 _bedrock_sessions[ui_session_id] = resp["sessionId"]
                 bedrock_session_id = resp["sessionId"]
                 logger.info("200 ▶ prioritized answer = %.100s", answer)
@@ -1073,7 +1077,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "sessionId", bedrock_session_id
             )
             kb_answer = resp.get("output", {}).get("text", "").strip()
-            kb_citations = extract_file_locations(resp)
+            kb_citations = extract_file_locations(
+                resp, allowed_files=files if files else None
+            )
 
             if kb_answer and not is_invalid_response(kb_answer):
                 logger.info(
@@ -1112,7 +1118,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     answer,
                 )
                 if not citations:
-                    citations = extract_file_locations(resp)
+                    citations = extract_file_locations(
+                        resp, allowed_files=files if files else None
+                    )
                     logger.info(
                         "401 ▶ No citations on valid answer, extracting from resp."
                     )

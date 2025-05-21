@@ -62,34 +62,35 @@ def generate_presigned_url(
         return None
 
 
-def extract_file_locations(data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract a deduplicated list of file locations from retrieved citations.
-
-    Args:
-        data (dict): A JSON-like dictionary containing Bedrock citation info.
-
-    Returns:
-        list[dict]: A list of dictionaries, each representing a file reference:
-            - filePath (str): Presigned S3 URL with page.
-            - pageNumber (int): Page number referenced.
-            - fileName (str): Extracted filename.
-    """
+def extract_file_locations(
+    data: dict[str, Any], allowed_files: list[str] | None = None
+) -> list[dict[str, Any]]:
+    """Extract deduplicated citations, optionally restricted to allowed files only."""
     citations: list[dict[str, Any]] = []
+    allowed_files_set = (
+        set(f.lower() for f in allowed_files) if allowed_files else None
+    )
+
     for citation in data.get("citations", []):
         for ref in citation.get("retrievedReferences", []):
             page = int(
                 ref.get("metadata", {}).get(
-                    "x-amz-bedrock-kb-document-page-number",
-                    0,
-                ),
+                    "x-amz-bedrock-kb-document-page-number", 0
+                )
             )
             s3_uri = (
                 ref.get("location", {}).get("s3Location", {}).get("uri", "")
             )
+            filename = get_filename_from_path(s3_uri)
+
+            # Filter: If allowed_files provided, skip non-allowed
+            if allowed_files_set and filename.lower() not in allowed_files_set:
+                continue
+
             obj = {
                 "filePath": generate_presigned_url(s3_uri, page) or "",
                 "pageNumber": page,
-                "fileName": get_filename_from_path(s3_uri),
+                "fileName": filename,
             }
             if not any(
                 x["fileName"] == obj["fileName"]
@@ -100,7 +101,6 @@ def extract_file_locations(data: dict[str, Any]) -> list[dict[str, Any]]:
                 for x in citations
             ):
                 citations.append(obj)
-    # logger.info("🧪 Extracting citations from: %s", citations)
     return citations
 
 
