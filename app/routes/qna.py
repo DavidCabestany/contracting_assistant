@@ -110,6 +110,11 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
 def is_invalid_response(text: str) -> bool:
     """Check whether the response text is considered invalid or irrelevant."""
     lowered = text.lower().strip()
+    # Regex for model refusals
+    refusal_regex = re.compile(
+        r"(i'?m sorry|i apologise|i apologize|i can(\'|’)t help you with (this )?request)",
+        re.IGNORECASE,
+    )
     return (
         not lowered
         or lowered in {"sorry, i am unable to assist you with this request."}
@@ -118,6 +123,7 @@ def is_invalid_response(text: str) -> bool:
         or "no information available" in lowered
         or "i'm not sure" in lowered
         or IRRELEVANT in lowered
+        or refusal_regex.search(lowered)  # <- add this!
     )
 
 
@@ -620,12 +626,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             "117 ▶ Returning success response for follow-up with files"
                         )
                         answer = re.split(r"\nUser:\s", answer)[0].strip()
-                        citations = retrieve_citations_from_query(
-                            query=answer,
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            files=files,
-                        )
+                        if is_invalid_response(answer):
+                            citations = []
+                        else:
+                            citations = retrieve_citations_from_query(
+                                query=answer,
+                                kb_id=kb_id,
+                                kb_path=kb_path,
+                                files=files,
+                            )
 
                         _store_chat_log(request, answer, msg_id, ui_session_id)
                         return QueryResponse(
@@ -670,9 +679,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         "117 ▶ Returning success response for follow-up with files"
                     )
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
-                    citations = retrieve_citations_from_query(
-                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
-                    )
+                    if is_invalid_response(answer):
+                        citations = []
+                    else:
+                        citations = retrieve_citations_from_query(
+                            query=answer,
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            files=files,
+                        )
                     _store_chat_log(request, answer, msg_id, ui_session_id)
                     return QueryResponse(
                         status="success",
@@ -771,9 +786,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 answer = re.split(r"\nUser:\s", answer)[
                                     0
                                 ].strip()
-                                citations = retrieve_citations_from_query(
-                                    answer
-                                )
+                                if is_invalid_response(answer):
+                                    citations = []
+                                else:
+                                    citations = retrieve_citations_from_query(
+                                        query=answer,
+                                        kb_id=kb_id,
+                                        kb_path=kb_path,
+                                        files=files,
+                                    )
                                 _store_chat_log(
                                     request, answer, msg_id, ui_session_id
                                 )
@@ -820,12 +841,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 )
 
                             answer = re.split(r"\nUser:\s", answer)[0].strip()
-                            citations = retrieve_citations_from_query(
-                                query=answer,
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                files=files,
-                            )
+                            if is_invalid_response(answer):
+                                citations = []
+                            else:
+                                citations = retrieve_citations_from_query(
+                                    query=answer,
+                                    kb_id=kb_id,
+                                    kb_path=kb_path,
+                                    files=files,
+                                )
                             _store_chat_log(
                                 request, answer, msg_id, ui_session_id
                             )
@@ -864,9 +888,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_path=kb_path,
                         )
                         answer = resp["output"]["text"]
-                        citations = extract_file_locations(
-                            resp, allowed_files=files if files else None
-                        )
+                        if is_invalid_response(answer):
+                            citations = []
+                        else:
+                            citations = extract_file_locations(
+                                resp, allowed_files=files if files else None
+                            )
                         _store_chat_log(request, answer, msg_id, ui_session_id)
                         return QueryResponse(
                             status="success",
@@ -908,9 +935,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             "131 ▶ Direct LLM answer retrieved with excluded term"
                         )
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
-                    citations = retrieve_citations_from_query(
-                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
-                    )
+
+                    if is_invalid_response(answer):
+                        citations = []
+                    else:
+                        citations = retrieve_citations_from_query(
+                            query=answer,
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            files=files,
+                        )
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -949,9 +983,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         )
 
                     answer = re.split(r"\nUser:\s", answer)[0].strip()
-                    citations = retrieve_citations_from_query(
-                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
-                    )
+                    if is_invalid_response(answer):
+                        citations = []
+                    else:
+                        citations = retrieve_citations_from_query(
+                            query=answer,
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            files=files,
+                        )
                     _store_chat_log(request, answer, msg_id, ui_session_id)
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
@@ -989,9 +1029,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     session_id=bedrock_session_id,
                 )
                 answer = resp["output"]["text"]
-                citations = extract_file_locations(
-                    resp, allowed_files=files if files else None
-                )
+
+                if is_invalid_response(answer):
+                    citations = []
+                else:
+                    citations = extract_file_locations(
+                        resp, allowed_files=files if files else None
+                    )
                 _bedrock_sessions[ui_session_id] = resp["sessionId"]
                 bedrock_session_id = resp["sessionId"]
                 logger.info("200 ▶ prioritized answer = %.100s", answer)
@@ -1012,9 +1056,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 ):
                     answer = raw_content[0].get("text", "").strip()
                     logger.info("222 ▶ Direct LLM answer retrieved")
-                    citations = retrieve_citations_from_query(
-                        query=answer, kb_id=kb_id, kb_path=kb_path, files=files
-                    )
+                    if is_invalid_response(answer):
+                        citations = []
+                    else:
+                        citations = retrieve_citations_from_query(
+                            query=answer,
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            files=files,
+                        )
             except Exception as e:
                 logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
@@ -1077,9 +1127,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "sessionId", bedrock_session_id
             )
             kb_answer = resp.get("output", {}).get("text", "").strip()
-            kb_citations = extract_file_locations(
-                resp, allowed_files=files if files else None
-            )
+            if is_invalid_response(kb_answer):
+                kb_citations = []
+            else:
+                kb_citations = extract_file_locations(
+                    resp, allowed_files=files if files else None
+                )
 
             if kb_answer and not is_invalid_response(kb_answer):
                 logger.info(

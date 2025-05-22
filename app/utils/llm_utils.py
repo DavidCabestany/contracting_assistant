@@ -28,6 +28,18 @@ _KEYWORD_LLM: Final = ChatBedrock(
     model_kwargs={"temperature": 0},
 )
 
+
+REFUSAL_REGEX = re.compile(
+    r"(i'?m sorry|i apologise|i apologize|i can(\'|’)t help you with (this )?request)",
+    re.IGNORECASE,
+)
+
+
+def is_refusal(answer: str) -> bool:
+    """Detect if the answer is a refusal or generic non-answer."""
+    return bool(REFUSAL_REGEX.search(answer))
+
+
 # Prompt to classify the user query intent
 _CLASSIFY_PROMPT: Final = """
 You are a routing agent of AstraZeneca Policies.

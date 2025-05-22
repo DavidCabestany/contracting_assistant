@@ -24,6 +24,7 @@ from .file_utils import (
 )
 from .llm_utils import (
     extract_keywords_from_query,
+    is_refusal,
     llm_summarise,
     needs_summary,
     parse_risk_assessment_output,
@@ -57,6 +58,7 @@ __all__ = [
     "API_KEY",
     "MODEL_ID",
     # llm_utils
+    "is_refusal",
     "response_sanitizer",
     "needs_summary",
     "llm_summarise",
