@@ -221,6 +221,7 @@ Core Task: Identify the clause(s) specified in the User Query. For each requeste
 }}```
 """
 
+
 RISK_MATRIX_ALL_RISKS_PROMPT = """
 You are an AI assistant specialized for legal contract risk analysis. Analyze the Contract based on the Clause Rules Checklist to identify all risks.
 Your output MUST be a precise JSON object matching the structure and fulfilling the detailed requirements specified within the comments of the example JSON below.
