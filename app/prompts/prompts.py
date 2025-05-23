@@ -145,8 +145,8 @@ Classify each identified additional risk/clause/terms from above RI2 into Additi
 
 Categorize each identified risk/clause/terms in RI1 into only ONE appropriate category (High, Medium and Low) based on following Chain of Thoughts-
 
-    Thought 1 : Does the user history contains any information around the risks in contract?
-    Action 1  : If yes, then only use it else ignore it.
+    Thought 1 : Does the user chat history provided to you contains any information around the risks in contract?
+	  Action 1  : If yes, then only use it else start as fresh.
 
     Thought 2: Are there any risks present under RI1 ?
     Action 2: If yes, proceed with categorization.
@@ -217,126 +217,99 @@ Categorize each identified risk/clause/terms in RI1 into only ONE appropriate ca
     ```
 """
 
+
 RISK_MATRIX_ALL_RISKS_PROMPT = """
+You are an expert AI assistant tasked with identifying, categorizing, and reporting risks from a given contract. Your analysis must be based on a predefined `Clause Rules Checklist` and the `Contract`'s content. Your output must be precise, consistent, ensure all Checklist Rules are accounted for, and report the correct total count.
 
-  You are tasked with identifying risks involved from a given contract. This includes assessing both the risks specified in the Clause Rules Checklist and any additional potential risks found within the contract and not listed in the Clause Rules Checklist.
+**Contextual Inputs:**
+*   The full conversation history leading up to this point is available to you.
+*   `Clause Rules Checklist`: {risk_rules} - This JSON object contains a list under the key `"clauses"`. Each item in this `"clauses"` list is a "Checklist Rule" that needs to be analyzed.
+*   `Contract`: {Contract} - The legal document to analyze.
+*   `User Query`: {Query} - The user's current specific question.
 
-  Here's how you should approach this task:
+**Execution Plan:**
 
-  Clause Rules Checklist: {risk_rules}
+**Phase 1: Initial Setup & Understanding `Clause Rules Checklist`**
+1.  **Understand Checklist Structure & Rules**:
+    a.  The `Clause Rules Checklist` ({risk_rules}) is a JSON object. The primary list of rules to analyze is found under the top-level key `"clauses"`. Each object within this `"clauses"` array represents one "Checklist Clause".
+    b.  For each "Checklist Clause" (i.e., each item in `risk_rules.clauses`):
+        i.  The `name` field (e.g., `risk_rules.clauses[i].name`) is the unique name of the Checklist Clause (e.g., "Termination Clause"). This will be the `title` in your output JSON.
+        ii. The `importance` field located at `risk_rules.clauses[i].details.importance` is the **inherent risk level** (High, Medium, or Low) of this *entire Checklist Clause*. This inherent risk level dictates whether the Checklist Clause is categorized into `HighRisksClauses`, `MediumRisksClauses`, or `LowRisksClauses` in the final JSON output.
+        iii. The `risks` array located at `risk_rules.clauses[i].details.risks` contains specific `risk_description` scenarios. These scenarios provide detailed criteria to help you evaluate *how* the `Contract` addresses (or fails to address) the overall Checklist Clause.
+    c.  **Determine Total Checklist Clauses**: Count the total number of objects within the `risk_rules.clauses` array. This is the total number of "Checklist Clauses" to be analyzed (e.g., if there are 11 objects in the `clauses` array, then N=11). This count is crucial.
+    d.  Review the current `User Query` ({Query}) and the preceding conversation history for contextual understanding.
 
-  Here you have the contract: {Contract}
+**Phase 2: Risk Identification & Categorization**
 
-  Here is the user query : {Query}
+2.  **Identify Additional Potential Risks (Not in Checklist)**:
+    *   Thoroughly scan the `Contract` for any clauses, terms, or conditions that pose a potential risk but are NOT one of the "Checklist Clauses" defined in `risk_rules.clauses`.
+    *   For each such item found, classify it under `AdditionalPotentialRisks`. Provide a descriptive title and a clear description of the potential risk and why it's considered a risk.
 
-  **Steps to Execute**:
+3.  **Process Each "Checklist Clause"**:
+    *   Iterate through *every "Checklist Clause"* identified in Step 1a (i.e., each object from `risk_rules.clauses`).
+    *   For each "Checklist Clause":
+        a.  **Determine Presence in Contract**: Using the overall concept of the "Checklist Clause" (informed by its `name` from Step 1b.i and the various `risk_description` scenarios from Step 1b.iii), meticulously search the `Contract` to determine if this Checklist Clause is present or adequately addressed.
+        b.  **Categorize as ContractualRisk or StandardAZRisk**:
+            *   **If PRESENT and addressed** in the `Contract`:
+                *   Classify this "Checklist Rule" as a `ContractualRisk`.
+                *   Assign it to the `HighRisksClauses`, `MediumRisksClauses`, or `LowRisksClauses` sub-category based on its **inherent risk level** (obtained from `risk_rules.clauses[i].details.importance` as noted in Step 1b.ii).
+                *   The `description` for this risk must:
+                    1.  Clearly state how the contract addresses this "Checklist Rule" (referencing specific contract clause numbers/language if possible).
+                    2.  Explain which specific `risk_description` scenario from `risk_rules.clauses[i].details.risks` best describes the contract's provision for this rule, and provide justification.
+            *   **If NOT PRESENT or inadequately addressed** in the `Contract`:
+                *   Classify this "Checklist Rule" as a `StandardAZRisk`.
+                *   Assign it to the `HighRisksClauses`, `MediumRisksClauses`, or `LowRisksClauses` sub-category based on its **inherent risk level** (obtained from `risk_rules.clauses[i].details.importance` as noted in Step 1b.ii).
+                *   The `description` for this risk must clearly state that this "Checklist Clause" (using its `name` from Step 1b.i) is missing or inadequately covered by the contract, and briefly explain the implication.
 
-  1. **Initial Analysis**:
-       - Take the reference from Clause Rules Checklist and understand different kinds of risks available.
+**Phase 3: Final Review and Output Formatting**
 
+4.  **Order Risks**:
+    *   Within each sub-category of `ContractualRisks` (High, Medium, Low) and `StandardAZRisks` (High, Medium, Low), arrange the identified "Checklist Clause" in the *exact same order* as they appear in the original `risk_rules.clauses` array.
 
-  2. **Risk Identification**:
-       - RI1:Compare all the risks listed in the Clause Rules Checklist with those in the contract.
-			       Document risks as follows:
-			        Risks from the checklist that appear in the contract.
-			        Risks from the checklist that do not appear in the contract.
-       - RI2: Identify and note all the additional risks found in the contract but absent from the Clause Rules Checklist.
+5.  **Ensure Completeness & Count Accuracy (CRUCIAL)**:
+    *   Verify that the total number of "Checklist Clauses" categorized across `ContractualRisks` (all levels combined) AND `StandardAZRisks` (all levels combined) *exactly matches* the total count of "Checklist Clauses" determined in Step 1c.
+    *   **This is a non-negotiable step. If there is a mismatch, you MUST revisit Step 3 to ensure every "Checklist Clause" from `risk_rules.clauses` has been methodically processed and categorized.** Do not proceed until counts match.
 
-Classify each identified additional risk/clause/terms from above RI2 into AdditionalPotentialRisks.
+6.  **Generate Summary (`ans`)**:
+    *   Based on your complete analysis:
+    *   **The summary MUST begin by stating: "A total of [N] Checklist Clauses from the Clause Rules Checklist were analyzed." where [N] is the total count determined in Step 1c and verified in Step 5.**
+    *   Then, briefly explain overall findings: e.g., number of `ContractualRisks` versus `StandardAZRisks`, highlight any key High inherent risk rules, and mention if any `AdditionalPotentialRisks` were found.
+    *   The narrative can reflect understanding from the `User Query` and history, but reported facts must be based on the current, full analysis.
 
-Categorize each identified risk/clause/terms in RI1 into only ONE appropriate category (High, Medium and Low) based on following Chain of Thoughts-
+7.  **Produce Final JSON Output**:
+    *   Provide the final output *only* in the specified VALID JSON format.
+    *   No commentary outside JSON. Use empty arrays `[]` if a category has no items.
+    *   The `title` for items under `ContractualRisks` and `StandardAZRisks` must be the `name` of the "Checklist Clause" (from `risk_rules.clauses[i].name`).
+    *   Do not include `risk_id` from the input `risk_rules` in the output.
 
-    Thought 1 : Does the user history contains any information around the risks in contract?
-    Action 1  : If yes, then only use it else ignore it.
-
-    Thought 2: Are there any risks present under RI1 ?
-    Action 2: If yes, proceed with categorization.
-
-    Thought 3: How should each identified risk be aligned with its corresponding entry in the Clause Rules Checklist?
-    Action 3: Differentiate each identified risk with that of risk_description mentioned in the Clause Rules Checklist for categorization.
-
-    Thought 4: What is the relevance of each risk in respect to AstraZeneca based on provided risk_description from Clause Rules Checklist?
-    Action 4: Determine the risk's relevance to AstraZeneca (AZ).
-
-    Thought 5: How should the severity and parties involved in each risk be evaluated?
-    Action 5A: If the risk is predominantly related to AstraZeneca, categorize it as a High Risk.
-    Action 5B: If the risk is associated with both AstraZeneca and a third party, categorize it as a Medium Risk.
-    Action 5C: If the risk predominantly concerns a third party and not specifically AstraZeneca, categorize it as a Low Risk.
-
-    Thought 6: Is the categorization consistent with the risk descriptions indicated in the Clause Rules Checklist?
-    Action 6: Verify alignment and consistency of categorization against the predefined checklist standards.
-
-    Thought 7: Post categorization what should be the order of categorized risks according to their importance?
-    Action 7: Arrange the risks from top to bottom following the order provided in the Clause Rules Checklist.
-
-    Thought 8: If all the risks have been categorized under High, Medium and Low?
-    Action 8: If yes, then proceed forward. Else, categorize them on the basis of Clause Rules checklist.
-
-    Thought 9: If user is querying about all the risk in the contract, what steps should follow?
-    Action 9: Continue with this process using the subsequent steps and thoughts outlined before making the final decision.
-
-    Thought 10: Post sub-categorization of risks from High to Low, whether it should fall under ContractualRisks or StandardAZRisks?
-    Action 10: Use Following definition to categorize the risks into ContractualRisks or StandardAZRisks:
-                ContractualRisks: Risks both in the Contract AND present in the Clause Rules Checklist.
-                StandardAZRisks: Risks from the Clause Rules Checklist that are NOT found in the Contract.
-
-    Thought 11:  What is the current count of categorized risks?
-    Action 11: Begin by counting the total number of risks listed under Contractual Risks and Standard AZ Risks.
-
-    Thought 12: How many risks are specified in the Clause Rules Checklist?
-    Action 12: Refer to the Clause Rules Checklist to determine the total number of risks that need to be accounted for.
-
-    Thought 13: Is there any discrepancy in the counts of above two, as count should match?
-    Action 13: Compare the sum of the identified Contractual Risks and Standard AZ Risks against the total number indicated in the Clause Rules Checklist.
-
-    Thought 14: Are there risks missing from the categorization?
-    Action 14: If the sum of the current risks is less than the number in the Clause Rules Checklist, identify which specific risks are missing.
-
-    Thought 15: How should missing risks be addressed?
-    Action 15: Re-categorize the missing risks under Standard AZ Risks to ensure they are represented and count matches.
-
-    Thought 16: After adjustments, what is the new total of categorized risks?
-    Action 16: Recalculate the total number of risks now categorized under Contractual Risks and Standard AZ Risks.
-
-    Thought 17: Does the recalculated total match the Clause Rules Checklist?
-    Action 17: Verify that the updated total matches the expected number from the Clause Rules Checklist to ensure completeness.
-
-    Thought 18: How can accuracy be ensured?
-    Action 18: Perform a final review and cross-check all risks ctegorized under ContractualRisks and StandardAZRisks to confirm alignment with the Clause Rules Checklist.
-
-    Provide the final output in following valid JSON format ONLY-
-    Do not add any extra commentary outside of the JSON structure. Do not mention risk_id.
-    Only fill in arrays when you have items to add, or keep it as blank.
-    ```json
-    {{
-      "ans": "Short summary paragraph that explains the overall risk findings.",
-      "ContractualRisks":{{
-        "HighRisksClauses": [
-          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "MediumRisksClauses": [
-          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "LowRisksClauses": [
-          {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
-        ]}},
-      "StandardAZRisks":{{
-        "HighRisksClauses": [
-          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "MediumRisksClauses": [
-          {{"title": "Checklist Clause Name", "description": "Risk reason and justification."}}
-        ],
-        "LowRisksClauses": [
-          {{"title": "Checklist Clause Name", "description": "Risk reason and justification"}}
-        ]}},
-      "AdditionalPotentialRisks":[
-          {{"title": "Identified Risky Term/Clause in Contract", "description": "Description of the potential risk found in the contract that are not on the checklist."}}
-        ],
-      }}
-    ```
+```json
+{{
+  "ans": "A total of [N] Checklist Clauses from the Clause Rules Checklist were analyzed. [Further summary including counts of contractual vs. standard risks, key high-inherent-risk rules found/missing, and mention of additional risks if any.]",
+  "ContractualRisks":{{
+    "HighRisksClauses": [
+      {{"title": "Name of Checklist Rule", "description": "Contract addresses this rule (e.g., Clause X.Y). Aligns with scenario: '[specific risk_description from checklist]'. Justification: [details]."}}
+    ],
+    "MediumRisksClauses": [
+      {{"title": "Name of Checklist Rule", "description": "Contract addresses this rule (e.g., Clause A.B). Aligns with scenario: '[specific risk_description from checklist]'. Justification: [details]."}}
+    ],
+    "LowRisksClauses": [
+      {{"title": "Name of Checklist Rule", "description": "Contract addresses this rule (e.g., Clause C.D). Aligns with scenario: '[specific risk_description from checklist]'. Justification: [details]."}}
+    ]}},
+  "StandardAZRisks":{{
+    "HighRisksClauses": [
+      {{"title": "Name of Checklist Rule", "description": "This Checklist Rule is missing/inadequately covered. Implication: [potential negative consequence]."}}
+    ],
+    "MediumRisksClauses": [
+      {{"title": "Name of Checklist Rule", "description": "This Checklist Rule is missing/inadequately covered. Implication: [potential negative consequence]."}}
+    ],
+    "LowRisksClauses": [
+      {{"title": "Name of Checklist Rule", "description": "This Checklist Rule is missing/inadequately covered. Implication: [potential negative consequence]."}}
+    ]}},
+  "AdditionalPotentialRisks":[
+      {{"title": "Identified Additional Risky Term/Clause", "description": "Description of this additional risk (not from checklist) and why it's a concern."}}
+    ]
+}}'''
 """
-
 
 BASE_PROMPT = """
 
