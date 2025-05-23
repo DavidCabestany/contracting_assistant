@@ -582,7 +582,7 @@ async def generate_summary(
         )
         if category in ("1", "2", "4"):
             try:
-                llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(full_prompt)
+                llm_resp = ChatBedrock(model_id=MODEL_ID,max_tokens=4000).invoke(full_prompt)
                 raw_answer = llm_resp.content.strip()
                 logger.info(f"[{msg_id}] LLM responded successfully")
                 logger.debug(
@@ -643,6 +643,7 @@ async def generate_summary(
             logger.warning(
                 f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
             )
+            ##TODO:kgnp684 change the limit. 
             if len(full_prompt) > 18000:
                 llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
                     full_prompt
