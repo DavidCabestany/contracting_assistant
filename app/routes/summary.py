@@ -159,7 +159,6 @@ def parse_llm_output_to_assessment(
             extracted_data = raw_json_dict.get("answer")
 
     if extracted_data is None:
-        extracted_data = raw_json_dict  
         extracted_data = raw_json_dict
 
     if isinstance(extracted_data, dict):
@@ -539,7 +538,7 @@ async def generate_summary(
                     queryText,
                     RISK_MATRIX_SPC_RISK_PROMPT,
                     risk_rules=get_risk_matrix_details(),
-                    clauses_lst=None
+                    clauses_lst=None,
                 )
             elif category == "2":
                 risk_rules = get_risk_matrix_details()
@@ -548,7 +547,10 @@ async def generate_summary(
                     queryText,
                     RISK_MATRIX_ALL_RISKS_PROMPT,
                     risk_rules,
-                    clauses_lst = extract_clause_names_from_risk_rules(risk_rules))
+                    clauses_lst=extract_clause_names_from_risk_rules(
+                        risk_rules
+                    ),
+                )
             elif category == "3":
                 body_prompt = generate_prompt(
                     content, queryText, RISK_MITIGATION_PROMPT
