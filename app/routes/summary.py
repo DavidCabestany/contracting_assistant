@@ -125,7 +125,6 @@ def parse_llm_output_to_assessment(
         A parsed Pydantic object (`RiskAssessmentResponse` or `RiskAssessmentAnswer`).
         This function will always return one of these types, using fallbacks if necessary.
     """
-    # Handle cases where raw_json_dict is None or empty at the very beginning
     if not raw_json_dict:
         logger.warning(
             f"[{msg_id}] `raw_json_dict` is None or empty. Using fallback text."
@@ -135,21 +134,14 @@ def parse_llm_output_to_assessment(
             if raw_llm_text_for_fallback
             else "No input data provided to parse."
         )
-        # This call to _wrap_plain now uses the corrected version above
         return RiskAssessmentAnswer(**_wrap_plain(fallback_text))
 
     extracted_data: Optional[dict] = None
 
-    # Attempt 1: Parse as RiskAssessmentResponse
-    # The `answer` field within RiskAssessmentResponse is of type RiskAssessmentAnswer
     if "answer" in raw_json_dict and isinstance(
         raw_json_dict.get("answer"), dict
     ):
         try:
-            # Pydantic will recursively validate. If raw_json_dict["answer"]
-            # is missing ContractualRisks, default_factory will kick in.
-            # If it provides an empty list for ContractualRisks, it *should* now fail here
-            # if the structure isn't a valid dict for RiskCategory.
             response_obj = RiskAssessmentResponse(**raw_json_dict["answer"])
             logger.info(
                 f"[{msg_id}] Successfully parsed as RiskAssessmentResponse structure."
@@ -167,14 +159,10 @@ def parse_llm_output_to_assessment(
             extracted_data = raw_json_dict.get("answer")
 
     if extracted_data is None:
-        extracted_data = raw_json_dict  # Use the whole dict if 'answer' wasn't present or suitable
+        extracted_data = raw_json_dict  
 
-    # Attempt 2: Parse `extracted_data` as RiskAssessmentAnswer
     if isinstance(extracted_data, dict):
         try:
-            # If extracted_data has ContractualRisks: [], this will fail as expected.
-            # If ContractualRisks is missing, default_factory will create it.
-            # If ContractualRisks: {}, default_factory within RiskCategory will fill its lists.
             parsed_obj = RiskAssessmentAnswer(**extracted_data)
             logger.info(
                 f"[{msg_id}] Successfully parsed `extracted_data` as RiskAssessmentAnswer structure."
@@ -189,7 +177,6 @@ def parse_llm_output_to_assessment(
                 f"[{msg_id}] Unexpected error parsing `extracted_data` as RiskAssessmentAnswer: {e}"
             )
 
-    # Attempt 3: "response" field contains a string (JSON or plain text)
     if (
         isinstance(extracted_data, dict)
         and "response" in extracted_data
@@ -202,7 +189,6 @@ def parse_llm_output_to_assessment(
         nested_json_dict = _extract_json(text_from_response_field)
         if nested_json_dict:
             try:
-                # If nested_json_dict has ContractualRisks: [], this will fail.
                 parsed_obj = RiskAssessmentAnswer(**nested_json_dict)
                 logger.info(
                     f"[{msg_id}] Successfully parsed nested JSON from 'response' field as RiskAssessmentAnswer."
@@ -230,7 +216,6 @@ def parse_llm_output_to_assessment(
                 **_wrap_plain(text_from_response_field)
             )
 
-    # Attempt 4: `extracted_data` has an "ans" field as a string (weakest structured fallback)
     if (
         isinstance(extracted_data, dict)
         and "ans" in extracted_data
@@ -250,7 +235,6 @@ def parse_llm_output_to_assessment(
         if raw_llm_text_for_fallback
         else "Could not interpret LLM output into a structured format."
     )
-    # This call to _wrap_plain now uses the corrected version
     return RiskAssessmentAnswer(**_wrap_plain(fallback_text))
 
 
@@ -554,13 +538,16 @@ async def generate_summary(
                     queryText,
                     RISK_MATRIX_SPC_RISK_PROMPT,
                     risk_rules=get_risk_matrix_details(),
+                    clauses_lst=None
                 )
             elif category == "2":
+                risk_rules = get_risk_matrix_details()
                 body_prompt = generate_prompt_risk(
                     content,
                     queryText,
                     RISK_MATRIX_ALL_RISKS_PROMPT,
-                    risk_rules=get_risk_matrix_details(),
+                    risk_rules,
+                    clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
                 )
             elif category == "3":
                 body_prompt = generate_prompt(
@@ -728,3 +715,42 @@ async def generate_summary(
         logger.info(f"[{msg_id}] Interaction stored for userId={userId}")
 
     return api_resp
+
+
+
+
+def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
+    """
+    Extracts the names of all top-level clauses from the risk_rules checklist.
+
+    Args:
+        risk_rules_input: Either a JSON string or a Python dictionary 
+                          representing the risk_rules structure.
+
+    Returns:
+        A list of strings, where each string is the name of a clause.
+        Returns an empty list if the input is invalid or no clauses are found.
+    """
+    if isinstance(risk_rules_input, str):
+        try:
+            data = json.loads(risk_rules_input)
+        except json.JSONDecodeError:
+            print("Error: Invalid JSON string provided.")
+            return []
+    elif isinstance(risk_rules_input, dict):
+        data = risk_rules_input
+    else:
+        print("Error: Input must be a JSON string or a Python dictionary.")
+        return []
+
+    clause_names = []
+    if "clauses" in data and isinstance(data["clauses"], list):
+        for clause_item in data["clauses"]:
+            if isinstance(clause_item, dict) and "name" in clause_item:
+                clause_names.append(clause_item["name"])
+            else:
+                print(f"Warning: Found an item in 'clauses' list that is not a dict or lacks a 'name' key: {clause_item}")
+    else:
+        print("Warning: 'clauses' key not found in risk_rules or it's not a list.")
+        
+    return clause_names
