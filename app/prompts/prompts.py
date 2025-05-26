@@ -131,7 +131,7 @@ RISK_MATRIX_SPC_RISK_PROMPT = """
 You are an AI assistant specialized for legal contract risk analysis. Analyze the Contract based on the Clause Rules Checklist to identify ONLY the specific risks requested in the User Query.
 Your output MUST be a precise JSON object matching the structure of the example below. Ensure that ONLY the requested clauses are analyzed and included in the ContractualRisks and StandardAZRisks sections. All other clauses from the checklist should be ignored for population in these sections.
 
-**Inputs:** 
+**Inputs:**
 Clause Rules Checklist: {risk_rules} - Contains a clauses array. The names of all potentially assessable clause rules are: {clauses}. Each clause object in risk_rules.clauses has name, details.clause_inherent_risk_level (H/M/L for secondary sorting & StandardAZRisk bucketing when a requested clause is missing), and details.risk_scenarios (each with scenario_description & scenario_severity_if_present for ContractualRisk H/M/L bucketing when a requested clause is present).
 Contract: {Contract} - The legal document.
 User Query: {Query} - User's question, which specifies which clause(s) from the {clauses} list to analyze.

@@ -159,7 +159,7 @@ def parse_llm_output_to_assessment(
             extracted_data = raw_json_dict.get("answer")
 
     if extracted_data is None:
-        extracted_data = raw_json_dict  
+        extracted_data = raw_json_dict
 
     if isinstance(extracted_data, dict):
         try:
@@ -538,7 +538,7 @@ async def generate_summary(
                     queryText,
                     RISK_MATRIX_SPC_RISK_PROMPT,
                     risk_rules=get_risk_matrix_details(),
-                    clauses_lst=None
+                    clauses_lst=None,
                 )
             elif category == "2":
                 risk_rules = get_risk_matrix_details()
@@ -547,7 +547,9 @@ async def generate_summary(
                     queryText,
                     RISK_MATRIX_ALL_RISKS_PROMPT,
                     risk_rules,
-                    clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
+                    clauses_lst=extract_clause_names_from_risk_rules(
+                        risk_rules
+                    ),
                 )
             elif category == "3":
                 body_prompt = generate_prompt(
@@ -569,7 +571,9 @@ async def generate_summary(
         )
         if category in ("1", "2", "4"):
             try:
-                llm_resp = ChatBedrock(model_id=MODEL_ID,max_tokens=4000).invoke(full_prompt)
+                llm_resp = ChatBedrock(
+                    model_id=MODEL_ID, max_tokens=4000
+                ).invoke(full_prompt)
                 raw_answer = llm_resp.content.strip()
                 logger.info(f"[{msg_id}] LLM responded successfully")
                 logger.debug(
@@ -630,7 +634,7 @@ async def generate_summary(
             logger.warning(
                 f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
             )
-            ##TODO:kgnp684 change the limit. 
+            ##TODO:kgnp684 change the limit.
             if len(full_prompt) > 18000:
                 llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
                     full_prompt
@@ -717,14 +721,11 @@ async def generate_summary(
     return api_resp
 
 
-
-
 def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
-    """
-    Extracts the names of all top-level clauses from the risk_rules checklist.
+    """Extracts the names of all top-level clauses from the risk_rules checklist.
 
     Args:
-        risk_rules_input: Either a JSON string or a Python dictionary 
+        risk_rules_input: Either a JSON string or a Python dictionary
                           representing the risk_rules structure.
 
     Returns:
@@ -749,8 +750,12 @@ def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
             if isinstance(clause_item, dict) and "name" in clause_item:
                 clause_names.append(clause_item["name"])
             else:
-                print(f"Warning: Found an item in 'clauses' list that is not a dict or lacks a 'name' key: {clause_item}")
+                print(
+                    f"Warning: Found an item in 'clauses' list that is not a dict or lacks a 'name' key: {clause_item}"
+                )
     else:
-        print("Warning: 'clauses' key not found in risk_rules or it's not a list.")
-        
+        print(
+            "Warning: 'clauses' key not found in risk_rules or it's not a list."
+        )
+
     return clause_names
