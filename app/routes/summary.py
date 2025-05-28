@@ -547,7 +547,10 @@ async def generate_summary(
                     queryText,
                     RISK_MATRIX_ALL_RISKS_PROMPT,
                     risk_rules,
-                    clauses_lst = extract_clause_names_from_risk_rules(risk_rules))
+                    clauses_lst=extract_clause_names_from_risk_rules(
+                        risk_rules
+                    ),
+                )
             elif category == "3":
                 body_prompt = generate_prompt(
                     content, queryText, RISK_MITIGATION_PROMPT
