@@ -14,6 +14,7 @@ from .feedback import (
     FeedbackDisplayOptions,
     FeedbackRequest,
 )
+from .graph import TimeframePayload
 from .primitives import Citation, QuickReply
 from .query import (
     AnswerRequest,
@@ -31,6 +32,7 @@ from .risk import (
     RiskAssessmentResponse,
     RiskClause,
 )
+from .site import Language, Site
 
 __all__ = [
     # primitives
@@ -60,4 +62,9 @@ __all__ = [
     # responses
     "Result",
     "QueryResponse",
+    # site
+    "Language",
+    "Site",
+    # graph
+    "TimeframePayload",
 ]
