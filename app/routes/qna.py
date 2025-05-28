@@ -142,7 +142,13 @@ def detect_prior_doc_from_query(query: str) -> str:
         {
             "file": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
             "keywords": ["supplier", "controller", "processor"],
-        }
+        }	
+        ,
+	    {
+	        "file": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
+	        "keywords": ["liability", "breach", "dpa"],
+	    }
+
     ]
     query_lower = query.lower()
     for doc in DOCUMENT_TOPICS:
@@ -1074,16 +1080,17 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             logger.info(
                 "300 ▶ Entering KB retrieval for citations and answer refinement"
             )
-            if files:
-                logger.info("301 ▶ Files provided for KB retrieval: %s", files)
-                resp = retrieve_and_generate_prioritized_doc(
-                    query=user_txt,
-                    kb_id=get_knowledge_base_id(detected_unit),
-                    knowledge_base_folder=kb_path,
-                    files=files,
-                    session_id=bedrock_session_id,
-                )
-            else:
+            # if files:
+            #     logger.info("301 ▶ Files provided for KB retrieval: %s", files)
+            #     resp = retrieve_and_generate_prioritized_doc(
+            #         query=user_txt,
+            #         kb_id=get_knowledge_base_id(detected_unit),
+            #         knowledge_base_folder=kb_path,
+            #         files=files,
+            #         session_id=bedrock_session_id,
+            #     )
+            # else:
+            if not files:
                 logger.info("302 ▶ No files for KB retrieval – full KB search")
                 doc = retrieve_documents(
                     prompt,
