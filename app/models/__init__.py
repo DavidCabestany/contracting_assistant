@@ -1,7 +1,4 @@
-"""Public re-exports so callers can simply do e.g.
-
-from models import QueryRequest, Result
-"""
+"""Init file for the pydantic models."""
 
 from .answer import (
     DocumentAnswer,
