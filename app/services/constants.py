@@ -26,7 +26,7 @@ IRRELEVANT: str = get_secret("IRRELEVANT_KEYWORD")
 QNA_SEARCH_TYPE: str = get_secret("QNA_SEARCH_TYPE")
 GUARDRAIL_ID: str = get_secret("GUARDRAIL_ID")
 GUARDRAIL_VERSION_ID: str = get_secret("GUARDRAIL_VERSION_ID")
-QNA_MAX_TOKENS_VALUE: str = get_secret("QNA_MAX_TOKENS_VALUE")
+QNA_MAX_TOKENS_VALUE: int = 4000
 PRIOR_DOC: str = get_secret("PRIOR_DOC")
 
 # ─────── Static tuning knobs ───────

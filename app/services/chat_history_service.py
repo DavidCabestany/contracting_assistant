@@ -8,11 +8,12 @@ import boto3
 import pandas as pd
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
-from clients import s3_client
 from config import get_secret
 from fastapi import HTTPException
 from models import ChatHistorySearchRequest, ChatInteraction, FeedbackRequest
 from utils import generate_presigned_url, generate_technical_error_message
+
+from .clients import s3_client
 
 logger = logging.getLogger(__name__)
 

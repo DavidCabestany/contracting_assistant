@@ -623,9 +623,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
                             if not kb_text:
                                 logger.warning(
-                                    "123 ⚠ No fallback KB content – will use unavailable template"
+                                    "123 ⚠ No fallback KB content - will use unavailable template"
                                 )
-                                augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content: {kb_text} [Unavailable — file could not be accessed or retrieved.] . If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content. Please consider changing tabs."
+                                augmented_prompt = AUGMENTED_PROMPT.format(
+                                    history_txt=history_txt,
+                                    user_txt=user_txt,
+                                    kb_text=kb_text,
+                                )
 
                                 direct_resp = generate_answer_with_context(
                                     augmented_prompt
@@ -683,7 +687,11 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                     ),
                                 )
 
-                            augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content. Please consider changing tabs."
+                            augmented_prompt = AUGMENTED_PROMPT.format(
+                                history_txt=history_txt,
+                                user_txt=user_txt,
+                                kb_text=kb_text,
+                            )
 
                             logger.info(
                                 "125 ▶ Calling LLM for compare fallback"

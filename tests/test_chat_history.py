@@ -33,7 +33,7 @@ class TestChatHistoryRouter(unittest.TestCase):
             "SessionStatus": "Active",
             "MessageId": "msg1",
             "ChatMetadata": {
-                "FileName": "file.txt",
+                "FileName": ["file.txt"],
                 "FileLocation": "/path/",
                 "FlowName": "QnA",
                 "KbType": "general",
