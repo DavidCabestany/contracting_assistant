@@ -22,3 +22,4 @@ GUARDRAIL_ID: str = get_secret("GUARDRAIL_ID")
 GUARDRAIL_VERSION_ID: str = get_secret("GUARDRAIL_VERSION_ID")
 QNA_MAX_TOKENS_VALUE: int = 4000
 PRIOR_DOC: str = get_secret("PRIOR_DOC")
+REGION_ID = get_secret("REGION_ID")

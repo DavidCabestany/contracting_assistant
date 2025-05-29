@@ -9,7 +9,6 @@ import re
 import uuid
 
 from auth.utils import verify_token
-from config import get_secret
 from fastapi import APIRouter, Depends, HTTPException
 from models import (
     ChatInteraction,
@@ -48,6 +47,7 @@ from utils import (
 from .constants import (
     PRIOR_DOC,
     QNA_FLOW_NAME,
+    REGION_ID,
     SESSION_STATUS,
 )
 
@@ -56,9 +56,6 @@ router = APIRouter(tags=["QnA"], dependencies=[Depends(verify_token)])
 
 # Mapping from UI session IDs to Bedrock session IDs.
 _bedrock_sessions: dict[str, str] = {}
-
-
-REGION_ID = get_secret("REGION_ID")
 
 
 def _build_prompt_with_optional_history(
