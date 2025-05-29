@@ -302,6 +302,7 @@ async def generate_summary(
     folder_path = ""
     answer = ""
     raw_answer = None
+    start_time = datetime.datetime.now().isoformat()
 
     # Step 1: Process uploaded file, if any
     if file is not None:
@@ -706,10 +707,12 @@ async def generate_summary(
                 BotResponseSearch=raw_answer.lower()[:MAX_SEARCH_LEN],
                 FeedbackComment="",
                 Timestamp=now,
+                StartTime=start_time,
+                EndTime=now,
                 SessionStatus=get_secret("SESSION_STATUS_ACTIVE"),
                 MessageId=msg_id,
                 ChatMetadata=ChatMetadata(
-                    FileName=file_name,
+                    FileName=[file_name],
                     FileLocation=file_loc,
                     FlowName=SUMMARY_FLOW_NAME,
                     Department="",
