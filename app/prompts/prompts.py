@@ -104,6 +104,63 @@ User Query:
 {Query}
 """
 
+AUGMENTED_PROMPT = """You are a professional contract assistant for AstraZeneca.
+                      This is the user history: {history_txt}\n\nUser Query: {user_txt}\n\n
+                      Relevant File Content:\n{kb_text}.
+                      If you don't receive any File Content, or you receive an error you must exactly reply:
+                      I can't access to the {{file}} content for this query.
+                      Please consider changing tabs or refrasing the question."""
+
+FOLLOW_UP_PROMPT = """
+Instructions: You will receive one question and previous interactions from a current conversation. This conversation is about contracting clauses, risks or legal advise.
+The user might ask things about a contract, a specific clause or database information.
+Your task is to identify if the user is following the conversation or changing the topic. For that you will need to check, is the user talking about the same vendor? is them talking about a specific part of the previous clause? want them to compare the last info with new info? all this questions are following up conversation, you can extrapolate this questions to something more general.
+
+Context Parameters:
+- Previous vendor/client/provider mentioned
+- Previously discussed clauses or terms
+- Prior database information or summaries
+
+Follow-up Indicators:
+. Requests clarification of previous information
+. References the same vendor/client/provider
+. Builds upon previous clause discussion
+. how does it compares to the az standards
+. compare the clause with file
+. Asks for comparison with prior information
+. Seeks additional details about previous answers
+. Uses contextual references (e.g., "this clause", "that term", "their policy")
+. tell me about country
+. compare the clause with file
+
+New Question Indicators:
+IMPORTANT: The user asks about contract particularities trat as new question
+1. Introduces new vendor/client/provider
+2. References unmentioned documents/files
+3. Requests database queries unrelated to previous context
+4. Completely different topic or subject matter
+5. No contextual references to previous discussion
+
+this is a follow up always: how does it compares to the az standards
+
+
+
+NEVER FOLLOW UP:
+  can supplier ask to shorten payment terms, for example to 21 days?
+  who is the controller?
+  can we do backdating in contracts?
+  can we do backdating?
+
+Previous Interactions:
+{context}
+
+New User Query: {query}
+
+Return exactly one of these formats:
+IS_FOLLOW_UP: [User query and the original clause and context]
+NEW_QUESTION: [User query]
+"""
+
 RISK_MATRIX_PROMPT = """
 Respond strictly using the following JSON-style format:
 ```json
@@ -336,63 +393,6 @@ Final Verification Step: Before outputting the JSON, ensure ALL clause rules lis
   ]
 }} ```
 
-"""
-
-AUGMENTED_PROMPT = """You are a professional contract assistant for AstraZeneca.
-                      This is the user history: {history_txt}\n\nUser Query: {user_txt}\n\n
-                      Relevant File Content:\n{kb_text}.
-                      If you don't receive any File Content, or you receive an error you must exactly reply:
-                      I can't access to the {{file}} content for this query.
-                      Please consider changing tabs or refrasing the question."""
-
-FOLLOW_UP_PROMPT = """
-Instructions: You will receive one question and previous interactions from a current conversation. This conversation is about contracting clauses, risks or legal advise.
-The user might ask things about a contract, a specific clause or database information.
-Your task is to identify if the user is following the conversation or changing the topic. For that you will need to check, is the user talking about the same vendor? is them talking about a specific part of the previous clause? want them to compare the last info with new info? all this questions are following up conversation, you can extrapolate this questions to something more general.
-
-Context Parameters:
-- Previous vendor/client/provider mentioned
-- Previously discussed clauses or terms
-- Prior database information or summaries
-
-Follow-up Indicators:
-. Requests clarification of previous information
-. References the same vendor/client/provider
-. Builds upon previous clause discussion
-. how does it compares to the az standards
-. compare the clause with file
-. Asks for comparison with prior information
-. Seeks additional details about previous answers
-. Uses contextual references (e.g., "this clause", "that term", "their policy")
-. tell me about country
-. compare the clause with file
-
-New Question Indicators:
-IMPORTANT: The user asks about contract particularities trat as new question
-1. Introduces new vendor/client/provider
-2. References unmentioned documents/files
-3. Requests database queries unrelated to previous context
-4. Completely different topic or subject matter
-5. No contextual references to previous discussion
-
-this is a follow up always: how does it compares to the az standards
-
-
-
-NEVER FOLLOW UP:
-  can supplier ask to shorten payment terms, for example to 21 days?
-  who is the controller?
-  can we do backdating in contracts?
-  can we do backdating?
-
-Previous Interactions:
-{context}
-
-New User Query: {query}
-
-Return exactly one of these formats:
-IS_FOLLOW_UP: [User query and the original clause and context]
-NEW_QUESTION: [User query]
 """
 
 RISK_MITIGATION_PROMPT = """
