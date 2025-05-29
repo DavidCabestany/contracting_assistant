@@ -18,7 +18,7 @@ class ChatMetadata(BaseModel):
         Department (Optional[str]): Department to which the chat context belongs.
     """
 
-    FileName: Optional[str] = None
+    FileName: Optional[list] = None
     FileLocation: Optional[str] = None
     FlowName: Optional[str] = None
     KbType: Optional[str] = None
@@ -54,6 +54,8 @@ class ChatInteraction(BaseModel):
     IsFeedbackPositive: Optional[bool] = None
     FeedbackComment: Optional[str] = None
     Timestamp: Optional[str] = None
+    StartTime: Optional[str] = None
+    EndTime: Optional[str] = None
     SessionStatus: Optional[str] = None
     ChatMetadata: ChatMetadata
     apiKey: Optional[str] = None

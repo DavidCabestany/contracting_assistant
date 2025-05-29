@@ -142,13 +142,11 @@ def detect_prior_doc_from_query(query: str) -> str:
         {
             "file": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
             "keywords": ["supplier", "controller", "processor"],
-        }	
-        ,
-	    {
-	        "file": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
-	        "keywords": ["liability", "breach", "dpa"],
-	    }
-
+        },
+        {
+            "file": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
+            "keywords": ["liability", "breach", "dpa"],
+        },
     ]
     query_lower = query.lower()
     for doc in DOCUMENT_TOPICS:
@@ -386,7 +384,13 @@ def _fallback_qna(
 
 
 def _store_chat_log(
-    request: RequestQuery, answer: str, msg_id: str, session_id: str
+    request: RequestQuery,
+    answer: str,
+    msg_id: str,
+    session_id: str,
+    start_time: str,
+    end_time: str,
+    citations: list,
 ) -> None:
     logger.info(
         "ENTER ▶ _store_chat_log(request.user.id=%s, msg_id=%s, session_id=%s)",
@@ -411,7 +415,7 @@ def _store_chat_log(
             logger.info("▶ user_msg_search = %.200s", user_msg_search)
 
         chat_meta = ChatMetadata(
-            FileName="",
+            FileName=citations,
             FileLocation="",
             FlowName=QNA_FLOW_NAME,
             KbType=request.query.knowledgeType,
@@ -427,6 +431,8 @@ def _store_chat_log(
                 BotResponseSearch=answer,
                 FeedbackComment="",
                 Timestamp=now,
+                StartTime=start_time,
+                EndTime=end_time,
                 SessionStatus=SESSION_STATUS,
                 MessageId=msg_id,
                 ChatMetadata=chat_meta,
@@ -444,6 +450,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
     logger.info("000 ▶ enter ask_question")
     try:
         # Step 1: Generate message/session IDs
+        start_time = datetime.datetime.now().isoformat()
         msg_id = str(uuid.uuid4())
         logger.info("010 ▶ msg_id = %s", msg_id)
 
@@ -487,7 +494,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         # Step 3: Handle summary requests first
         label = needs_summary(user_txt)
         logger.info(f"the label {label}")
-
         if label == "IRRELEVANT":
             logger.info(
                 "080 ▶ Irrelevant query detected – returning default help response"
@@ -496,9 +502,19 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "Sorry, I can't help you with that request. "
                 "However, I can assist you with Contracting Clauses, confidentiality agreements, and payment terms."
             )
-            _store_chat_log(request, default_msg, msg_id, ui_session_id)
+            end_time = datetime.datetime.now().isoformat()
+            _store_chat_log(
+                request,
+                default_msg,
+                msg_id,
+                ui_session_id,
+                start_time,
+                end_time,
+                citations=[],
+            )
             logger.info("090 ◀ returning IRRELEVANT response")
             return QueryResponse(
+                startTime=start_time,
                 status="success",
                 sessionId=ui_session_id,
                 userQuery=user_txt,
@@ -518,7 +534,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         elif label == "SUMMARY":
             logger.info("081 ▶ Summary requested – entering summary flow")
             summary_text = llm_summarise(user_txt)
-            _store_chat_log(request, summary_text, msg_id, ui_session_id)
+            end_time = datetime.datetime.now().isoformat()
+            _store_chat_log(
+                request,
+                summary_text,
+                msg_id,
+                ui_session_id,
+                start_time,
+                end_time,
+                citations=[],
+            )
             logger.info("090 ◀ returning summary")
             return QueryResponse(
                 status="success",
@@ -641,8 +666,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 kb_path=kb_path,
                                 files=files,
                             )
-
-                        _store_chat_log(request, answer, msg_id, ui_session_id)
+                        end_time = datetime.datetime.now().isoformat()
+                        _store_chat_log(
+                            request,
+                            answer,
+                            msg_id,
+                            ui_session_id,
+                            start_time,
+                            end_time,
+                            citations,
+                        )
                         return QueryResponse(
                             status="success",
                             sessionId=ui_session_id,
@@ -694,7 +727,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_path=kb_path,
                             files=files,
                         )
-                    _store_chat_log(request, answer, msg_id, ui_session_id)
+                    end_time = datetime.datetime.now().isoformat()
+                    _store_chat_log(
+                        request,
+                        answer,
+                        msg_id,
+                        ui_session_id,
+                        start_time,
+                        end_time,
+                        citations,
+                    )
                     return QueryResponse(
                         status="success",
                         sessionId=ui_session_id,
@@ -801,8 +843,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                         kb_path=kb_path,
                                         files=files,
                                     )
+                                end_time = datetime.datetime.now().isoformat()
                                 _store_chat_log(
-                                    request, answer, msg_id, ui_session_id
+                                    request,
+                                    answer,
+                                    msg_id,
+                                    ui_session_id,
+                                    start_time,
+                                    end_time,
+                                    citations,
                                 )
                                 return QueryResponse(
                                     status="success",
@@ -856,8 +905,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                     kb_path=kb_path,
                                     files=files,
                                 )
+                            end_time = datetime.datetime.now().isoformat()
                             _store_chat_log(
-                                request, answer, msg_id, ui_session_id
+                                request,
+                                answer,
+                                msg_id,
+                                ui_session_id,
+                                start_time,
+                                end_time,
+                                citations,
                             )
                             return QueryResponse(
                                 status="success",
@@ -900,7 +956,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             citations = extract_file_locations(
                                 resp, allowed_files=files if files else None
                             )
-                        _store_chat_log(request, answer, msg_id, ui_session_id)
+                        end_time = datetime.datetime.now().isoformat()
+                        _store_chat_log(
+                            request,
+                            answer,
+                            msg_id,
+                            ui_session_id,
+                            start_time,
+                            end_time,
+                            citations,
+                        )
                         return QueryResponse(
                             status="success",
                             sessionId=ui_session_id,
@@ -951,7 +1016,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_path=kb_path,
                             files=files,
                         )
-                    _store_chat_log(request, answer, msg_id, ui_session_id)
+                    end_time = datetime.datetime.now().isoformat()
+                    _store_chat_log(
+                        request,
+                        answer,
+                        msg_id,
+                        ui_session_id,
+                        start_time,
+                        end_time,
+                        citations,
+                    )
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
 
@@ -998,7 +1072,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_path=kb_path,
                             files=files,
                         )
-                    _store_chat_log(request, answer, msg_id, ui_session_id)
+                    end_time = datetime.datetime.now().isoformat()
+                    _store_chat_log(
+                        request,
+                        answer,
+                        msg_id,
+                        ui_session_id,
+                        start_time,
+                        end_time,
+                        citations,
+                    )
 
                     logger.info("520 ◀ exit ask_question SUCCESS")
 
@@ -1215,7 +1298,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("510 ▶ Storing chat log")
         answer = re.split(r"\nUser:\s", answer)[0].strip()
 
-        _store_chat_log(request, answer, msg_id, ui_session_id)
+        end_time = datetime.datetime.now().isoformat()
+        _store_chat_log(
+            request,
+            answer,
+            msg_id,
+            ui_session_id,
+            start_time,
+            end_time,
+            citations,
+        )
 
         logger.info("520 ◀ exit ask_question SUCCESS")
 
