@@ -10,7 +10,7 @@ from typing import Tuple
 
 import numpy as np
 
-from .config import (
+from .constants import (
     AZ_MAPPING_SHEET_NAME,
     EXCEL_FILE_PATH,
     logger,

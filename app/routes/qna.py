@@ -8,8 +8,8 @@ import logging
 import re
 import uuid
 
-import boto3
 from auth.utils import verify_token
+from config import get_secret
 from fastapi import APIRouter, Depends, HTTPException
 from models import (
     ChatInteraction,
@@ -23,18 +23,21 @@ from models import (
 )
 from prompts import FOLLOW_UP_PROMPT
 from services import (
+    auto_attach_files,
+    detect_prior_doc_from_query,
+    extract_file_locations,
     generate_answer_with_context,
+    is_invalid_response,
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
     retrieve_documents,
     retrieve_file_chunks,
     session_history,
+    store_interaction,
 )
-from services.chat_history_service import store_interaction
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
-    extract_file_locations,
     extract_keywords_from_query,
     get_knowledge_base_folder,
     get_knowledge_base_id,
@@ -43,12 +46,8 @@ from utils import (
 )
 
 from .constants import (
-    GEN_ENQ_KB_ID,
-    HIGH_PRIORITY_QUERIES,
-    IRRELEVANT,
     PRIOR_DOC,
     QNA_FLOW_NAME,
-    REGION_ID,
     SESSION_STATUS,
 )
 
@@ -59,168 +58,7 @@ router = APIRouter(tags=["QnA"], dependencies=[Depends(verify_token)])
 _bedrock_sessions: dict[str, str] = {}
 
 
-def load_known_files_from_s3() -> dict[str, str]:
-    """Build a filename-to-kb_path mapping from S3 buckets."""
-    s3 = boto3.client("s3")
-    bucket = "azcdi-us-ops-procure-ds-dev"
-    kb_paths = ["general", "privacy", "alexion"]
-    known_files = {}
-
-    for kb_path in kb_paths:
-        prefix = f"{kb_path}/"
-        paginator = s3.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-
-        for page in pages:
-            for obj in page.get("Contents", []):
-                key = obj["Key"]
-                if key.endswith(".pdf"):
-                    file_name = key.split("/")[-1]
-                    known_files[file_name] = kb_path
-
-    return known_files
-
-
-KNOWN_FILES = load_known_files_from_s3()
-
-
-def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
-    """Auto-match files from S3 based on query contents and restrict to given kb_path."""
-    query_lc = user_txt.lower()
-    start_end_query = query_lc[:50] + query_lc[-50:]
-    matched_files = []
-
-    for file_name, file_kb_path in KNOWN_FILES.items():
-        # Only consider files from the active kb_path
-        if file_kb_path != kb_path:
-            continue
-
-        base_name = file_name.lower().replace(".pdf", "")
-        words = re.findall(r"\b\w+\b", base_name)
-
-        for i in range(len(words) - 1):
-            phrase = " ".join(words[i : i + 2])
-            if phrase in start_end_query:
-                matched_files.append(file_name)
-                break
-
-    return matched_files
-
-
-def is_invalid_response(text: str) -> bool:
-    """Check whether the response text is considered invalid or irrelevant."""
-    lowered = text.lower().strip()
-    # Regex for model refusals
-    refusal_regex = re.compile(
-        r"(i'?m sorry|i apologise|i apologize|i can(\'|’)t help you with (this )?request)",
-        re.IGNORECASE,
-    )
-    return (
-        not lowered
-        or lowered in {"sorry, i am unable to assist you with this request."}
-        or "unable to assist" in lowered
-        or "i cannot help" in lowered
-        or "no information available" in lowered
-        or "i'm not sure" in lowered
-        or IRRELEVANT in lowered
-        or refusal_regex.search(lowered)  # <- add this!
-    )
-
-
-def is_high_priority_query(query: str, category: str) -> bool:
-    """Check if teh initial user query is part of the standard queries."""
-    normalized_query = query.lower().strip()
-    normalized_category = category.strip().title()
-    return normalized_query in HIGH_PRIORITY_QUERIES.get(
-        normalized_category, set()
-    )
-
-
-def detect_prior_doc_from_query(query: str) -> str:
-    """Detect a relevant prior document from the user query."""
-    DOCUMENT_TOPICS = [
-        {
-            "file": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
-            "keywords": ["supplier", "controller", "processor"],
-        },
-        {
-            "file": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
-            "keywords": ["liability", "breach", "dpa"],
-        },
-    ]
-    query_lower = query.lower()
-    for doc in DOCUMENT_TOPICS:
-        if all(k in query_lower for k in doc["keywords"]):
-            return doc["file"]
-    return PRIOR_DOC
-
-
-def _was_last_answer_from_kb(session_id: str) -> bool:
-    """Check if the last answer in session history came from the knowledge base."""
-    logger.info(
-        "000 ▶ ENTER _was_last_answer_from_kb(session_id=%s)", session_id
-    )
-    try:
-        history = session_history(session_id).get(session_id, [])
-        logger.info("010 ▶ Retrieved %d history entries", len(history))
-
-        if not history:
-            logger.info("020 ▶ No history found – returning False")
-            return False
-
-        last = history[-1]
-        logger.info("030 ▶ Last history entry: %s", last)
-
-        file_used = last.get("ChatMetadata", {}).get("FileName")
-        logger.info("040 ▶ FileName in last entry = %s", file_used)
-
-        is_kb_used = file_used == "USED_KB"
-        logger.info("050 ▶ is_kb_used = %s", is_kb_used)
-
-        logger.info("060 ◀ EXIT _was_last_answer_from_kb")
-        return is_kb_used
-
-    except Exception as e:
-        logger.warning(
-            "EXCEPTION:  070 ▶ Failed to check KB usage from history: %s", e
-        )
-        logger.info(
-            "080 ◀ EXIT _was_last_answer_from_kb with False (exception)"
-        )
-        return False
-
-
-def _get_session_chat_history(session_id: str) -> str:
-    """Retrieve the chat history for a given session.
-
-    Args:
-        session_id: The session ID from the UI.
-
-    Returns:
-        A formatted string containing prior user and assistant messages.
-    """
-    logger.info("ENTER ▶ _get_session_chat_history(session_id=%s)", session_id)
-    history_txt = ""
-    try:
-        history = session_history(session_id)
-        # logger.info("▶ fetched raw history for session: %s", history.get(session_id))
-        for i, item in enumerate(history.get(session_id, [])):
-            user_msg, bot_msg = item.get("UserMessage"), item.get(
-                "BotResponse"
-            )
-            logger.info(
-                "  ▶ loop[%d] user_msg=%s | bot_msg=%s", i, user_msg, bot_msg
-            )
-            if user_msg and bot_msg:
-                history_txt += f"User: {user_msg}\nAssistant: {bot_msg}\n"
-        logger.info("▶ built history_txt (len=%d)", len(history_txt))
-    except Exception as e:
-        logger.warning("EXCEPTION:  Failed to fetch session history: %s", e)
-    logger.info(
-        "EXIT  ◀ _get_session_chat_history -> %.200s",
-        history_txt.replace("\n", " "),
-    )
-    return history_txt
+REGION_ID = get_secret("REGION_ID")
 
 
 def _build_prompt_with_optional_history(
@@ -315,74 +153,6 @@ def _build_prompt_with_optional_history(
     return full_prompt, history_txt, is_follow_up
 
 
-def _fallback_qna(
-    query: str,
-    answer: str,
-    ui_session_id: str,
-    category: str,
-    kb_folder: str,
-    hist_txt: str,
-    fallback_doc: str = PRIOR_DOC,
-) -> str:
-    logger.info(
-        "ENTER ▶ _fallback_qna(query=%.100s, answer=%.100s, ui_session_id=%s, category=%s, kb_folder=%s)",
-        query,
-        answer,
-        ui_session_id,
-        category,
-        kb_folder,
-    )
-    if IRRELEVANT not in answer:
-        logger.info("▶ answer clean, skipping fallback")
-        return answer
-
-    try:
-        bedrock_session = _bedrock_sessions.get(ui_session_id)
-        prompt = f"History: {hist_txt}\nUser:{query}"
-        logger.info("▶ fallback prompt=%.200s", prompt.replace("\n", " "))
-        if category == "2" or fallback_doc != PRIOR_DOC:
-            resp = retrieve_and_generate(
-                prompt,
-                GEN_ENQ_KB_ID,
-                document=fallback_doc,
-                session_id=bedrock_session,
-                kb_path=kb_folder,
-            )
-        if category == "3":
-            resp = retrieve_and_generate_prioritized_doc(
-                prompt,
-                GEN_ENQ_KB_ID,
-                kb_folder,
-                [PRIOR_DOC],
-                session_id=bedrock_session,
-            )
-            logger.info("▶ used prioritized fallback")
-        else:
-            resp = retrieve_and_generate(
-                prompt,
-                GEN_ENQ_KB_ID,
-                session_id=bedrock_session,
-                kb_path=kb_folder,
-            )
-            logger.info("▶ used standard fallback")
-
-        _bedrock_sessions[ui_session_id] = resp["sessionId"]
-        logger.info("▶ new bedrock_session_id=%s", resp["sessionId"])
-
-        if resp.get("citations") and resp["citations"][0].get(
-            "retrievedReferences"
-        ):
-            new_ans = resp["output"]["text"]
-            logger.info("EXIT  ◀ _fallback_qna -> new answer=%.200s", new_ans)
-            return new_ans
-    except Exception as e:
-        logger.warning("EXCEPTION:  Fallback QnA failed: %s", e)
-
-    cleaned = answer.replace(IRRELEVANT, "")
-    logger.info("EXIT  ◀ _fallback_qna -> cleaned answer=%.200s", cleaned)
-    return cleaned
-
-
 def _store_chat_log(
     request: RequestQuery,
     answer: str,
@@ -442,6 +212,39 @@ def _store_chat_log(
     except Exception as e:
         logger.exception("EXCEPTION:  Failed to store interaction: %s", e)
         raise
+
+
+def _get_session_chat_history(session_id: str) -> str:
+    """Retrieve the chat history for a given session.
+
+    Args:
+        session_id: The session ID from the UI.
+
+    Returns:
+        A formatted string containing prior user and assistant messages.
+    """
+    logger.info("ENTER ▶ _get_session_chat_history(session_id=%s)", session_id)
+    history_txt = ""
+    try:
+        history = session_history(session_id)
+        # logger.info("▶ fetched raw history for session: %s", history.get(session_id))
+        for i, item in enumerate(history.get(session_id, [])):
+            user_msg, bot_msg = item.get("UserMessage"), item.get(
+                "BotResponse"
+            )
+            logger.info(
+                "  ▶ loop[%d] user_msg=%s | bot_msg=%s", i, user_msg, bot_msg
+            )
+            if user_msg and bot_msg:
+                history_txt += f"User: {user_msg}\nAssistant: {bot_msg}\n"
+        logger.info("▶ built history_txt (len=%d)", len(history_txt))
+    except Exception as e:
+        logger.warning("EXCEPTION:  Failed to fetch session history: %s", e)
+    logger.info(
+        "EXIT  ◀ _get_session_chat_history -> %.200s",
+        history_txt.replace("\n", " "),
+    )
+    return history_txt
 
 
 @router.post("/getqnaanswer/")
@@ -1163,16 +966,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             logger.info(
                 "300 ▶ Entering KB retrieval for citations and answer refinement"
             )
-            # if files:
-            #     logger.info("301 ▶ Files provided for KB retrieval: %s", files)
-            #     resp = retrieve_and_generate_prioritized_doc(
-            #         query=user_txt,
-            #         kb_id=get_knowledge_base_id(detected_unit),
-            #         knowledge_base_folder=kb_path,
-            #         files=files,
-            #         session_id=bedrock_session_id,
-            #     )
-            # else:
             if not files:
                 logger.info("302 ▶ No files for KB retrieval – full KB search")
                 doc = retrieve_documents(

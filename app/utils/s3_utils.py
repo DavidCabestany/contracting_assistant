@@ -11,15 +11,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import boto3
-from botocore.config import Config
+from services import s3_client
 
 from .constants import logger
-
-s3_client = boto3.client(
-    "s3",
-    config=Config(retries={"max_attempts": 3}, max_pool_connections=50),
-)
 
 
 def generate_presigned_url(

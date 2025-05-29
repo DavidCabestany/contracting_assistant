@@ -9,31 +9,127 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Sequence
 
-import boto3
 from utils import extract_file_locations
 
-from .clients import bedrock_agent_runtime, bedrock_client
-from .config import (
+from .clients import (
+    bedrock_agent_runtime,
+    bedrock_client,
+    s3_client,
+)
+from .constants import (
     BUCKET_CONTAINER,
     GUARDRAIL_ID,
     GUARDRAIL_VERSION_ID,
+    HIGH_PRIORITY_QUERIES,
+    IRRELEVANT,
     MODEL_ARN,
     MODEL_ID,
+    PRIOR_DOC,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
 )
 from .storage import add_prefix
 from .templates import retrieve_template
 
-EXCEL_FILE_PATH = "mappings/prompt_map.xlsx"
-AZ_MAPPING_SHEET_NAME = "Sheet1"
 logger = logging.getLogger(__name__)
 
-s3 = boto3.client("s3")
-
 QNA_MAX_RESULTS = 3
+
+
+def load_known_files_from_s3() -> dict[str, str]:
+    """Build a filename-to-kb_path mapping from S3 buckets."""
+    bucket = "azcdi-us-ops-procure-ds-dev"
+    kb_paths = ["general", "privacy", "alexion"]
+    known_files = {}
+
+    for kb_path in kb_paths:
+        prefix = f"{kb_path}/"
+        paginator = s3_client.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith(".pdf"):
+                    file_name = key.split("/")[-1]
+                    known_files[file_name] = kb_path
+
+    return known_files
+
+
+def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
+    """Auto-match files from S3 based on query contents and restrict to given kb_path."""
+    known_files = load_known_files_from_s3()
+    query_lc = user_txt.lower()
+    start_end_query = query_lc[:50] + query_lc[-50:]
+    matched_files = []
+
+    for file_name, file_kb_path in known_files.items():
+        # Only consider files from the active kb_path
+        if file_kb_path != kb_path:
+            continue
+
+        base_name = file_name.lower().replace(".pdf", "")
+        words = re.findall(r"\b\w+\b", base_name)
+
+        for i in range(len(words) - 1):
+            phrase = " ".join(words[i : i + 2])
+            if phrase in start_end_query:
+                matched_files.append(file_name)
+                break
+
+    return matched_files
+
+
+def is_invalid_response(text: str) -> bool:
+    """Check whether the response text is considered invalid or irrelevant."""
+    lowered = text.lower().strip()
+    # Regex for model refusals
+    refusal_regex = re.compile(
+        r"(i'?m sorry|i apologise|i apologize|i can(\'|’)t help you with (this )?request)",
+        re.IGNORECASE,
+    )
+    return (
+        not lowered
+        or lowered in {"sorry, i am unable to assist you with this request."}
+        or "unable to assist" in lowered
+        or "i cannot help" in lowered
+        or "no information available" in lowered
+        or "i'm not sure" in lowered
+        or IRRELEVANT in lowered
+        or refusal_regex.search(lowered)  # <- add this!
+    )
+
+
+def is_high_priority_query(query: str, category: str) -> bool:
+    """Check if teh initial user query is part of the standard queries."""
+    normalized_query = query.lower().strip()
+    normalized_category = category.strip().title()
+    return normalized_query in HIGH_PRIORITY_QUERIES.get(
+        normalized_category, set()
+    )
+
+
+def detect_prior_doc_from_query(query: str) -> str:
+    """Detect a relevant prior document from the user query."""
+    DOCUMENT_TOPICS = [
+        {
+            "file": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+            "keywords": ["supplier", "controller", "processor"],
+        },
+        {
+            "file": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
+            "keywords": ["liability", "breach", "dpa"],
+        },
+    ]
+    query_lower = query.lower()
+    for doc in DOCUMENT_TOPICS:
+        if all(k in query_lower for k in doc["keywords"]):
+            return doc["file"]
+    return PRIOR_DOC
 
 
 def generate_answer_with_context(formatted_prompt: str) -> dict:
@@ -160,7 +256,7 @@ def retrieve_file_chunks(
     Returns:
         dict[str, str]: filename → extracted full text from matched chunks.
     """
-    from .config import BUCKET_CONTAINER, MODEL_ARN
+    from .constants import BUCKET_CONTAINER, MODEL_ARN
 
     file_contents = {}
     logger.info("starting the retrieval")

@@ -13,7 +13,7 @@ from functools import lru_cache
 from sklearn.metrics.pairwise import cosine_similarity
 
 from .clients import bedrock_client
-from .config import EMBEDDING_MODEL_ID, logger
+from .constants import EMBEDDING_MODEL_ID, logger
 
 
 def get_embeddings(text: str) -> list[float]:
@@ -39,7 +39,7 @@ def get_embeddings(text: str) -> list[float]:
         return json.loads(response["body"].read().decode())["embedding"]
     except Exception as exc:
         logger.error("Cannot invoke %s — %s", EMBEDDING_MODEL_ID, exc)
-        raise  # TODO(@kvcn639): Raise specific exception class (e.g., EmbeddingError)
+        raise exc
 
 
 @lru_cache(maxsize=1024)

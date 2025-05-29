@@ -16,7 +16,7 @@ from io import BytesIO
 import pandas as pd
 
 from .clients import s3_client
-from .config import BUCKET_CONTAINER, logger
+from .constants import BUCKET_CONTAINER, logger
 
 
 def s3_uri(bucket: str, key: str) -> str:

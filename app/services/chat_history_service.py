@@ -8,6 +8,7 @@ import boto3
 import pandas as pd
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
+from clients import s3_client
 from config import get_secret
 from fastapi import HTTPException
 from models import ChatHistorySearchRequest, ChatInteraction, FeedbackRequest
@@ -20,7 +21,7 @@ CHAT_TABLE = get_secret("CHAT_TABLE")
 BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
 
 boto_config = Config(retries={"max_attempts": 3}, max_pool_connections=50)
-s3_client = boto3.client("s3", config=boto_config)
+
 dynamodb = boto3.resource("dynamodb", region_name=REGION_ID)
 table = dynamodb.Table(CHAT_TABLE)
 

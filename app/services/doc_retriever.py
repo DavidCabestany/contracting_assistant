@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from .clients import bedrock_agent_runtime
-from .config import QNA_SEARCH_TYPE
+from .constants import QNA_SEARCH_TYPE
 
 QNA_MAX_RESULTS = 3
 

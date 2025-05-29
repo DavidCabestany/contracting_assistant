@@ -12,16 +12,12 @@ consistency and performance under load.
 import boto3
 from botocore.config import Config
 
-from .config import (  # TODO(@kvcn639): Consider renaming to AWS_REGION or moving to a central settings module
-    REGION_ID,
-)
+from .constants import REGION_ID
 
 # Shared boto3 config to optimize retries and connection pooling
 _boto_cfg = Config(
-    retries={
-        "max_attempts": 3,
-    },  # TODO(@kvcn639): Make retry settings configurable via environment
-    max_pool_connections=50,  # TODO(@kvcn639): Monitor connection usage and adjust based on load testing
+    retries={"max_attempts": 3},
+    max_pool_connections=50,
 )
 
 # Initialize Bedrock Agent Runtime client
