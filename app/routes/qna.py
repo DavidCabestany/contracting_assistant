@@ -21,7 +21,7 @@ from models import (
     RequestQuery,
     Result,
 )
-from prompts import FOLLOW_UP_PROMPT
+from prompts import AUGMENTED_PROMPT, FOLLOW_UP_PROMPT
 from services import (
     auto_attach_files,
     detect_prior_doc_from_query,
@@ -435,7 +435,11 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         logger.warning(
                             "113 ⚠ No content extracted from files – will fallback."
                         )
-                        augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content for this query."
+                        augmented_prompt = AUGMENTED_PROMPT.format(
+                            history_txt=history_txt,
+                            user_txt=user_txt,
+                            kb_text=kb_text,
+                        )
 
                         logger.info(
                             "114 ▶ Calling LLM with KB-augmented prompt"
@@ -498,7 +502,11 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             ),
                         )
 
-                    augmented_prompt = f"You are a professional contract assistant for AstraZeneca. this is the user history: {history_txt}\n\nUser Query: {user_txt}\n\nRelevant File Content:\n{kb_text}. If you don't receive any File Content, or you receive an error you must exactly reply: I can't access to the {{file}} content for this query. Please consider changing tabs or refrasing the question."
+                    augmented_prompt = AUGMENTED_PROMPT.format(
+                        history_txt=history_txt,
+                        user_txt=user_txt,
+                        kb_text=kb_text,
+                    )
 
                     logger.info("114 ▶ Calling LLM with KB-augmented prompt")
                     direct_resp = generate_answer_with_context(

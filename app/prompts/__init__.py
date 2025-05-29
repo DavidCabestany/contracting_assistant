@@ -1,6 +1,7 @@
 """Init file for the prompts package."""
 
 from .prompts import (
+    AUGMENTED_PROMPT,
     BASE_PROMPT,
     BUSINESS_UNIT_PROMPT,
     CATEGORY_PROMPT,
@@ -15,6 +16,7 @@ from .prompts import (
 
 __all__ = [
     "BASE_PROMPT",
+    "AUGMENTED_PROMPT",
     "BUSINESS_UNIT_PROMPT",
     "CATEGORY_PROMPT",
     "DEFAULT_INSTRUCTION",

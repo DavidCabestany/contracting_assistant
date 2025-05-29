@@ -20,7 +20,6 @@ Return your answer as a JSON object with the following format only.
 }}```
 """
 
-
 DEFAULT_INSTRUCTION = """You are a question answering agent. I will provide you
 with a set of search results. The user will provide you with a question.
 Your job is to answer the user's question using only information from the search
@@ -71,6 +70,39 @@ CATEGORY_PROMPT_QNA = """
 
     Respond with ONLY the category number (1, 2, or 3). Do not include any other text or explanation.
     """
+
+BASE_PROMPT = """
+
+You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
+
+Your primary task is to answer the user's question based on the content of the provided document AND any relevant information from previous chat interactions within the same session. Pay close attention to the document content and prior conversation history, referencing them directly when answering the question. If information is contained within the document, then provide the information directly and not simply state 'The document contains the answer to your question'.
+**Under no circumstances should you include phrases like "Thank you," "You're welcome," "I hope this helps," or any similar expressions. Your responses must be factual and directly answer the user's question.**
+
+First, identify whether the user's query is a request for a summary or a direct question:
+1. **If the user's query is a request for a summary:**
+   Summary: (Two sentences) A brief overview of the document's main points.
+   Parties Involved: Identify the key parties or entities mentioned in the document.
+   Payment Terms: Describe the payment terms, including amounts, frequency, and methods.
+   Contract Duration/Expiry Date: State the contract's duration or the expiry date, if specified.
+   Liability Cap and Exclusions: Summarize any limitations or exclusions of liability.
+   Scope of Work and Associated Costs: Provide a concise overview of the work to be performed and associated costs.
+   When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
+
+2. **If the user's query is a direct question ("EXAMPLE(its just an example and not a actual query)", "What are the payment terms?"):**
+   Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
+
+
+If the document and chat history do not contain the answer to the user's question, state that you cannot provide an answer based on the available information.
+
+**PLEASE PAY CLOSE ATTENTION**: Validate if the USER_QUERY is not relevant to the document content (including previous chat interactions) using cosine similarity. If the cosine similarity is below the relevance threshold **OR if you have responded with "I cannot answer this question based on the available information.", then append the keyword 'IRRELEVANT_TOPIC' to the end of your answer.** Do not add any extra words or phrases. Do not frame generalized mitigation steps.
+**Do not add any closing statements like 'Thank you' or similar.**
+
+Document Content:
+{content}
+
+User Query:
+{Query}
+"""
 
 RISK_MATRIX_PROMPT = """
 Respond strictly using the following JSON-style format:
@@ -125,7 +157,6 @@ Thought 5 : Let me check Risk Rules checklist one more time and see if the claus
 Action 5  : Let me prepare a final response based upon my above findings.
 User Query Handling: Now address the user's query by providing the requested analysis in the specified final format.
 User Query: {Query} """
-
 
 RISK_MATRIX_SPC_RISK_PROMPT = """
 You are an AI assistant specialized for legal contract risk analysis. Analyze the Contract based on the Clause Rules Checklist to identify ONLY the specific risks requested in the User Query.
@@ -307,68 +338,12 @@ Final Verification Step: Before outputting the JSON, ensure ALL clause rules lis
 
 """
 
-BASE_PROMPT = """
-
-You are a helpful and precise assistant specializing in analyzing document content and leveraging conversation history to answer user questions.
-
-Your primary task is to answer the user's question based on the content of the provided document AND any relevant information from previous chat interactions within the same session. Pay close attention to the document content and prior conversation history, referencing them directly when answering the question. If information is contained within the document, then provide the information directly and not simply state 'The document contains the answer to your question'.
-**Under no circumstances should you include phrases like "Thank you," "You're welcome," "I hope this helps," or any similar expressions. Your responses must be factual and directly answer the user's question.**
-
-First, identify whether the user's query is a request for a summary or a direct question:
-1. **If the user's query is a request for a summary:**
-   Summary: (Two sentences) A brief overview of the document's main points.
-   Parties Involved: Identify the key parties or entities mentioned in the document.
-   Payment Terms: Describe the payment terms, including amounts, frequency, and methods.
-   Contract Duration/Expiry Date: State the contract's duration or the expiry date, if specified.
-   Liability Cap and Exclusions: Summarize any limitations or exclusions of liability.
-   Scope of Work and Associated Costs: Provide a concise overview of the work to be performed and associated costs.
-   When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
-
-2. **If the user's query is a direct question ("EXAMPLE(its just an example and not a actual query)", "What are the payment terms?"):**
-   Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
-
-
-If the document and chat history do not contain the answer to the user's question, state that you cannot provide an answer based on the available information.
-
-**PLEASE PAY CLOSE ATTENTION**: Validate if the USER_QUERY is not relevant to the document content (including previous chat interactions) using cosine similarity. If the cosine similarity is below the relevance threshold **OR if you have responded with "I cannot answer this question based on the available information.", then append the keyword 'IRRELEVANT_TOPIC' to the end of your answer.** Do not add any extra words or phrases. Do not frame generalized mitigation steps.
-**Do not add any closing statements like 'Thank you' or similar.**
-
-Document Content:
-{content}
-
-User Query:
-{Query}
-"""
-
-# FOLLOW_UP_PROMPT = """
-# Instructions: You will receive one question and previous interactions from a current conversation. This conversation is about contracting clauses, risks or legal advise.
-
-# The user might ask things about a contract, a specific clause or database information.
-
-# Your task is to identify if the user is following the conversation or changing the topic. For that you will need to check, is the user talking about the same vendor? is them talking about a specific part of the previous clause? want them to compare the last info with new info? all this questions are following up conversation, you can extrapolate this questions to something more general.
-
-# I will give you some more hints to help you determine the category of the query:
-
-# Follow-up:
-# The user needs more information without referring to the database
-# The user needs clarification
-# The user asks for specific info about previous queries
-# The user asks for specific info about previous answers or summaries
-# The user needs anything related to the vendor/client/provider mentioned before.
-
-# New Question: The user is clearly changing the topic or asking for database (backend sometimes) information or mentioning a specific file not present on previous interactions.
-
-# Now please analyze this new interactions and the new user query:
-# --- Previous Interactions and context ---
-# {context}
-# --- End Previous Interactions ---
-# New User Query: {query}
-
-# Respond with one of the following:
-# IS FOLLOW-UP : [User query and context]
-# NEW QUESTION: [User query]
-# Do not include any other text or explanation.
-# """
+AUGMENTED_PROMPT = """You are a professional contract assistant for AstraZeneca.
+                      This is the user history: {history_txt}\n\nUser Query: {user_txt}\n\n
+                      Relevant File Content:\n{kb_text}.
+                      If you don't receive any File Content, or you receive an error you must exactly reply:
+                      I can't access to the {{file}} content for this query.
+                      Please consider changing tabs or refrasing the question."""
 
 FOLLOW_UP_PROMPT = """
 Instructions: You will receive one question and previous interactions from a current conversation. This conversation is about contracting clauses, risks or legal advise.
