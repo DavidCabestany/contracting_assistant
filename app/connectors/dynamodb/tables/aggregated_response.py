@@ -6,12 +6,13 @@ from typing import Optional
 import boto3
 import pandas as pd
 from botocore.config import Config
+from config import get_secret
 from connectors.dynamodb import DynamoDB
 from logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
-AGGREGATED_RESPONSE_DYNAMODB = "azcdi-us-ops-procure-aggresponsetime-dev"
-REGION_ID = "us-east-1"
+AGGREGATED_RESPONSE_DYNAMODB = get_secret("AGGREGATE_RESPONSETIME_TABLE")
+REGION_ID = get_secret("REGION_ID")
 
 
 class AggregatedResponse(DynamoDB):
