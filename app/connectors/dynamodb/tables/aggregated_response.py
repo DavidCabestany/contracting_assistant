@@ -10,7 +10,7 @@ from connectors.dynamodb import DynamoDB
 from logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
-AGGREGATED_RESPONSE_DYNAMODB = "aig-azcdi-us-ops-sop-aggresponsetime-dev"
+AGGREGATED_RESPONSE_DYNAMODB = "azcdi-us-ops-procure-aggresponsetime-dev"
 REGION_ID = "us-east-1"
 
 

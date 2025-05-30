@@ -29,28 +29,19 @@ responseTime_router = APIRouter()
 
 @responseTime_router.post("/getAverageResponseTime")
 async def get_average_response_time(payload: TimeframePayload):
-    """Calculate the average response time over a given timeframe.
-
-    This endpoint computes the average response time for interactions
-    within a specified timeframe. It supports 'last30days', 'lastQuarter',
-    and 'lastYear' timeframes.
-
-    Args:
-        payload (TimeframePayload): The payload containing the timeframe.
-
-    Returns:
-        dict: A dictionary containing the calculated data.
-
-    Raises:
-        HTTPException: If the timeframe is invalid, a 400 status code is returned.
-    """
+    """Calculate the average response time over a given timeframe."""
     timeframe = payload.timeframe
 
-    if timeframe not in ["last30days", "lastQuarter", "lastYear"]:
+    if timeframe not in [
+        "last7days",
+        "last30days",
+        "last90days",
+        "last365days",
+    ]:
         logger.error(f"Invalid timeframe: {timeframe}")
         raise HTTPException(
             status_code=400,
-            detail="Invalid timeframe. Allowed values: last30days, lastQuarter, lastYear",
+            detail="Invalid timeframe. Allowed values: last7days, last30days, last90days, last365days",
         )
 
     start_date, end_date = ResponseTimeLogic.calculate_date_range(timeframe)
@@ -86,9 +77,9 @@ async def get_current_response_time():
             {
                 "value": round(avg_response_time, 2),
                 "bounds": [
-                    {"value": 33.33, "color": "#1bde69"},
-                    {"value": 33.33, "color": "#6aeb83"},
-                    {"value": 33.33, "color": "#ede65a"},
+                    {"value": 33.33, "color": "#C1D300"},
+                    {"value": 33.33, "color": "#FBB040"},
+                    {"value": 33.33, "color": "#7B234A"},
                 ],
             }
         ]
