@@ -34,8 +34,8 @@ from services import (
     retrieve_file_chunks,
     session_history,
     store_interaction,
+    process_user_query,
 )
-from services.qna import process_user_query
 
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (

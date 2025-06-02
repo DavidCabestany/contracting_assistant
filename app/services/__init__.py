@@ -24,6 +24,7 @@ from .qna import (
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
     retrieve_file_chunks,
+    process_user_query,
 )
 from .templates import retrieve_template
 
