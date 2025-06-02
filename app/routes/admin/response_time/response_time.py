@@ -15,14 +15,15 @@ Classes:
     ResponseTimeRouter: Defines the API endpoints for response time calculations.
 """
 
+import logging
+
 # FastAPI imports
 from connectors import AggregatedResponse
 from fastapi import APIRouter, HTTPException
-from logger import SingletonLogger
 from models import TimeframePayload
 from routes.admin.response_time.response_time_logic import ResponseTimeLogic
 
-logger = SingletonLogger().get_logger()
+logger = logging.getLogger(__name__)
 
 responseTime_router = APIRouter()
 

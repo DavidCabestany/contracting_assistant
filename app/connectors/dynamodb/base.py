@@ -1,13 +1,13 @@
 """This module provides a DynamoDB class that implements a singleton pattern for interacting with AWS DynamoDB tables. The class includes methods for scanning items and inserting new items into the table."""
 
+import logging
 from abc import ABC
 from typing import Dict, List
 
 import boto3
 from botocore.config import Config
-from logger import SingletonLogger
 
-logger = SingletonLogger().get_logger()
+logger = logging.getLogger(__name__)
 
 
 class DynamoDB(ABC):

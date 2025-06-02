@@ -1,5 +1,6 @@
 """This module provides functionality for interacting with the aggregated response data stored in DynamoDB. It includes classes and methods for fetching data within a specified date range and retrieving the latest non-zero interaction records.Dependencies include boto3 and pandas."""
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -8,9 +9,8 @@ import pandas as pd
 from botocore.config import Config
 from config import get_secret
 from connectors.dynamodb import DynamoDB
-from logger import SingletonLogger
 
-logger = SingletonLogger().get_logger()
+logger = logging.getLogger(__name__)
 AGGREGATED_RESPONSE_DYNAMODB = get_secret("AGGREGATE_RESPONSETIME_TABLE")
 REGION_ID = get_secret("REGION_ID")
 

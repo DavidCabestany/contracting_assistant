@@ -1,12 +1,12 @@
 """A class to calculate date ranges and filter data based on timeframes for response times."""
 
 import calendar
+import logging
 from datetime import datetime, timedelta
 
 import pandas as pd
-from logger import SingletonLogger
 
-logger = SingletonLogger().get_logger()
+logger = logging.getLogger(__name__)
 
 
 class ResponseTimeLogic:
