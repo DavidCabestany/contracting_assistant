@@ -12,11 +12,12 @@ logger = SingletonLogger().get_logger()
 class ResponseTimeLogic:
     """A class to calculate date ranges and filter data based on timeframes for response times.
 
-    This class provides methods to calculate date ranges based on predefined timeframes and filter data to calculate
-    average response times. The timeframes it supports include 'last7days', 'last30days', 'last90days', and 'last365days'.
+    This class provides methods to calculate date ranges based on predefined timeframes
+    and filter data to calculate average response times.
+    The timeframes it supports include 'last7days', 'last30days', 'last90days', and 'last365days'.
 
     Methods:
-    --------
+    -------
     calculate_date_range(timeframe: str) -> tuple[datetime.date, datetime.date]
         Calculate the start and end dates based on the specified timeframe.
 
@@ -59,13 +60,19 @@ class ResponseTimeLogic:
     def filter_and_calculate(df: pd.DataFrame, timeframe: str) -> list:
         """Filters and aggregates data based on the timeframe to calculate average response times.
 
-        Args:
-            df (pandas.DataFrame): DataFrame containing timestamps and durations.
-            timeframe (str): One of 'last7days', 'last30days', 'last90days', 'last365days'.
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            DataFrame containing timestamps and durations.
+
+        timeframe : str
+            One of 'last7days', 'last30days', 'last90days', 'last365days'.
 
         Returns:
-            list[dict]: A list of dictionaries with 'label' and 'value' keys representing
-                average durations per day, week, month, or quarter.
+        -------
+        list
+            A list of dictionaries with 'label' and 'value' keys representing
+            average durations per day, week, month, or quarter.
         """
         if df is None or df.empty:
             logger.info(f"No data available for timeframe: {timeframe}")
@@ -126,11 +133,21 @@ class ResponseTimeLogic:
             ]
 
         elif timeframe == "last90days":
-            # Extract month and year for each date
             df["month_year"] = df["timestamp"].dt.strftime("%b %Y")
             avg_per_month = (
                 df.groupby("month_year")["duration_s"].mean().reset_index()
             )
+
+            # Extract month and year for sorting
+            avg_per_month["month"] = avg_per_month["month_year"].apply(
+                lambda x: datetime.strptime(x, "%b %Y").month
+            )
+            avg_per_month["year"] = avg_per_month["month_year"].apply(
+                lambda x: datetime.strptime(x, "%b %Y").year
+            )
+
+            # Sort months by year and month
+            avg_per_month.sort_values(by=["year", "month"], inplace=True)
 
             # Logging the dates for each month
             unique_months = df["month_year"].unique()
@@ -151,7 +168,6 @@ class ResponseTimeLogic:
             ]
 
         elif timeframe == "last365days":
-            # Extract quarter and year for each date
             df["quarter"] = df["timestamp"].dt.to_period("Q")
             df["quarter_label"] = df["quarter"].apply(
                 lambda x: f"Q{x.quarter} {x.year}"
@@ -187,4 +203,4 @@ class ResponseTimeLogic:
                 for _, row in avg_per_quarter.iterrows()
             ]
 
-        # Additional timeframe logic for 'last7days' can be added similarly
+        # Add any additional logic you might need for other timeframes
