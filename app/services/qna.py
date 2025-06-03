@@ -833,24 +833,6 @@ def process_user_query(
             logger.info("[Initial Check] No TIA clarification needed.")
             return ""
 
-    # Start composite prompt at follow-up 1 or higher
-    logger.info(
-        f"[Follow-up Detected] Building clarification prompt at tx_count={tx_count}"
-    )
-    original_query = chat_history[0] if chat_history else ""
-    bot_reply = chat_history[-2] if len(chat_history) >= 2 else ""
-    user_followup = user_query
-
-    formatted_prompt = build_clarification_prompt(
-        original_user_query=original_query,
-        bot_questions=[bot_reply],
-        followup_input=user_followup,
-    )
-
-    logger.debug(f"[Clarification Prompt]\n{formatted_prompt}")
-
-    missing = detect_missing_keywords(full_context_text)
-
     if tx_count < 3:
         if missing:
             logger.info(f"[Follow-up Missing Fields] → {missing}")
