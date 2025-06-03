@@ -34,9 +34,7 @@ from services import (
     retrieve_file_chunks,
     session_history,
     store_interaction,
-    process_user_query,
 )
-
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
     db_tab_checker,
@@ -356,7 +354,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     ),
                 ),
             )
-        
+
         # Step 3-b: TIA clarification and detection
         logger.info("085 ▶ Checking for TIA clarification")
         chat_history_list = [
@@ -364,12 +362,19 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             for msg in session_history(ui_session_id).get(ui_session_id, [])
             if msg.get("UserMessage")
         ]
- 
-        clarification_text = process_user_query(user_txt, int(tx_count), chat_history_list, ui_session_id)
+
+        clarification_text = process_user_query(
+            user_txt, int(tx_count), chat_history_list, ui_session_id
+        )
 
         try:
-            if clarification_text and clarification_text != "FINAL_RESPONSE_REQUIRED":
-                logger.info("[Clarification Needed] Skipping KB and responding with follow-up questions.")
+            if (
+                clarification_text
+                and clarification_text != "FINAL_RESPONSE_REQUIRED"
+            ):
+                logger.info(
+                    "[Clarification Needed] Skipping KB and responding with follow-up questions."
+                )
                 return QueryResponse(
                     status="clarification_needed",
                     sessionId=ui_session_id,
@@ -387,10 +392,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     ),
                 )
         except Exception as e:
-                    logger.warning(
-                        "Clarification for TIA failed: %s",
-                        e,
-                    )
+            logger.warning(
+                "Clarification for TIA failed: %s",
+                e,
+            )
         pass
 
 
@@ -1088,7 +1093,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         if not answer:
             logger.error("320 ▶ No answer generated – aborting (HTTP 500)")
             raise HTTPException(
-                HTTP_500_INTERNAL_SERVER_ERROR, "Unable to generate an answer.")
+                HTTP_500_INTERNAL_SERVER_ERROR, "Unable to generate an answer."
+            )
 
         # Step 9: Fallback QnA logic and logging
         try:

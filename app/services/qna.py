@@ -11,7 +11,6 @@ import json
 import logging
 import re
 from collections.abc import Sequence
-from collections import defaultdict
 
 from utils import extract_file_locations
 
