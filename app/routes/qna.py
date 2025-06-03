@@ -379,7 +379,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         )
         selected_doc = detect_prior_doc_from_query(user_txt)
         if selected_doc != PRIOR_DOC:
-            files = [selected_doc]
+            files = selected_doc
             logger.info(
                 "101 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
             )

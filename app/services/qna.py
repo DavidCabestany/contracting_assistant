@@ -117,13 +117,21 @@ def detect_prior_doc_from_query(query: str) -> str:
     """Detect a relevant prior document from the user query."""
     DOCUMENT_TOPICS = [
         {
-            "file": "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+            "file": ["Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"],
             "keywords": ["supplier", "controller", "processor"],
         },
         {
-            "file": "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
-            "keywords": ["liability", "breach", "dpa"],
+            "file": ["Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"],
+            "keywords": ["dpa"],
         },
+           {
+            "file": ["Data Protection Appendix - Sharing Anonymised Data.pdf","Data Protection Appendix – Receiving Anonymised Data.pdf","Playbook_Data Protection Appendix – receiving Anonymised Data.pdf","Playbook_Data Protection Appendix – sharing Anonymised Data.pdf"],
+            "keywords": ["personal","anonymized"],
+        },
+        {
+            "file": ["Data Protection Appendix - Sharing Anonymised Data.pdf","Data Protection Appendix – Receiving Anonymised Data.pdf","Playbook_Data Protection Appendix – receiving Anonymised Data.pdf","Playbook_Data Protection Appendix – sharing Anonymised Data.pdf"],
+            "keywords": ["personal","anonymised"],
+        }
     ]
     query_lower = query.lower()
     for doc in DOCUMENT_TOPICS:
