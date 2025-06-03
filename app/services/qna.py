@@ -569,3 +569,283 @@ def retrieve_citations_from_query(
 
     citations = extract_file_locations(resp)
     return citations
+
+
+## TIA Clarification
+# Triggers and Clarification Questions
+PRIMARY_CLARIFICATION_TRIGGERS = {
+    "TIA",
+    "Tia assessment",
+    "tia",
+    "Transfer Impact Assessment",
+    "Exhibit",
+    "exhibit",
+    "Agreement",
+    "agreement",
+}
+SECONDARY_CONTEXTUAL_KEYWORDS = {
+    "vendor",
+    "institution",
+    "Institution",
+    "location",
+    "database",
+    "clinical trials",
+    "Medical Communications",
+    "publications",
+    "UK",
+    "EU",
+}
+
+# -------------------------
+# CLARIFICATION LOGIC
+# -------------------------
+
+INITIAL_FIXED_QUESTIONS = [
+    "What type of data is being processed?",
+    "What is the direction of the data flow (are we sharing data with the vendor or are we receiving data from the vendor)?",
+    "If we share data, will the vendor process it on our behalf or for its own purposes?",
+    "If we receive data, do we receive it for our own purposes?",
+]
+
+FOLLOWUP_KEYWORDS = {
+    "type of data": ["patient", "clinical", "trial", "sensitive", "health"],
+    "data flow": ["share", "receive", "send", "transfer"],
+    "vendor role": ["on our behalf", "own purpose", "vendor process"],
+    "purpose": ["r&d", "objective", "purpose", "communication"],
+    "vendor identity": ["vendor", "institution"],
+    "location": ["uk", "eu", "outside", "location", "international"],
+}
+
+QUESTION_MAP = {
+    "type of data": INITIAL_FIXED_QUESTIONS[0],
+    "data flow": INITIAL_FIXED_QUESTIONS[1],
+    "vendor role": INITIAL_FIXED_QUESTIONS[2],
+    "receive data": INITIAL_FIXED_QUESTIONS[3],
+}
+
+
+def trigger_initial_clarification(query: str) -> bool:
+    """Determines if the user query contains any initial trigger keywords requiring clarification.
+
+    Args:
+        query (str): The user's input query string.
+
+    Returns:
+        bool: True if any initial trigger keywords from the question map are found in the query,
+              indicating that clarification questions should be asked; False otherwise.
+    """
+    q = query.lower()
+    primary_hits = sum(
+        1
+        for word in map(str.lower, PRIMARY_CLARIFICATION_TRIGGERS)
+        if word in q
+    )
+    secondary_hits = sum(
+        1
+        for word in map(str.lower, SECONDARY_CONTEXTUAL_KEYWORDS)
+        if word in q
+    )
+    logger.info(
+        f"[Trigger Check] Primary hits: {primary_hits}, Secondary hits: {secondary_hits}"
+    )
+    return primary_hits >= 2 and secondary_hits >= 2
+
+
+def detect_present_keywords(text: str) -> set[str]:
+    """Detects which predefined keyword categories are present in the input text.
+
+    Args:
+        text (str): The input string to analyze.
+
+    Returns:
+        set[str]: A set of keys from FOLLOWUP_KEYWORDS that were detected in the text.
+    """
+    text = text.lower()
+    found = set()
+    for key, keywords in FOLLOWUP_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            found.add(key)
+    logger.info(f"[Keyword Detection] Found fields: {found}")
+    return found
+
+
+def detect_missing_keywords(context_text: str) -> list[str]:
+    """Identifies which required keyword categories are missing from the context text.
+
+    Args:
+        context_text (str): The text containing accumulated user input and chat context.
+
+    Returns:
+        list[str]: A list of questions (from QUESTION_MAP) that correspond to missing keyword categories.
+    """
+    context_lc = context_text.lower()
+    missing = []
+    for key, words in FOLLOWUP_KEYWORDS.items():
+        if key not in QUESTION_MAP:
+            continue  # ← avoid KeyError by skipping unmapped keys
+        if not any(word in context_lc for word in words):
+            missing.append(QUESTION_MAP[key])
+    logger.info(f"[Missing Keywords] → {missing}")
+    return missing
+
+
+def fallback_final_answer(context_text: str) -> str:
+    """Generates a final fallback answer based on keywords found in the context text.
+
+    If the context contains sufficient detail about data transfer, returns a definitive
+    answer about the need for a Transfer Impact Assessment (TIA). Otherwise, requests
+    additional information.
+
+    Args:
+        context_text (str): The full context accumulated from the chat.
+
+    Returns:
+        str: A final answer or a request for additional clarification.
+    """
+    context = context_text.lower()
+    if all(
+        term in context
+        for term in ["clinical", "patient", "az", "vendor", "on our behalf"]
+    ):
+        if "outside" in context or "international" in context:
+            return (
+                "Yes, a Transfer Impact Assessment (TIA) is required in this case. "
+                "Since the data is being shared outside the UK or EU, a TIA must be conducted to assess the risks."
+            )
+        else:
+            return (
+                "No, a Transfer Impact Assessment (TIA) is not required if the data remains within the UK or EU. "
+                "You should still ensure a Data Processing Agreement is in place."
+            )
+    return (
+        "To answer your question correctly, I need more information:\n"
+        "- " + "\n- ".join(detect_missing_keywords(context_text)[:2])
+    )
+
+
+def build_clarification_prompt(
+    original_user_query: str, bot_questions: list[str], followup_input: str
+) -> str:
+    """Generates a clarification prompt for a Legal/Contract Assistant.
+
+    This function constructs a formatted string used as a prompt for a
+    Legal/Contract Assistant specializing in Transfer Impact Assessments
+    (TIAs). The prompt includes context from an original user query,
+    questions from the bot for clarification, and responses to follow-up
+    input.
+
+    Args:
+        original_user_query: The initial query or request from the user.
+        bot_questions: A list of questions generated by the bot to clarify
+            the initial query.
+        followup_input: The user's response to the bot's clarification questions.
+
+    Returns:
+        A formatted string that guides the Legal/Contract Assistant on how
+        to proceed based on the provided input and responses.
+    """
+    return f"""
+You are a Legal/Contract Assistant specializing in Transfer Impact Assessments (TIAs).
+
+Context:
+Original user query:
+{original_user_query}
+
+Bot clarification:
+{chr(10).join(bot_questions)}
+
+User's clarification:
+{followup_input}
+
+Instructions:
+- If all of the following are clearly answered:
+  * Type of data
+  * Flow of data (shared/received)
+  * Role of vendor
+  * Purpose of processing
+  * Vendor identity
+  * Location of data
+Then return: FINAL_RESPONSE_REQUIRED
+
+Otherwise, ask 1–2 missing clarification questions.
+Do NOT repeat previously answered ones.
+""".strip()
+
+
+session_context_memory = defaultdict(set)
+REQUIRED_KEYS = set(FOLLOWUP_KEYWORDS.keys())
+
+
+def process_user_query(
+    user_query: str, tx_count: int, chat_history: list[str], session_id: str
+) -> str:
+    """Processes the user's query in the context of a session and chat history.
+
+    Depending on the transaction count and the completeness of information, this function
+    may request more clarification or provide a final answer about the need for a TIA.
+
+    Args:
+        user_query (str): The latest user input.
+        tx_count (int): The current transaction count for the session.
+        chat_history (list[str]): A list of previous user and assistant messages.
+        session_id (str): A unique identifier for the user's session.
+
+    Returns:
+        str: A clarification message, final answer, or an empty string if no response is needed.
+    """
+    logger.info(
+        f"[Follow-up Detected] Building clarification prompt at tx_count={tx_count}"
+    )
+    original_query = chat_history[0] if chat_history else ""
+    bot_reply = chat_history[-2] if len(chat_history) >= 2 else ""
+    user_followup = user_query
+
+    # Build prompt containing full context
+    formatted_prompt = build_clarification_prompt(
+        original_user_query=original_query,
+        bot_questions=[bot_reply],
+        followup_input=user_followup,
+    )
+    logger.debug(f"[Clarification Prompt]\n{formatted_prompt}")
+
+    # Update memory based on structured full prompt
+    context_set = session_context_memory[session_id]
+    context_set.update(detect_present_keywords(formatted_prompt))
+
+    logger.info(
+        f"[Context Set] TX={tx_count} Session={session_id} → Context Keys: {context_set}"
+    )
+
+    # Use full context for keyword detection
+    full_context_text = formatted_prompt
+    missing = detect_missing_keywords(full_context_text)
+
+    if tx_count == 0:
+        if trigger_initial_clarification(user_query):
+            logger.info("[Initial Trigger Fired] Sending initial 4 questions.")
+            return (
+                "To answer your question correctly, I need more information:\n"
+                + "\n".join(INITIAL_FIXED_QUESTIONS)
+            )
+        else:
+            logger.info("[Initial Check] No TIA clarification needed.")
+            return ""
+
+    if tx_count < 3:
+        if missing:
+            logger.info(f"[Follow-up Missing Fields] → {missing}")
+            return (
+                "To answer your question correctly, I need more information:\n"
+                + "\n".join(f"- {q}" for q in missing[:2])
+            )
+        logger.info("[Clarification Complete] All required fields found.")
+        return FINAL_RESPONSE_REQUIRED
+
+    # Final fallbck (tx_count >=3): assess only from structured context
+    logger.info("[LLM-style fallback at tx_count >= 3]")
+    if not missing:
+        return FINAL_RESPONSE_REQUIRED
+    return (
+        "To answer your question correctly, I need more information:\n"
+        + "\n".join(f"- {q}" for q in missing[:2])
+    )
