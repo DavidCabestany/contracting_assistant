@@ -60,15 +60,15 @@ def load_known_files_from_s3() -> dict[str, str]:
     return known_files
 
 
-def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
+def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
     """Auto-match files from S3 based on query contents and restrict to given kb_path."""
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
     start_end_query = query_lc[:50] + query_lc[-50:]
-    matched_files = []
+    matched_files = set()
 
+    # Existing logic — match filenames
     for file_name, file_kb_path in known_files.items():
-        # Only consider files from the active kb_path
         if file_kb_path != kb_path:
             continue
 
@@ -78,7 +78,7 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
         for i in range(len(words) - 1):
             phrase = " ".join(words[i : i + 2])
             if phrase in start_end_query:
-                matched_files.append(file_name)
+                matched_files.add(file_name)
                 break
 
     # ✅ FORCE-INJECT GCP if clinical trial keywords are detected
@@ -586,15 +586,17 @@ PRIMARY_CLARIFICATION_TRIGGERS = {
 SECONDARY_CONTEXTUAL_KEYWORDS = {
     "vendor",
     "institution",
-    "Institution",
     "location",
     "database",
+    "clinical trial",
     "clinical trials",
+    "medical communication",
     "Medical Communications",
     "publications",
     "UK",
     "EU",
 }
+
 
 # -------------------------
 # CLARIFICATION LOGIC
