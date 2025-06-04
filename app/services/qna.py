@@ -81,6 +81,23 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
                 matched_files.append(file_name)
                 break
 
+    # ✅ FORCE-INJECT GCP if clinical trial keywords are detected
+    gcp_keywords = [
+        "clinical trial",
+        "clinical trials",
+        "cro",
+        "cros",
+        "contract research organization",
+        "service provider",
+        "service providers",
+        "gcp",
+    ]
+    gcp_file = "Good Clinical Practice Module - Playbook.pdf"
+    if any(keyword in query_lc for keyword in gcp_keywords):
+        if gcp_file in known_files and known_files[gcp_file] == kb_path:
+            if gcp_file not in matched_files:
+                matched_files.append(gcp_file)
+
     return matched_files
 
 
@@ -236,6 +253,25 @@ def _render_prompt(user_query: str, base_prompt: str | None = None) -> str:
     )
     tmpl = str(tmpl)
     tmpl += "\n\n%ADDITIONAL INSTRUCTIONS%:\nPlease treat suppliers and vendors as aliases in the chunks."
+
+    # ✅ GCP-specific LLM guidance if CRO/service providers mentioned
+    if any(
+        term in user_query.lower()
+        for term in [
+            "cro",
+            "cros",
+            "contract research organization",
+            "service provider",
+            "service providers",
+            "clinical trial",
+            "clinical trials",
+        ]
+    ):
+        tmpl += (
+            "\nIf the Good Clinical Practice (GCP) module is relevant based on the user query, "
+            "please cite it appropriately and ensure a detailed, context-rich answer is generated from that module."
+        )
+
     tmpl += f"\n\n%USER QUERY:\n{user_query}\n"
     return tmpl
 
@@ -352,6 +388,21 @@ def retrieve_and_generate(
         session_id,
     )
 
+    # Auto-attach trigger if no doc passed
+    if not document and kb_path:
+        matched = auto_attach_files(query, kb_path)
+        logger.info(f"Auto-attached files from query: {matched}")
+
+        if matched:
+            return retrieve_and_generate_prioritized_doc(
+                query=query,
+                kb_id=kb_id,
+                knowledge_base_folder=kb_path,
+                files=matched,
+                session_id=session_id,
+            )
+
+    # Fallback: regular full-KB search
     filter_config = {}
     if document and kb_path:
         s3_uri = f"s3://{BUCKET_CONTAINER}/{kb_path}/{document}"
@@ -391,6 +442,8 @@ def retrieve_and_generate(
         response = bedrock_agent_runtime.retrieve_and_generate(**request_body)
         logger.info("EXIT ▶ retrieve_and_generate — success")
         logger.debug("Bedrock response: %s", json.dumps(response, indent=2))
+        if not response or not isinstance(response, dict):
+            raise ValueError("Malformed response from Bedrock")
         return response
     except Exception:
         logger.exception("Bedrock retrieve_and_generate FAILED")
@@ -468,6 +521,8 @@ def retrieve_and_generate_prioritized_doc(
         logger.info(
             "EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESSFUL call"
         )
+        if not response or not isinstance(response, dict):
+            raise ValueError("Empty or invalid Bedrock response.")
         return response
     except Exception as e:
         logger.error(
