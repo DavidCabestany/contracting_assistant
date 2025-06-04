@@ -46,7 +46,7 @@ You are a routing agent of AstraZeneca Policies.
 
     Return exactly one word:
     IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts.
-    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons etc. and what about this country?
+    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons, GDP, CRO, GCP,  etc and also what about this country?
     SUMMARY  - if they merely pasted text or explicitly ask "summarise".
 
     Now classify:
@@ -99,6 +99,28 @@ def response_sanitizer(answer: str) -> str:
 
 
 def needs_summary(query: str) -> bool:
+    """Determine if a query should be summarised instead of answered.
+
+    Args:
+        query (str): Raw user input.
+
+    Returns:
+        bool: True if LLM classifies it as a summary request.
+    """
+    try:
+        resp = ChatBedrock(model_id=MODEL_ID).invoke(
+            _CLASSIFY_PROMPT.format(query=query.strip()),
+        )
+        return resp.content.strip().upper()
+    except Exception as exc:
+        logger.warning(
+            "LLM classification failed, defaulting to QUESTION: %r",
+            exc,
+        )
+        return "QUESTION"
+
+
+def db_topic_checker(query: str) -> bool:
     """Determine if a query should be summarised instead of answered.
 
     Args:
