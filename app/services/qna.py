@@ -85,21 +85,6 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
                 matched_files.add(file_name)
                 break
 
-    # Force-inject GCP file if relevant keywords found
-    gcp_keywords = [
-        "clinical trial",
-        "clinical trials",
-        "cro",
-        "cros",
-        "contract research organization",
-        "service provider",
-        "service providers",
-    ]
-    if any(kw in query_lc for kw in gcp_keywords):
-        gcp_file = "Good Clinical Practice Module - Playbook.pdf"
-        if gcp_file in known_files and known_files[gcp_file] == kb_path:
-            matched_files.add(gcp_file)
-
     return list(matched_files)
 
 
