@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class ChatMetadata(BaseModel):
@@ -51,7 +51,9 @@ class ChatInteraction(BaseModel):
     UserMessageSearch: Optional[str] = None
     BotResponse: Optional[str] = None
     BotResponseSearch: Optional[str] = None
-    IsFeedbackPositive: Optional[bool] = None
+    IsFeedbackPositive: Union[
+        Literal[True], Literal[False], Literal["no_feedback"]
+    ] = "no_feedback"
     FeedbackComment: Optional[str] = None
     Timestamp: Optional[str] = None
     StartTime: Optional[str] = None
@@ -59,6 +61,23 @@ class ChatInteraction(BaseModel):
     SessionStatus: Optional[str] = None
     ChatMetadata: ChatMetadata
     apiKey: Optional[str] = None
+
+    @field_validator("IsFeedbackPositive", mode="before")
+    def no_null_feedback(cls, v):
+        """Validates the value of IsFeedbackPositive to allow only True, False, or "no_feedback".
+
+        Any other value, including None or null, will be replaced by "no_feedback".
+
+        Args:
+            v: The input value for IsFeedbackPositive.
+
+        Returns:
+            Literal[True, False, "no_feedback"]: The validated value.
+
+        """
+        if v in (True, False, "no_feedback"):
+            return v
+        return "no_feedback"
 
 
 class ChatHistorySearchRequest(BaseModel):

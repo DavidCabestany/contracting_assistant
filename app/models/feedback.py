@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel
 
@@ -39,7 +39,7 @@ class FeedbackRequest(BaseModel):
         userId (Optional[str]): Identifier of the user providing feedback.
         sessionId (Optional[str]): Identifier of the chat session.
         messageId (Optional[str]): Identifier of the message being evaluated.
-        isFeedbackPositive (bool): Indicates if the feedback was positive.
+        IsFeedbackPositive (bool): Indicates if the feedback was positive.
         feedbackComment (Optional[str]): Optional free-text comment from the user.
     """
 
@@ -47,5 +47,7 @@ class FeedbackRequest(BaseModel):
     userId: Optional[str] = None
     sessionId: Optional[str] = None
     messageId: Optional[str] = None
-    isFeedbackPositive: bool
+    IsFeedbackPositive: Union[
+        Literal[True], Literal[False], Literal["no_feedback"]
+    ] = "no_feedback"
     feedbackComment: Optional[str] = None
