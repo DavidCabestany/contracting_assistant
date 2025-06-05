@@ -27,7 +27,6 @@ from services import (
     extract_file_locations,
     generate_answer_with_context,
     is_invalid_response,
-    process_user_query,
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
@@ -35,6 +34,7 @@ from services import (
     retrieve_file_chunks,
     session_history,
     store_interaction,
+    tia_followup_user_query,
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
@@ -363,14 +363,14 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             if msg.get("UserMessage")
         ]
 
-        clarification_text = process_user_query(
+        tia_clarification_text = tia_followup_user_query(
             user_txt, int(tx_count), chat_history_list, ui_session_id
         )
 
         try:
             if (
-                clarification_text
-                and clarification_text != "FINAL_RESPONSE_REQUIRED"
+                tia_clarification_text
+                and tia_clarification_text != "FINAL_RESPONSE_REQUIRED"
             ):
                 logger.info(
                     "[Clarification Needed] Skipping KB and responding with follow-up questions."
@@ -381,7 +381,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     userQuery=user_txt,
                     result=Result(
                         messageId=msg_id,
-                        answer=QnAAnswer(ans=clarification_text),
+                        answer=QnAAnswer(ans=tia_clarification_text),
                         transactionCount=tx_count,
                         citations=[],
                         feedback=Feedback(

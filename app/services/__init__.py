@@ -20,11 +20,11 @@ from .qna import (
     generate_answer_with_context,
     is_invalid_response,
     load_known_files_from_s3,
-    process_user_query,
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
     retrieve_file_chunks,
+    tia_followup_user_query,
 )
 from .templates import retrieve_template
 
@@ -49,12 +49,12 @@ __all__ = [
     "get_knowledge_base_id",
     "extract_file_locations",
     "llm_summarise",
-    "process_user_query",
-    "trigger_initial_clarification",
-    "detect_present_keywords",
-    "detect_missing_keywords",
-    "fallback_final_answer",
-    "build_clarification_prompt",
+    "tia_followup_user_query",
+    "tia_trigger_initial_clarification",
+    "detect_present_keywords_for_tia",
+    "detect_missing_keywords_for_tia",
+    "fallback_final_answer_for_tia",
+    "build_clarification_prompt_for_tia",
     # chat history
     "store_interaction",
     "session_history",

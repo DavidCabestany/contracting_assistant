@@ -575,7 +575,7 @@ def retrieve_citations_from_query(
 
 ## TIA Clarification
 # Triggers and Clarification Questions
-PRIMARY_CLARIFICATION_TRIGGERS = {
+TIA_PRIMARY_CLARIFICATION_TRIGGERS = {
     "TIA",
     "Tia assessment",
     "tia",
@@ -585,7 +585,7 @@ PRIMARY_CLARIFICATION_TRIGGERS = {
     "Agreement",
     "agreement",
 }
-SECONDARY_CONTEXTUAL_KEYWORDS = {
+TIA_SECONDARY_CONTEXTUAL_KEYWORDS = {
     "vendor",
     "institution",
     "location",
@@ -604,14 +604,14 @@ SECONDARY_CONTEXTUAL_KEYWORDS = {
 # CLARIFICATION LOGIC
 # -------------------------
 
-INITIAL_FIXED_QUESTIONS = [
+TIA_INITIAL_FIXED_QUESTIONS = [
     "What type of data is being processed?",
     "What is the direction of the data flow (are we sharing data with the vendor or are we receiving data from the vendor)?",
     "If we share data, will the vendor process it on our behalf or for its own purposes?",
     "If we receive data, do we receive it for our own purposes?",
 ]
 
-FOLLOWUP_KEYWORDS = {
+TIA_FOLLOWUP_KEYWORDS = {
     "type of data": ["patient", "clinical", "trial", "sensitive", "health"],
     "data flow": ["share", "receive", "send", "transfer"],
     "vendor role": ["on our behalf", "own purpose", "vendor process"],
@@ -621,14 +621,14 @@ FOLLOWUP_KEYWORDS = {
 }
 
 QUESTION_MAP = {
-    "type of data": INITIAL_FIXED_QUESTIONS[0],
-    "data flow": INITIAL_FIXED_QUESTIONS[1],
-    "vendor role": INITIAL_FIXED_QUESTIONS[2],
-    "receive data": INITIAL_FIXED_QUESTIONS[3],
+    "type of data": TIA_INITIAL_FIXED_QUESTIONS[0],
+    "data flow": TIA_INITIAL_FIXED_QUESTIONS[1],
+    "vendor role": TIA_INITIAL_FIXED_QUESTIONS[2],
+    "receive data": TIA_INITIAL_FIXED_QUESTIONS[3],
 }
 
 
-def trigger_initial_clarification(query: str) -> bool:
+def tia_trigger_initial_clarification(query: str) -> bool:
     """Determines if the user query contains any initial trigger keywords requiring clarification.
 
     Args:
@@ -641,12 +641,12 @@ def trigger_initial_clarification(query: str) -> bool:
     q = query.lower()
     primary_hits = sum(
         1
-        for word in map(str.lower, PRIMARY_CLARIFICATION_TRIGGERS)
+        for word in map(str.lower, TIA_PRIMARY_CLARIFICATION_TRIGGERS)
         if word in q
     )
     secondary_hits = sum(
         1
-        for word in map(str.lower, SECONDARY_CONTEXTUAL_KEYWORDS)
+        for word in map(str.lower, TIA_SECONDARY_CONTEXTUAL_KEYWORDS)
         if word in q
     )
     logger.info(
@@ -655,7 +655,7 @@ def trigger_initial_clarification(query: str) -> bool:
     return primary_hits >= 2 and secondary_hits >= 2
 
 
-def detect_present_keywords(text: str) -> set[str]:
+def detect_present_keywords_for_tia(text: str) -> set[str]:
     """Detects which predefined keyword categories are present in the input text.
 
     Args:
@@ -666,14 +666,14 @@ def detect_present_keywords(text: str) -> set[str]:
     """
     text = text.lower()
     found = set()
-    for key, keywords in FOLLOWUP_KEYWORDS.items():
+    for key, keywords in TIA_FOLLOWUP_KEYWORDS.items():
         if any(kw in text for kw in keywords):
             found.add(key)
     logger.info(f"[Keyword Detection] Found fields: {found}")
     return found
 
 
-def detect_missing_keywords(context_text: str) -> list[str]:
+def detect_missing_keywords_for_tia(context_text: str) -> list[str]:
     """Identifies which required keyword categories are missing from the context text.
 
     Args:
@@ -684,7 +684,7 @@ def detect_missing_keywords(context_text: str) -> list[str]:
     """
     context_lc = context_text.lower()
     missing = []
-    for key, words in FOLLOWUP_KEYWORDS.items():
+    for key, words in TIA_FOLLOWUP_KEYWORDS.items():
         if key not in QUESTION_MAP:
             continue  # ← avoid KeyError by skipping unmapped keys
         if not any(word in context_lc for word in words):
@@ -693,7 +693,7 @@ def detect_missing_keywords(context_text: str) -> list[str]:
     return missing
 
 
-def fallback_final_answer(context_text: str) -> str:
+def fallback_final_answer_for_tia(context_text: str) -> str:
     """Generates a final fallback answer based on keywords found in the context text.
 
     If the context contains sufficient detail about data transfer, returns a definitive
@@ -719,15 +719,17 @@ def fallback_final_answer(context_text: str) -> str:
         )
     return (
         "To answer your question correctly, I need more information:\n"
-        + "\n".join("- " + q for q in detect_missing_keywords(context)[:2])
+        + "\n".join(
+            "- " + q for q in detect_missing_keywords_for_tia(context)[:2]
+        )
     )
 
 
 session_context_memory = defaultdict(set)
-REQUIRED_KEYS = set(FOLLOWUP_KEYWORDS.keys())
+REQUIRED_KEYS = set(TIA_FOLLOWUP_KEYWORDS.keys())
 
 
-def build_clarification_prompt(
+def build_clarification_prompt_for_tia(
     all_user_msgs: list[str], all_bot_msgs: list[str], session_id: str
 ) -> str:
     """Builds a prompt for the LLM to process based on accumulated user and assistant interactions.
@@ -745,11 +747,11 @@ def build_clarification_prompt(
 
     # Update session context with detected keywords
     current_context = session_context_memory[session_id]
-    detected_keywords = detect_present_keywords(history_block)
+    detected_keywords = detect_present_keywords_for_tia(history_block)
     current_context.update(detected_keywords)
 
     # Determine missing keywords for the current context
-    missing_questions = detect_missing_keywords(history_block)
+    missing_questions = detect_missing_keywords_for_tia(history_block)
 
     # Compile the LLM prompt with context and instructions
     prompt = f"""
@@ -782,7 +784,7 @@ def build_clarification_prompt(
     return prompt
 
 
-def process_user_query(
+def tia_followup_user_query(
     user_query: str, tx_count: int, chat_history: list[str], session_id: str
 ) -> str:
     """Processes a user query in the context of a TIA-related session.
@@ -813,22 +815,22 @@ def process_user_query(
     all_bot_msgs = [msg for i, msg in enumerate(chat_history) if i % 2 == 1]
 
     # Pass session_id to build_clarification_prompt
-    full_context = build_clarification_prompt(
+    full_context = build_clarification_prompt_for_tia(
         all_user_msgs, all_bot_msgs, session_id
     )
     context_set = session_context_memory[session_id]
-    context_set.update(detect_present_keywords(full_context))
+    context_set.update(detect_present_keywords_for_tia(full_context))
 
     logger.info(f"[Context Set] Session={session_id} → {context_set}")
 
-    missing = detect_missing_keywords(full_context)
+    missing = detect_missing_keywords_for_tia(full_context)
 
     if tx_count == 0:
-        if trigger_initial_clarification(user_query):
+        if tia_trigger_initial_clarification(user_query):
             logger.info("[Trigger Fired] Asking initial clarification set")
             return (
                 "To answer your question correctly, I need more information:\n"
-                + "\n".join(f"- {q}" for q in INITIAL_FIXED_QUESTIONS)
+                + "\n".join(f"- {q}" for q in TIA_INITIAL_FIXED_QUESTIONS)
             )
         else:
             logger.info("[No Trigger] Skipping clarification")
@@ -848,4 +850,4 @@ def process_user_query(
     logger.info("[TX >= 3] Fallback final answer logic triggered")
     if not missing:
         return FINAL_RESPONSE_REQUIRED
-    return fallback_final_answer(full_context)
+    return fallback_final_answer_for_tia(full_context)
