@@ -60,18 +60,15 @@ def load_known_files_from_s3() -> dict[str, str]:
     return known_files
 
 
-def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
-def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
+def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
     """Auto-match files from S3 based on query contents and restrict to given kb_path."""
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
     start_end_query = query_lc[:50] + query_lc[-50:]
-    matched_files = set()
-    matched_files = set()
+    matched_files = []
 
-    # Existing logic — match filenames
-    # Existing logic — match filenames
     for file_name, file_kb_path in known_files.items():
+        # Only consider files from the active kb_path
         if file_kb_path != kb_path:
             continue
 
@@ -81,11 +78,27 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
         for i in range(len(words) - 1):
             phrase = " ".join(words[i : i + 2])
             if phrase in start_end_query:
-                matched_files.add(file_name)
-                matched_files.add(file_name)
+                matched_files.append(file_name)
                 break
 
-    return list(matched_files)
+    # ✅ FORCE-INJECT GCP if clinical trial keywords are detected
+    gcp_keywords = [
+        "clinical trial",
+        "clinical trials",
+        "cro",
+        "cros",
+        "contract research organization",
+        "service provider",
+        "service providers",
+        "gcp",
+    ]
+    gcp_file = "Good Clinical Practice Module - Playbook.pdf"
+    if any(keyword in query_lc for keyword in gcp_keywords):
+        if gcp_file in known_files and known_files[gcp_file] == kb_path:
+            if gcp_file not in matched_files:
+                matched_files.append(gcp_file)
+
+    return matched_files
 
 
 def is_invalid_response(text: str) -> bool:
@@ -124,15 +137,9 @@ def detect_prior_doc_from_query(query: str) -> str:
             "file": [
                 "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
             ],
-            "file": [
-                "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-            ],
             "keywords": ["supplier", "controller", "processor"],
         },
         {
-            "file": [
-                "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
-            ],
             "file": [
                 "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
             ],
@@ -146,24 +153,8 @@ def detect_prior_doc_from_query(query: str) -> str:
                 "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
             ],
             "keywords": ["personal", "anonymized"],
-        {
-            "file": [
-                "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
-            ],
-            "keywords": ["personal", "anonymized"],
         },
         {
-            "file": [
-                "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
-            ],
-            "keywords": ["personal", "anonymised"],
-        },
             "file": [
                 "Data Protection Appendix - Sharing Anonymised Data.pdf",
                 "Data Protection Appendix – Receiving Anonymised Data.pdf",

@@ -398,7 +398,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             )
         pass
 
-
         # Step 4: Prompt construction and follow-up detection
         logger.info(
             "100 ▶ Building prompt, loading session history and follow-up detection"
