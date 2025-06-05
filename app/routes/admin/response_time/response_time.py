@@ -1,23 +1,7 @@
-"""This module defines API endpoints for calculating average response times.
-
-The module uses FastAPI to create endpoints that handle the logic for:
-- Retrieving the average response time over a specified timeframe.
-- Retrieving the current average response time based on recent records.
-
-Modules:
-    connectors: Provides aggregated responses data.
-    fastapi: Utilized to create the API router and manage HTTP exceptions.
-    logger: Custom logger for logging information.
-    models: Contains payload structures for API requests.
-    routes.admin.response_time.response_time_logic: Contains logic for calculating response times.
-
-Classes:
-    ResponseTimeRouter: Defines the API endpoints for response time calculations.
-"""
+"""This class Calculate the response time over a given timeframe."""
 
 import logging
 
-# FastAPI imports
 from connectors import AggregatedResponse
 from fastapi import APIRouter, HTTPException
 from models import TimeframePayload
@@ -46,24 +30,24 @@ async def get_average_response_time(payload: TimeframePayload):
         )
 
     start_date, end_date = ResponseTimeLogic.calculate_date_range(timeframe)
+    logger.info(
+        f"Fetching records between {start_date} and {end_date} for {timeframe}"
+    )
+
     records = AggregatedResponse.get_instance().get_by_date_range(
         start_date, end_date
     )
     result = ResponseTimeLogic.filter_and_calculate(records, timeframe)
 
-    return {"data": result}
+    logger.info(f"Response result for {timeframe}: {result}")
+
+    # Always return data as a list, never null
+    return {"data": result if result is not None else []}
 
 
 @responseTime_router.get("/getCurrentResponseTime")
 async def get_current_response_time():
-    """Get the current average response time.
-
-    This endpoint retrieves the most recent seven records with non-zero interactions
-    and calculates the average response time for these records.
-
-    Returns:
-        dict: A dictionary containing the average response time and visual bound information.
-    """
+    """Get the current average response time."""
     df = AggregatedResponse.get_instance().get_latest_non_zero(limit=7)
     if df is None or df.empty:
         logger.info("No recent non-zero records found")
@@ -86,4 +70,5 @@ async def get_current_response_time():
         ]
     }
 
+    logger.info(f"Current response: {response}")
     return response

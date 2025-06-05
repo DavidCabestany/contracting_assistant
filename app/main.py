@@ -7,6 +7,7 @@ from config import config_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import chat_history_router, qna_router, summary_router
+from routes.admin.feedback.feedback import feedback_data_router
 from routes.admin.response_time.response_time import responseTime_router
 
 # Configure root logger
@@ -59,6 +60,12 @@ app.include_router(chat_history_router, prefix="/chat", tags=["Chat history"])
 app.include_router(
     responseTime_router,
     prefix="/admin/responseTime",
+    tags=["Admin only tracking"],
+)
+
+app.include_router(
+    feedback_data_router,
+    prefix="/admin/feedback",
     tags=["Admin only tracking"],
 )
 

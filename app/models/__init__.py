@@ -14,7 +14,16 @@ from .feedback import (
     FeedbackDisplayOptions,
     FeedbackRequest,
 )
-from .graph import TimeframePayload
+from .graph import (
+    FeedbackDataItem,
+    FeedbackDataRequest,
+    FeedbackDataResponse,
+    FeedbackTrendRequest,
+    FeedbackTrendResponse,
+    PctData,
+    TimeframePayload,
+    TrendData,
+)
 from .primitives import Citation, QuickReply
 from .query import (
     AnswerRequest,
@@ -67,4 +76,11 @@ __all__ = [
     "Site",
     # graph
     "TimeframePayload",
+    "FeedbackTrendRequest",
+    "FeedbackTrendResponse",
+    "FeedbackDataRequest",
+    "FeedbackDataResponse",
+    "FeedbackDataItem",
+    "PctData",
+    "TrendData",
 ]

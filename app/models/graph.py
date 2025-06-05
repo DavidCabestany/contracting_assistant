@@ -1,5 +1,7 @@
 """This module defines data models using Pydantic for handling various user analytics features,such as query statistics, feedback data, site usage, and filter options. These models help validate and structure the payloads and responses for related API requests and responses."""
 
+from __future__ import annotations
+
 from typing import List, Literal
 
 from pydantic import BaseModel
@@ -55,20 +57,19 @@ class FeedbackDataRequest(BaseModel):
     """Model for feedback data request.
 
     Attributes:
-        isPositive (bool): Indicates if the feedback is positive.
-        timeframe (Literal): The timeframe for the feedback data - 'lastYear', 'last30days', or 'lastQuarter'.
+        isPositive (bool): Indicates if the feedback type filter is positive (legacy field, not used in new logic).
+        timeframe (str): The timeframe for the feedback data ('last7days', 'last30days', etc.).
     """
 
-    isPositive: bool
-    timeframe: Literal["lastYear", "last30days", "lastQuarter"]
+    timeframe: str
 
 
 class FeedbackDataItem(BaseModel):
-    """Model for individual feedback data item.
+    """Represents an individual feedback type and its percentage.
 
     Attributes:
-        name (str): Name of the feedback item.
-        value (float): Value or score of the feedback item.
+        name (str): Type of feedback ("positive", "negative", "no_feedback").
+        value (float): Percentage of this feedback type in the total.
     """
 
     name: str
@@ -76,31 +77,42 @@ class FeedbackDataItem(BaseModel):
 
 
 class PctData(BaseModel):
-    """Model representing feedback percentage data.
+    """Provides detailed feedback count and percentage data across all feedback types.
 
     Attributes:
-        countFeedback (int): Number of feedback entries.
-        pctFeedback (str): Percentage of feedback.
-        feedback_pct_change (int): Change in feedback percentage.
+        positiveCountFeedback (int): Total positive feedback count.
+        negativeCountFeedback (int): Total negative feedback count.
+        noCountFeedback (int): Total count of 'no feedback'.
+        positiveCountFeedback_pct (float): Percentage of positive feedback.
+        negativeCountFeedback_pct (float): Percentage of negative feedback.
+        noCountFeedback_pct (float): Percentage of 'no feedback'.
+        positive_pct_change (int): Change in positive feedback vs previous period (%).
+        negative_pct_change (int): Change in negative feedback vs previous period (%).
+        no_feedback_pct_change (int): Change in 'no feedback' vs previous period (%).
     """
 
-    countFeedback: int
-    pctFeedback: str
-    feedback_pct_change: int
+    positiveCountFeedback: int
+    negativeCountFeedback: int
+    noCountFeedback: int
+    positiveCountFeedback_pct: float
+    negativeCountFeedback_pct: float
+    noCountFeedback_pct: float
+    positive_pct_change: int
+    negative_pct_change: int
+    no_feedback_pct_change: int
 
 
 class FeedbackDataResponse(BaseModel):
-    """Model for feedback data response.
+    """The API response model for feedback data.
 
     Attributes:
-        data (List[FeedbackDataItem]): List of feedback data items.
-        pct_data (PctData): Feedback percentage data.
-        isPositive (bool): Indicates if the feedback is positive.
+        data (List[FeedbackDataItem]): List of feedback percentages per type.
+        pct_data (PctData): Summarized count, percentage, and period-over-period changes.
+        isPositive (bool): Indicates if positive filter was requested (for compatibility).
     """
 
     data: List[FeedbackDataItem]
     pct_data: PctData
-    isPositive: bool
 
 
 class FeedbackDetailDropdown(BaseModel):
@@ -138,7 +150,7 @@ class FeedbackTrendRequest(BaseModel):
         timeframe (Literal): The timeframe for the feedback trend - 'lastYear', 'last30days', or 'lastQuarter'.
     """
 
-    timeframe: Literal["lastYear", "last30days", "lastQuarter"]
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
 
 
 class TrendData(BaseModel):
