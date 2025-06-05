@@ -37,6 +37,7 @@ from services import (
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
+    db_tab_checker,
     extract_keywords_from_query,
     get_knowledge_base_folder,
     get_knowledge_base_id,
@@ -107,10 +108,7 @@ def _build_prompt_with_optional_history(
             classification_prompt = FOLLOW_UP_PROMPT.format(
                 context=history_txt, query=user_txt
             )
-            # logger.info(
-            #     "▶ follow-up classification_prompt=%.200s",
-            #     classification_prompt.replace("\n", " "),
-            # )
+
             resp = generate_answer_with_context(classification_prompt)
 
             result_text = resp.get("content", [{}])[0].get("text", "").strip()
@@ -124,10 +122,7 @@ def _build_prompt_with_optional_history(
             classification_prompt = FOLLOW_UP_PROMPT.format(
                 context=history_txt, query=user_txt
             )
-            # logger.info(
-            #     "▶ follow-up classification_prompt=%.200s",
-            #     classification_prompt.replace("\n", " "),
-            # )
+
             resp = generate_answer_with_context(classification_prompt)
 
             result_text = resp.get("content", [{}])[0].get("text", "").strip()
@@ -141,7 +136,6 @@ def _build_prompt_with_optional_history(
             "EXCEPTION: Classification failed, defaulting to include history: %s",
             e,
         )
-        # full_prompt = f"{history_txt}\nUser: {user_txt}"
 
     logger.info(
         "EXIT  ◀ _build_prompt | full_prompt_preview=%.200s",
@@ -225,7 +219,7 @@ def _get_session_chat_history(session_id: str) -> str:
     history_txt = ""
     try:
         history = session_history(session_id)
-        # logger.info("▶ fetched raw history for session: %s", history.get(session_id))
+
         for i, item in enumerate(history.get(session_id, [])):
             user_msg, bot_msg = item.get("UserMessage"), item.get(
                 "BotResponse"
@@ -288,9 +282,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             else:
                 logger.info("077 ▶ No files auto-attached")
                 files = []
-        logger.info(
-            "080 ▶ files after auto attach = %s", files
-        )  # moved log for step clarity
+        logger.info("080 ▶ files after auto attach = %s", files)
 
         # Step 3: Handle summary requests first
         label = needs_summary(user_txt)
@@ -362,6 +354,61 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     ),
                 ),
             )
+        user_txt = request.query.text.strip()
+        if user_txt.lower() == "continue":
+            logger.info(
+                "User override: skipping tab check and continuing as requested."
+            )
+            # Proceed directly to QnA/answer logic using the current tab.
+        else:
+            topic_check = await db_tab_checker(user_txt)
+            kb_map = {"general": "A", "alexion": "B", "privacy": "C"}
+            tab_names = {
+                "A": "General Queries",
+                "B": "Alexion",
+                "C": "Privacy",
+            }
+            selected_tab = kb_map.get(kb_path)
+
+            if topic_check != selected_tab:
+                logger.info(
+                    "Tab mismatch: user in %s, LLM suggests %s for query: %r",
+                    tab_names.get(selected_tab, selected_tab),
+                    tab_names.get(topic_check, topic_check),
+                    user_txt,
+                )
+                confirmation_msg = (
+                    f"The question you’re asking looks like it belongs to the **{tab_names[topic_check]}** tab, "
+                    f"but you’re currently in **{tab_names[selected_tab]}**.\n"
+                    "Please consider switch tabs and ask again.\n"
+                    'Or, if you want to continue here anyway, just reply "continue".'
+                )
+                end_time = datetime.datetime.now().isoformat()
+                _store_chat_log(
+                    request,
+                    confirmation_msg,
+                    msg_id,
+                    ui_session_id,
+                    start_time,
+                    end_time,
+                    citations=[],
+                )
+                return QueryResponse(
+                    status="tab_mismatch",
+                    sessionId=ui_session_id,
+                    userQuery=user_txt,
+                    result=Result(
+                        messageId=msg_id,
+                        answer=QnAAnswer(ans=confirmation_msg),
+                        transactionCount=tx_count,
+                        citations=[],
+                        feedback=Feedback(
+                            feedbackDisplayOptions=FeedbackDisplayOptions(
+                                thumbsUp="N", thumbsDown="N", feedbackText="N"
+                            )
+                        ),
+                    ),
+                )
 
         # Step 4: Prompt construction and follow-up detection
         logger.info(

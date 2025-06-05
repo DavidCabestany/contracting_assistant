@@ -16,6 +16,7 @@ from typing import Final
 
 from langchain_aws import ChatBedrock
 from models import RiskAssessmentResponse
+from prompts import TOPIC_CHECKER
 from pydantic import ValidationError
 
 from .constants import HAIKU, MODEL_ID, SONNET_V1
@@ -120,26 +121,28 @@ def needs_summary(query: str) -> bool:
         return "QUESTION"
 
 
-def db_topic_checker(query: str) -> bool:
-    """Determine if a query should be summarised instead of answered.
+async def db_tab_checker(query: str) -> str:
+    """Async: Classifies a contract/legal query into a knowledge base tab.
 
     Args:
-        query (str): Raw user input.
+        query (str): The user’s input/question.
 
     Returns:
-        bool: True if LLM classifies it as a summary request.
+        str: "A" (General), "B" (Alexion), or "C" (Privacy)
     """
+    prompt = TOPIC_CHECKER.format(query=query.strip())
     try:
-        resp = ChatBedrock(model_id=MODEL_ID).invoke(
-            _CLASSIFY_PROMPT.format(query=query.strip()),
-        )
-        return resp.content.strip().upper()
+        resp = await ChatBedrock(model_id=MODEL_ID).ainvoke(prompt)
+        topic = resp.content.strip().upper()
+        if topic not in {"A", "B", "C"}:
+            logger.warning(
+                f"Unexpected LLM output for tab classification: {topic!r}"
+            )
+            return "A"  # or choose another fallback
+        return topic
     except Exception as exc:
-        logger.warning(
-            "LLM classification failed, defaulting to QUESTION: %r",
-            exc,
-        )
-        return "QUESTION"
+        logger.warning("Tab classification failed, defaulting to 'A': %r", exc)
+        return "A"
 
 
 def llm_summarise(text: str) -> str:

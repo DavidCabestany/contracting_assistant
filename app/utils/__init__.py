@@ -23,6 +23,7 @@ from .file_utils import (
     validate_api_key,
 )
 from .llm_utils import (
+    db_tab_checker,
     extract_keywords_from_query,
     is_refusal,
     llm_summarise,
@@ -59,6 +60,7 @@ __all__ = [
     "MODEL_ID",
     # llm_utils
     "is_refusal",
+    "db_tab_checker",
     "response_sanitizer",
     "needs_summary",
     "llm_summarise",

@@ -12,6 +12,7 @@ from .prompts import (
     RISK_MATRIX_SPC_RISK_PROMPT,
     RISK_MITIGATION_PROMPT,
     TEMPLATE,
+    TOPIC_CHECKER,
 )
 
 __all__ = [
@@ -25,5 +26,6 @@ __all__ = [
     "RISK_MATRIX_ALL_RISKS_PROMPT",
     "RISK_MATRIX_PROMPT",
     "TEMPLATE",
+    "TOPIC_CHECKER",
     "RISK_MITIGATION_PROMPT",
 ]
