@@ -81,7 +81,7 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
                 matched_files.append(file_name)
                 break
 
-    # ✅ FORCE-INJECT GCP if clinical trial keywords are detected
+    # FORCE-INJECT GCP if clinical trial keywords are detected
     gcp_keywords = [
         "clinical trial",
         "clinical trials",
@@ -254,7 +254,7 @@ def _render_prompt(user_query: str, base_prompt: str | None = None) -> str:
     tmpl = str(tmpl)
     tmpl += "\n\n%ADDITIONAL INSTRUCTIONS%:\nPlease treat suppliers and vendors as aliases in the chunks."
 
-    # ✅ GCP-specific LLM guidance if CRO/service providers mentioned
+    # GCP-specific LLM guidance if CRO/service providers mentioned
     if any(
         term in user_query.lower()
         for term in [
@@ -318,7 +318,7 @@ def retrieve_file_chunks(
 
     file_contents = {}
     logger.info("starting the retrieval")
-    logger.info("✅ query: %s", query)
+    logger.info(" query: %s", query)
     for doc in documents:
         s3_uri = f"s3://{BUCKET_CONTAINER}/{kb_path}/{doc}"
         logger.info("▶ Retrieving content from: %s", s3_uri)
@@ -712,7 +712,7 @@ def fallback_final_answer(context_text: str) -> str:
         if "outside" in context or "international" in context:
             return "Yes, a Transfer Impact Assessment (TIA) is required because data is being transferred outside the UK or EU."
         return (
-            "ℹ️ A TIA is not required as long as data stays within the UK or EU. "
+            "A TIA is not required as long as data stays within the UK or EU. "
             "Ensure a Data Processing Agreement is still in place."
         )
     return (
