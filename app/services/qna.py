@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import defaultdict
 from collections.abc import Sequence
 
 from utils import extract_file_locations
@@ -21,6 +22,7 @@ from .clients import (
 )
 from .constants import (
     BUCKET_CONTAINER,
+    FINAL_RESPONSE_REQUIRED,
     GUARDRAIL_ID,
     GUARDRAIL_VERSION_ID,
     HIGH_PRIORITY_QUERIES,

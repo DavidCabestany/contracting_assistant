@@ -27,6 +27,7 @@ from services import (
     extract_file_locations,
     generate_answer_with_context,
     is_invalid_response,
+    process_user_query,
     retrieve_and_generate,
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
@@ -37,7 +38,6 @@ from services import (
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
-    db_tab_checker,
     extract_keywords_from_query,
     get_knowledge_base_folder,
     get_knowledge_base_id,
@@ -381,7 +381,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     userQuery=user_txt,
                     result=Result(
                         messageId=msg_id,
-                        answer=QnAAnswer(ans=confirmation_msg),
+                        answer=QnAAnswer(ans=clarification_text),
                         transactionCount=tx_count,
                         citations=[],
                         feedback=Feedback(

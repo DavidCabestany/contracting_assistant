@@ -38,6 +38,8 @@ QNA_TOP_P: float = 0.7
 EXCEL_FILE_PATH: str = "mappings/prompt_map.xlsx"
 AZ_MAPPING_SHEET_NAME: str = "Sheet1"
 
+## TIA Clarification ───────
+FINAL_RESPONSE_REQUIRED = "FINAL_RESPONSE_REQUIRED"
 
 # ─────── Logger setup ───────
 logger = logging.getLogger(__name__)
