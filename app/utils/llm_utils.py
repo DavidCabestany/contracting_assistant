@@ -46,8 +46,8 @@ _CLASSIFY_PROMPT: Final = """
 You are a routing agent of AstraZeneca Policies.
 
     Return exactly one word:
-    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts.
-    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons, GDP, CRO, GCP,  etc and also what about this country?
+    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts, except Gross Domestic Product GDP.
+    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons also what about this country? And what is GDP? all realted to GDP is allowed to the user. Gross Domestic Product is allowed.
     SUMMARY  - if they merely pasted text or explicitly ask "summarise".
 
     Now classify:
