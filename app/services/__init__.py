@@ -25,6 +25,7 @@ from .qna import (
     retrieve_citations_from_query,
     retrieve_file_chunks,
     tia_followup_user_query,
+    tia_trigger_initial_clarification,
 )
 from .templates import retrieve_template
 

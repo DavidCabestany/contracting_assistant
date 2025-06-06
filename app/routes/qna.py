@@ -35,6 +35,7 @@ from services import (
     session_history,
     store_interaction,
     tia_followup_user_query,
+    tia_trigger_initial_clarification,
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
@@ -362,41 +363,44 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             for msg in session_history(ui_session_id).get(ui_session_id, [])
             if msg.get("UserMessage")
         ]
-
-        tia_clarification_text = tia_followup_user_query(
-            user_txt, int(tx_count), chat_history_list, ui_session_id
-        )
-
-        try:
-            if (
-                tia_clarification_text
-                and tia_clarification_text != "FINAL_RESPONSE_REQUIRED"
-            ):
-                logger.info(
-                    "[Clarification Needed] Skipping KB and responding with follow-up questions."
-                )
-                return QueryResponse(
-                    status="success",
-                    sessionId=ui_session_id,
-                    userQuery=user_txt,
-                    result=Result(
-                        messageId=msg_id,
-                        answer=QnAAnswer(ans=tia_clarification_text),
-                        transactionCount=tx_count,
-                        citations=[],
-                        feedback=Feedback(
-                            feedbackDisplayOptions=FeedbackDisplayOptions(
-                                thumbsUp="N", thumbsDown="N", feedbackText="N"
-                            )
-                        ),
-                    ),
-                )
-        except Exception as e:
-            logger.warning(
-                "Clarification for TIA failed: %s",
-                e,
+        # ★ NEW: Only proceed with TIA logic if query is TIA-relevant
+        if tia_trigger_initial_clarification(user_txt):
+            tia_clarification_text = tia_followup_user_query(
+                user_txt, int(tx_count), chat_history_list, ui_session_id
             )
-        pass
+
+            try:
+                if (
+                    tia_clarification_text
+                    and tia_clarification_text != "FINAL_RESPONSE_REQUIRED"
+                ):
+                    logger.info(
+                        "[Clarification Needed] Skipping KB and responding with follow-up questions."
+                    )
+                    return QueryResponse(
+                        status="success",
+                        sessionId=ui_session_id,
+                        userQuery=user_txt,
+                        result=Result(
+                            messageId=msg_id,
+                            answer=QnAAnswer(ans=tia_clarification_text),
+                            transactionCount=tx_count,
+                            citations=[],
+                            feedback=Feedback(
+                                feedbackDisplayOptions=FeedbackDisplayOptions(
+                                    thumbsUp="N",
+                                    thumbsDown="N",
+                                    feedbackText="N",
+                                )
+                            ),
+                        ),
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Clarification for TIA failed: %s",
+                    e,
+                )
+            pass
 
         # Step 4: Prompt construction and follow-up detection
         logger.info(
