@@ -376,7 +376,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     "[Clarification Needed] Skipping KB and responding with follow-up questions."
                 )
                 return QueryResponse(
-                    status="clarification_needed",
+                    status="success",
                     sessionId=ui_session_id,
                     userQuery=user_txt,
                     result=Result(
