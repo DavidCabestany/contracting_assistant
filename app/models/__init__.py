@@ -21,6 +21,7 @@ from .graph import (
     FeedbackTrendRequest,
     FeedbackTrendResponse,
     PctData,
+    QueryCountPayload,
     TimeframePayload,
     TrendData,
 )
@@ -83,4 +84,5 @@ __all__ = [
     "FeedbackDataItem",
     "PctData",
     "TrendData",
+    "QueryCountPayload",
 ]

@@ -26,6 +26,24 @@ logger.setLevel(logging.INFO)
 feedback_data_router = APIRouter()
 
 
+def normalize_feedback_value(val):
+    """Normalize DynamoDB IsFeedbackPositive value so True/False/yes/no etc. and 'no_feedback' are handled consistently.Returns: 'positive', 'negative', or 'no_feedback'."""
+    if isinstance(val, bool):
+        return "positive" if val else "negative"
+    if isinstance(val, (int, float)):
+        return "positive" if val else "negative"
+    if isinstance(val, str):
+        # Remove whitespace, lower, etc.
+        v = val.strip().lower()
+        if v in ("true", "yes", "positive", "1"):
+            return "positive"
+        elif v in ("false", "no", "negative", "0"):
+            return "negative"
+        elif v == "no_feedback":
+            return "no_feedback"
+    return None  # Unclear/unknown
+
+
 def get_week_label(dt: datetime) -> str:
     """Return the week label (W1-W4) and month abbreviation for a date."""
     day = dt.day
@@ -53,21 +71,17 @@ def get_quarter_label(dt: datetime) -> str:
 
 def week_sortkey(label: str) -> tuple:
     """Sort key for week labels."""
-    # Example: 'W1 May'
     week, month_abbr = label.split()
-    # Get current year from context if info available, otherwise use the most recent
     today = datetime.now()
     year = (
         today.year
         if month_abbr != "Dec" or today.month >= 12
         else today.year - 1
     )
-    # Try to infer correct year from existing month sequence
     try:
         month = list(calendar.month_abbr).index(month_abbr)
-    except:  # noqa: E722
+    except Exception:
         month = 1
-    # Correction if week sequence passes new year
     if today.month < month:
         year -= 1
     week_index = int(week[1])
@@ -94,8 +108,8 @@ def construct_trend_data(aggregated_data, timeframe) -> list:
     """Construct trend data for the expected UI grouping/labeling rules.
 
     Args:
-        aggregated_data: Dict of grouped data from DB.
-        timeframe: 'last30days', 'last90days', or 'last365days'.
+        aggregated_data: Dict of grouped data from DB (keys are dates as datetime.date/datetime).
+        timeframe: String like 'last30days', 'last90days', 'last365days' or others.
 
     Returns:
         List[Dict]: Sorted trend elements with appropriate labels/values.
@@ -129,14 +143,12 @@ def construct_trend_data(aggregated_data, timeframe) -> list:
         return trend_data
 
     elif timeframe == "last90days":
-        # Group by month, format "May 2025"
         for dt, data in aggregated_data.items():
             label = get_month_label(dt)
             if label not in trend_dict:
                 trend_dict[label] = {"negative": 0, "positive": 0}
             trend_dict[label]["negative"] += data.get("negative", 0)
             trend_dict[label]["positive"] += data.get("positive", 0)
-        # Chronological sort by year, month
         sorted_labels = sorted(trend_dict.keys(), key=month_sortkey)
         trend_data = [
             {
@@ -149,14 +161,12 @@ def construct_trend_data(aggregated_data, timeframe) -> list:
         ]
 
     elif timeframe == "last365days":
-        # Group by quarter, format "Q2 2025"
         for dt, data in aggregated_data.items():
             label = get_quarter_label(dt)
             if label not in trend_dict:
                 trend_dict[label] = {"negative": 0, "positive": 0}
             trend_dict[label]["negative"] += data.get("negative", 0)
             trend_dict[label]["positive"] += data.get("positive", 0)
-        # Chronological sort by year then quarter
         sorted_labels = sorted(trend_dict.keys(), key=quarter_sortkey)
         trend_data = [
             {
@@ -168,19 +178,27 @@ def construct_trend_data(aggregated_data, timeframe) -> list:
             for label in sorted_labels
         ]
     else:
-        # Fallback to default: raw dates, as before.
-        trend_data = []
+        # Fallback to default: raw dates, sorted in ascending order.
+        # This is used for last 7 days or custom period per day
+        pair_list = []
         for dt, data in aggregated_data.items():
-            time_label = dt.strftime("%Y-%m-%d")
-            trend_data.append(
-                {
-                    "label": time_label,
-                    "value": time_label,
-                    "negative": data.get("negative", 0),
-                    "positive": data.get("positive", 0),
-                }
+            # Ensure dt is a datetime for .strftime
+            if isinstance(dt, date) and not isinstance(dt, datetime):
+                dt = datetime.combine(dt, datetime.min.time())
+            pair_list.append(
+                (
+                    dt,
+                    {
+                        "label": dt.strftime("%Y-%m-%d"),
+                        "value": dt.strftime("%Y-%m-%d"),
+                        "negative": data.get("negative", 0),
+                        "positive": data.get("positive", 0),
+                    },
+                )
             )
-
+        # Sort by datetime (ascending)
+        pair_list.sort(key=lambda x: x[0])
+        trend_data = [item for dt, item in pair_list]
     return trend_data
 
 

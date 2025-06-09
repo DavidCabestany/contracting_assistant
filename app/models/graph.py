@@ -39,20 +39,6 @@ class CurrentResponseTime(BaseModel):
     current_response_time: int
 
 
-class QueryCountPayload(BaseModel):
-    """Model for query count payload.
-
-    Attributes:
-        managers (List[str]): List of manager identifiers.
-        sites (List[str]): List of site identifiers.
-        timeframe (Literal): Specifies the timeframe for the query count - 'weekly', 'monthly', 'quarterly', or 'yearly'.
-    """
-
-    managers: List[str]
-    sites: List[str]
-    timeframe: Literal["weekly", "monthly", "quarterly", "yearly"]
-
-
 class FeedbackDataRequest(BaseModel):
     """Model for feedback data request.
 
@@ -219,3 +205,13 @@ class FilterOptionsRequest(BaseModel):
     """
 
     language: Language
+
+
+class QueryCountPayload(BaseModel):
+    """Model for User count request.
+
+    Attributes:
+        timeframe (Literal): The timeframe for the User count - 'last7days', 'last30days', 'last90days', or 'last365days'.
+    """
+
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
