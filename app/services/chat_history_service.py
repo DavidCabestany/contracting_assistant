@@ -32,15 +32,15 @@ def store_interaction(interaction: ChatInteraction):
     try:
         interaction_instance = interaction.dict()
         # This covers both None and missing key
-        if interaction_instance.get("IsFeedbackPositive") not in {
+        if interaction_instance.get("isFeedbackPositive") not in {
             True,
             False,
             "no_feedback",
         }:
             logging.info(
-                f"Corrected IsFeedbackPositive to 'no_feedback' for item: {interaction_instance}"
+                f"Corrected isFeedbackPositive to 'no_feedback' for item: {interaction_instance}"
             )
-            interaction_instance["IsFeedbackPositive"] = "no_feedback"
+            interaction_instance["isFeedbackPositive"] = "no_feedback"
 
         table.put_item(Item=interaction_instance)
         return {"message": "User-bot interaction stored successfully"}
@@ -217,12 +217,12 @@ def update_feedback(feedback: FeedbackRequest):
 
         item = response["Items"][0]
         key = {"UserId": item["UserId"], "Timestamp": item["Timestamp"]}
-        update_expr = "SET IsFeedbackPositive = :fb"
+        update_expr = "SET isFeedbackPositive = :fb"
         # The line below always ensures a valid value is written
         expr_vals = {
             ":fb": (
-                feedback.IsFeedbackPositive
-                if feedback.IsFeedbackPositive is not None
+                feedback.isFeedbackPositive
+                if feedback.isFeedbackPositive is not None
                 else "no_feedback"
             )
         }

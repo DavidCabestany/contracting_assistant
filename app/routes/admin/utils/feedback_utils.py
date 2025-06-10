@@ -25,7 +25,7 @@ def fetch_feedback_data(
     """Fetch and aggregate feedback data from DynamoDB within a specified timeframe."""
     items = scan_table(
         table=table,
-        projection_expression="#ts, IsFeedbackPositive",
+        projection_expression="#ts, isFeedbackPositive",
         expression_attribute_names={"#ts": "Timestamp"},
         error_handling="return_empty",
     )
@@ -36,7 +36,7 @@ def fetch_feedback_data(
 
     for item in items:
         timestamp_str = item.get("Timestamp", "")
-        feedback_positive = item.get("IsFeedbackPositive")
+        feedback_positive = item.get("isFeedbackPositive")
 
         if feedback_positive in (None, "None"):
             continue
@@ -109,7 +109,7 @@ def fetch_feedback_trends_data(
     """Fetch and aggregate feedback trends from DynamoDB based on a timeframe."""
     items = scan_table(
         table=table,
-        projection_expression="#ts, IsFeedbackPositive",
+        projection_expression="#ts, isFeedbackPositive",
         expression_attribute_names={"#ts": "Timestamp"},
         error_handling="return_empty",
     )
@@ -117,7 +117,7 @@ def fetch_feedback_trends_data(
     trend_data = {}
     for item in items:
         timestamp_str = item.get("Timestamp", "")
-        feedback_positive = item.get("IsFeedbackPositive")
+        feedback_positive = item.get("isFeedbackPositive")
 
         if feedback_positive in (None, "None"):
             continue
@@ -191,7 +191,7 @@ def fetch_feedback_data_extended(start_time, end_time):
 
     items = scan_table(
         table=table,
-        projection_expression="#ts, IsFeedbackPositive",
+        projection_expression="#ts, isFeedbackPositive",
         expression_attribute_names={"#ts": "Timestamp"},
         error_handling="return_empty",
     )
@@ -201,7 +201,7 @@ def fetch_feedback_data_extended(start_time, end_time):
     no_feedback = 0
     for item in items:
         ts = item.get("Timestamp", "")
-        val = item.get("IsFeedbackPositive", None)
+        val = item.get("isFeedbackPositive", None)
         if not ts:
             continue
         try:

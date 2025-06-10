@@ -192,7 +192,7 @@ def _store_chat_log(
                 BotResponse=answer,
                 BotResponseSearch=answer,
                 FeedbackComment="",
-                IsFeedbackPositive="no_feedback",
+                isFeedbackPositive="no_feedback",
                 Timestamp=now,
                 StartTime=start_time,
                 EndTime=end_time,

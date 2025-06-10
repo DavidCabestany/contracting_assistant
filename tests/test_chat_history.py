@@ -105,7 +105,7 @@ class TestChatHistoryRouter(unittest.TestCase):
         payload = {
             "session_id": "abc123",
             "messageId": "msg1",
-            "IsFeedbackPositive": True,
+            "isFeedbackPositive": True,
             "feedbackComment": "Helpful!",
         }
         response = self.client.post("/chat/feedback/", json=payload)
