@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List, Literal
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .site import Language
 
@@ -215,3 +215,73 @@ class QueryCountPayload(BaseModel):
     """
 
     timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
+
+
+class FeedbackDetailsRequest(BaseModel):
+    """Request model for retrieving feedback details.
+
+    Attributes:
+        feedbackType: Filter for feedback type ('Negative Feedback' or 'Positive Feedback').
+        queryType: Filter for knowledge base type, e.g. 'Privacy', 'General Queries', 'Alexion', or 'All'.
+        prid: Optional filter for a specific PRID (user id). Can be None or 'All'.
+        timeframe: Time filter for submission window ('last7days', 'last30days', 'last90days', 'last365days', or 'custom').
+        start_date: Required ISO-format start date when timeframe is 'custom'.
+        end_date: Required ISO-format end date when timeframe is 'custom'.
+    """
+
+    feedbackType: str
+    queryType: str
+    prid: Optional[str] = None
+    timeframe: str
+    start_date: Optional[str] = Field(
+        default=None,
+        description="Custom window start date (ISO8601), required for timeframe='custom'.",
+    )
+    end_date: Optional[str] = Field(
+        default=None,
+        description="Custom window end date (ISO8601), required for timeframe='custom'.",
+    )
+
+
+class RetrievedCitationModel(BaseModel):
+    """Information about the reference document and page retrieved for the answer."""
+
+    document: str
+    page: int
+
+
+class FeedbackDetailsRow(BaseModel):
+    """Row of feedback detail corresponding to a single feedback instance.
+
+    Attributes:
+        prid: User's PRID (UserId from the chat table).
+        query: Original user message (question or query).
+        retrievedCitation: Information about the retrieved document and the page.
+        feedbackComment: The free-text comment provided as feedback.
+    """
+
+    prid: str
+    query: str
+    retrievedCitation: RetrievedCitationModel
+    feedbackComment: str
+
+
+class FeedbackDetailsFilters(BaseModel):
+    """Echoes the filter selections in the response to be used on frontend UI."""
+
+    feedbackType: str
+    category: str
+    prid: str
+    timeframe: str
+
+
+class FeedbackDetailsResponse(BaseModel):
+    """Outgoing response structure for feedback details listing.
+
+    Attributes:
+        feedbackDetails: List of feedback rows matching the filters.
+        filters: The filter settings used (for UI echo and download purposes).
+    """
+
+    feedbackDetails: List[FeedbackDetailsRow]
+    filters: FeedbackDetailsFilters

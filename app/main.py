@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import chat_history_router, qna_router, summary_router
 from routes.admin.feedback.feedback import feedback_data_router
+from routes.admin.feedback.feedbackdetails import feedbackdetails_router
 from routes.admin.response_time.response_time import responseTime_router
 from routes.admin.usage.usage import usage_router
 
@@ -74,6 +75,12 @@ app.include_router(
 app.include_router(
     usage_router,
     prefix="/admin/totalUsage",
+    tags=["Admin only tracking"],
+)
+# Feedback Details endpoints
+app.include_router(
+    feedbackdetails_router,
+    prefix="/admin/feedbackdetails",
     tags=["Admin only tracking"],
 )
 
