@@ -41,133 +41,6 @@ MODEL_ID = get_secret("MODEL_ID")
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
 
-#will be moved to risk.py under models folder
-# class RiskDetail(BaseModel):
-#     """Details of a specific risk identified in a clause."""
-#     clause_name: str
-#     risk_content: str
-#     risk_score: int
-#     risk_level: str
-#     clause_type: str 
-#     risk_importance: str
-
-#     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
-#         """Exclude fields when serializing for the API response."""
-       
-#         exclude_set = {
-#             "risk_score",
-#             "risk_level",
-#             "clause_type",
-#             "risk_importance",
-#         }
-#         kwargs.setdefault("exclude", set()).update(exclude_set)
-#         print(f"kwargs in RiskDetail.model_dump: {kwargs}") 
-#         return super().model_dump(**kwargs)
-
-
-# class RiskCategory(BaseModel):
-#     """Categorizes risks by their severity level for a specific type (e.g., Contractual)."""
-#     HighRisksClauses: List[RiskDetail] = Field(default_factory=list)
-#     MediumRisksClauses: List[RiskDetail] = Field(default_factory=list)
-#     LowRisksClauses: List[RiskDetail] = Field(default_factory=list)
-    
-#     total_risks: int = 0
-#     high_risk_count: int = 0
-#     medium_risk_count: int = 0
-#     low_risk_count: int = 0
-
-#     def add_risk(self, risk_detail: RiskDetail):
-#         """Adds a risk detail to the appropriate list and updates counts."""
-#         if risk_detail.risk_level == "HighRisksClauses":
-#             self.HighRisksClauses.append(risk_detail)
-#             self.high_risk_count += 1
-#         elif risk_detail.risk_level == "MediumRisksClauses":
-#             self.MediumRisksClauses.append(risk_detail)
-#             self.medium_risk_count += 1
-#         elif risk_detail.risk_level == "LowRisksClauses":
-#             self.LowRisksClauses.append(risk_detail)
-#             self.low_risk_count += 1
-#         else:
-#             print(f"Warning: RiskDetail for '{risk_detail.clause_name}' has unhandled risk_level: '{risk_detail.risk_level}'. Not added to H/M/L lists.")
-#             return 
-
-#         self.total_risks += 1
-
-
-#     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
-#         """Exclude count fields when serializing for the API response."""
-#         exclude_set = {
-#             "total_risks",
-#             "high_risk_count",
-#             "medium_risk_count",
-#             "low_risk_count",
-#         }
-#         kwargs.setdefault("exclude", set()).update(exclude_set)
-#         return super().model_dump(**kwargs)
-
-# class AdditionalRisk(BaseModel):
-#     """Represents additional risks identified in a contract or document.
-
-#     Attributes:
-#         title (str): Short title or category of the risk clause.
-#         description (str): Full explanation of the risk clause.
-#     """
-
-#     title: str = ""
-#     description: str = ""
-
-
-# class RiskAssessmentAnswer(BaseModel):
-#     """Structured response detailing the findings of a risk assessment query."""
-
-#     ans: str
-#     ContractualRisks: RiskCategory = Field(default_factory=RiskCategory)
-#     StandardAZRisks: RiskCategory = Field(default_factory=RiskCategory)
-#     AdditionalPotentialRisks: List[AdditionalRisk] = Field(
-#         default_factory=list
-#     )
-#     similarities: List[Any] = Field(default_factory=list)
-#     differences: List[Any] = Field(default_factory=list)
-
-
-
-
-# RISK_MATRIX_ALL_RISKS_PROMPT2 = """Kindly provide details related to the clauses mentioned below in the format below -
-# If nothing is present for particular clause provide "NA" in details.Do not infer or invent details based on the context or description—these are provided only to help you understand what to look for.
-# ```json
-# {{
-#   "Termination Clause"(It addresses the conditions and procedures under which a contract may be ended before its agreed expiration. It outlines who can terminate, on what grounds (such as convenience or breach), the notice periods required, and what happens after termination, including handover, transition, and settlement of outstanding obligations. This ensures both parties understand their rights and responsibilities if the contract ends early.)                                                                                                                                                                                                                                                                                                                  : "Provide the details in contract"
-#   "Liability Clause"(It addresses the extent to which each party is responsible for losses, damages, or claims arising from the contract. It sets any financial limits (caps) on liability, details any exceptions (such as for personal injury or breaches of confidentiality), and outlines what types of losses are included or excluded. The clause clarifies the parties’ obligations in the event of a problem and helps allocate risks and responsibilities clearly under the contract.)                                                                                                                                                                                                                                                                                      : "Provide the details in contract"
-#   "Compliance Requirements"(It addresses adherence to relevant laws, regulations, and industry standards as set out in the contract. It covers subjects such as liability for breaches (including data protection, intellectual property, and cybersecurity); requirements for sustainability commitments; obligations regarding audit rights and flow-down clauses; and compliance with anti-bribery, anti-corruption, modern slavery, data protection, and diversity-related obligations.)                                                                                                                                                                                                                                                                                         : "Provide the details in contract"
-#   "Sustainability Terms"(It relates to environmental, social, and governance (ESG) considerations. It covers requirements such as alignment with sustainability frameworks (e.g., CDP, SBTi), commitments to reduce environmental impact, verified greenhouse gas reduction targets, renewable energy sourcing, compliance with AstraZeneca’s Supplier Expectations or Code of Ethics, provision of ESG data, diversity measures, and acceptance of audits and traceability.)                                                                                                                                                                                                                                                                                                        : "Provide the details in contract"
-#   "Payment Terms"(The Payment Terms clause governs the methods, timing, and conditions for payments between the parties. It specifies AstraZeneca’s standard payment periods—75 days from receipt of a correct and undisputed invoice for most regions, 60 days within the United Kingdom and the European Union, and 45 days within France and for recurring invoices. The clause also addresses requirements such as payments being linked to receipt (not just the invoice date), adherence to the “No PO, No Pay” rule, proper documentation and approval of any deviations, controls over pass-through costs, and compliance with electronic transaction platforms. This ensures clear expectations and compliance with both AZ policies and regional regulations.)             : "Provide the details in contract"
-#   "Performance Metrics"(It defines how the contract’s success will be measured and assessed. It sets out specific metrics, such as service levels, operational efficiency indicators, or compliance targets, and describes the consequences for meeting or missing those metrics. These may include informational or developmental measures, moderate metrics affecting efficiency and satisfaction, or strict, auditable metrics with remedies or penalties for non-compliance—especially when performance impacts regulatory, financial, or reputational matters for AstraZeneca. The clause ensures clear expectations for performance and accountability under the contract.)                                                                                                    : "Provide the details in contract"
-#   "Confidentiality Clause"(It protects sensitive information shared during the contract. It defines the obligations of each party to safeguard confidential data—such as clinical, patient, or proprietary research data—against unauthorized disclosure or use. The clause sets out restrictions on sharing information with subcontractors or third parties, specifies how breaches are handled, and may include conditions on liability, enforcement, and the duration of confidentiality commitments. This ensures confidential information is handled appropriately and in line with agreed contract terms.)                                                                                                                                                                    : "Provide the details in contract"
-#   "Dispute Resolution"(It outlines the procedures for resolving disagreements or conflicts arising under the contract. It defines the steps parties must follow, which may include structured escalation, good faith negotiation, optional mediation, and—if needed—arbitration or litigation. The clause may specify preferred jurisdictions, require ongoing contract performance during disputes, and ensure the process is fair, balanced, and clearly defined for both parties)                                                                                                                                                                                                                                                                                                 : "Provide the details in contract"
-#   "Force Majeure Clause"(The Force Majeure Clause excuses parties from their contractual obligations when unforeseen events beyond their control occur. Key aspects may include requirements to notify and mitigate, clear definitions of qualifying events, exclusion of relief for events caused by a party’s own fault or foreseeable issues, continuation of unaffected services, no price increases due to force majeure, and the ability for parties to terminate or engage alternatives after prolonged disruption. Well-defined clauses ensure fairness and protect against misuse or supplier exploitation.)                                                                                                                                                                : "Provide the details in contract"
-#   "Renewal Terms"(It defines the conditions and procedures for extending a contract. It typically covers whether renewal is automatic or requires explicit written agreement, specifies notification periods for renewal, and ensures renewal terms are transparent and subject to review. Well-drafted clauses prevent unintended or perpetual renewals, prohibit automatic renewals without the right to opt out, require all renewals to be documented, and ensure no additional obligations or costs are imposed without clear approval. This promotes clarity, compliance, and control over contract continuations)                                                                                                                                                             : "Provide the details in contract"
-# }} ```
-# Document Content:
-# {Contract}
-# """
-
-
-# RISK_MATRIX_ALL_RISKS_PROMPT3 = """Kindly fill in the risk_score in the json and return it, depending upon the risk_rules.scenario_description as per below scale
-# category : risk_score
-# High : 8-10
-# Medium : 5-7
-# Low : 1-4
-# identified_clauses : {identified_clauses}
-# risk_rules :{risk_rules}
-# Output Json :
-# ```json
-# {{
-#   "Termination Clause" {{"details": "details in contract", "risk_score": "risk_score_value","reason":"reason why you chose this score"}},
-#   // ... more clauses
-# }}```
-# """
-
-
 #to get all the clauses again under same session
 def get_all_clauses_froms3(payload_json2:dict):
     """to return back all the clauses found on s3
@@ -341,6 +214,7 @@ def risk_categorization_fn(content,queryText,msg_id,userId,session_id):
                 clause_data["details"]=clause_data["reason"]
             else:
                 clause_data["clause_type"] = "Contractual"
+                clause_data["details"]= clause_data["details"] + clause_data["reason"]
         else:
             # If 'text' field is missing or not a string, default clause_type
             print(
@@ -443,44 +317,6 @@ def risk_categorization_fn(content,queryText,msg_id,userId,session_id):
     }
 
     return response_data
-
-
-# def store_contract_risk_to_s3(userId,session_id,data,compress=True):
-#     """
-#     Stores a JSON-serializable dictionary in an S3 bucket.
-
-#     Args:
-#         data (dict): The dictionary to store.
-#         bucket_name (str): The name of the S3 bucket.
-#         object_key (str): The key (path) within the bucket where the data will be stored.
-#         compress (bool, optional): Whether to compress the data using gzip. Defaults to True.
-#     """
-#     folder_path = f"contract_risks/{userId}/{session_id}/risk_data.json"
-#     try:
-#         json_data = json.dumps(data, indent=2) 
-#         if compress:
-#             buffer = io.BytesIO()
-#             with gzip.GzipFile(fileobj=buffer, mode='wb') as gz:
-#                 gz.write(json_data.encode('utf-8'))
-#             body = buffer.getvalue()
-#             content_encoding = 'gzip'
-#         else:
-#             body = json_data.encode('utf-8')
-#             content_encoding = None
-
-#         s3.put_object(
-#             Bucket=BUCKET_CONTAINER,
-#             Key=folder_path,
-#             Body=body,
-#             ContentType='application/json',
-#             ContentEncoding=content_encoding 
-#         )
-#         logger.info(
-#             f"[{session_id}] Successfully stored risk data to S3: s3://{BUCKET_CONTAINER}/{folder_path}"
-#         )
-#     except (BotoCoreError, ClientError) as exc:
-#         logger.exception(f"[{session_id}] S3 upload failed")
-#         raise HTTPException(500, "S3 upload failed") from exc
 
 def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
     """Extracts the names of all top-level clauses from the risk_rules checklist.
