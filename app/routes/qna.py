@@ -363,7 +363,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             for msg in session_history(ui_session_id).get(ui_session_id, [])
             if msg.get("UserMessage")
         ]
-        # ★ NEW: Only proceed with TIA logic if query is TIA-relevant
+        # Only proceed with TIA logic if query is TIA-relevant
         if tia_trigger_initial_clarification(user_txt):
             tia_clarification_text = tia_followup_user_query(
                 user_txt, int(tx_count), chat_history_list, ui_session_id

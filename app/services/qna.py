@@ -838,40 +838,31 @@ def tia_followup_user_query(
     ] + [user_query]
     all_bot_msgs = [msg for i, msg in enumerate(chat_history) if i % 2 == 1]
 
-    # Pass session_id to build_clarification_prompt
-    full_context = build_clarification_prompt_for_tia(
-        all_user_msgs, all_bot_msgs, session_id
-    )
-    context_set = session_context_memory[session_id]
-    context_set.update(detect_present_keywords_for_tia(full_context))
+    context_block = "\n".join(all_user_msgs + all_bot_msgs)
 
-    logger.info(f"[Context Set] Session={session_id} → {context_set}")
+    detected = detect_present_keywords_for_tia(context_block)
+    session_context_memory[session_id].update(detected)
 
-    missing = detect_missing_keywords_for_tia(full_context)
+    missing = detect_missing_keywords_for_tia(context_block)
 
-    if tx_count == 0:
-        if tia_trigger_initial_clarification(user_query):
-            logger.info("[Trigger Fired] Asking initial clarification set")
-            return (
-                "To answer your question correctly, I need more information:\n"
-                + "\n".join(f"- {q}" for q in TIA_INITIAL_FIXED_QUESTIONS)
-            )
-        else:
-            logger.info("[No Trigger] Skipping clarification")
-            return ""
+    if tx_count == 0 and tia_trigger_initial_clarification(user_query):
+        logger.info("]Trigger Fired] Asking for initial clarification set")
+        if len(missing) == 0:
+            return FINAL_RESPONSE_REQUIRED
+        return (
+            "To answer your question correctly, I need more information:\n"
+            + "\n".join(f"- {q}" for q in missing[:2])
+        )
 
     if tx_count < 3:
-        if missing:
-            logger.info(f"[Follow-up] Still missing fields → {missing}")
-            return (
-                "To answer your question correctly, I need more information:\n"
-                + "\n".join(f"- {q}" for q in missing[:2])
-            )
-        logger.info("[Clarification Complete] All required fields found")
-        return FINAL_RESPONSE_REQUIRED
+        if not missing:
+            logger.info("[Clarification Complete] All required fields found")
+            return FINAL_RESPONSE_REQUIRED
+        logger.info(f"[Follow-up] Still missing fields → {missing}")
+        return (
+            "To answer your question correctly, I need more information:\n"
+            + "\n".join(f"- {q}" for q in missing[:2])
+        )
 
-    # Fallback after tx_count ≥ 3
     logger.info("[TX >= 3] Fallback final answer logic triggered")
-    if not missing:
-        return FINAL_RESPONSE_REQUIRED
-    return fallback_final_answer_for_tia(full_context)
+    return fallback_final_answer_for_tia(context_block)
