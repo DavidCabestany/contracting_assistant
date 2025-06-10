@@ -121,6 +121,17 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         if gcp_file in known_files and known_files[gcp_file] == kb_path:
             if gcp_file not in matched_files:
                 matched_files.add(gcp_file)
+    # FORCE-INJECT GDP if distribution keywords are detected
+    gdp_keywords = [
+        "good distribution practice",
+        "GDP",
+        "gdp",
+    ]
+    gdp_file = "GLP GMP GDP Module - Playbook.pdf"
+    if any(keyword in query_lc for keyword in gdp_keywords):
+        if gdp_file in known_files and known_files[gdp_file] == kb_path:
+            if gdp_file not in matched_files:
+                matched_files.add(gdp_file)
     return list(matched_files)
 
 
@@ -293,6 +304,14 @@ def _render_prompt(user_query: str, base_prompt: str | None = None) -> str:
         tmpl += (
             "\nIf the Good Clinical Practice (GCP) module is relevant based on the user query, "
             "please cite it appropriately and ensure a detailed, context-rich answer is generated from that module."
+        )
+    # GDP clarification
+    if "gdp" in user_query.lower():
+        tmpl += (
+            "\n\n⚠️ IMPORTANT:\n"
+            "**In this domain, 'GDP' refers exclusively to Good Distribution Practice (not Gross Domestic Product).**\n"
+            "Please ignore any macroeconomic definitions of GDP. This question relates to pharmaceutical distribution compliance standards.\n"
+            "Ensure the answer is aligned with the GDP Module (Good Distribution Practice) content and regulatory context.\n"
         )
 
     tmpl += f"\n\n%USER QUERY:\n{user_query}\n"
