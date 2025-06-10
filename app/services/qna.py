@@ -62,7 +62,9 @@ def load_known_files_from_s3() -> dict[str, str]:
     return known_files
 
 
-def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
+def auto_attach_files_tia(
+    user_txt: str, kb_path: str
+) -> list[tuple[str, str]]:
     """Auto-match files from S3 based on query contents and restrict to given kb_path."""
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
@@ -81,6 +83,28 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
             phrase = " ".join(words[i : i + 2])
             if phrase in start_end_query:
                 matched_files.append(file_name)
+                break
+
+
+def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
+    """Auto-match files from S3 based on query contents and restrict to given kb_path."""
+    known_files = load_known_files_from_s3()
+    query_lc = user_txt.lower()
+    start_end_query = query_lc[:50] + query_lc[-50:]
+    matched_files = set()
+
+    for file_name, file_kb_path in known_files.items():
+        # Only consider files from the active kb_path
+        if file_kb_path != kb_path:
+            continue
+
+        base_name = file_name.lower().replace(".pdf", "")
+        words = re.findall(r"\b\w+\b", base_name)
+
+        for i in range(len(words) - 2):
+            phrase = " ".join(words[i : i + 3])
+            if phrase in start_end_query:
+                matched_files.add(file_name)
                 break
 
     # FORCE-INJECT GCP if clinical trial keywords are detected
