@@ -89,7 +89,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
     start_end_query = query_lc[:50] + query_lc[-50:]
-    matched_files = set()
+    matched_files = []
 
     for file_name, file_kb_path in known_files.items():
         # Only consider files from the active kb_path
@@ -102,7 +102,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         for i in range(len(words) - 2):
             phrase = " ".join(words[i : i + 3])
             if phrase in start_end_query:
-                matched_files.add(file_name)
+                matched_files.append(file_name)
                 break
 
     # FORCE-INJECT GCP if clinical trial keywords are detected
@@ -120,7 +120,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     if any(keyword in query_lc for keyword in gcp_keywords):
         if gcp_file in known_files and known_files[gcp_file] == kb_path:
             if gcp_file not in matched_files:
-                matched_files.add(gcp_file)
+                matched_files.append(gcp_file)
     # FORCE-INJECT GDP if distribution keywords are detected
     gdp_keywords = [
         "good distribution practice",
@@ -131,7 +131,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     if any(keyword in query_lc for keyword in gdp_keywords):
         if gdp_file in known_files and known_files[gdp_file] == kb_path:
             if gdp_file not in matched_files:
-                matched_files.add(gdp_file)
+                matched_files.append(gdp_file)
     return list(matched_files)
 
 
