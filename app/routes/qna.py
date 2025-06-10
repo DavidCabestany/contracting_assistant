@@ -377,6 +377,16 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     logger.info(
                         "[Clarification Needed] Skipping KB and responding with follow-up questions."
                     )
+                    end_time = datetime.datetime.now().isoformat()
+                    _store_chat_log(
+                        request,
+                        tia_clarification_text,
+                        msg_id,
+                        ui_session_id,
+                        start_time,
+                        end_time,
+                        citations=[],
+                    )
                     return QueryResponse(
                         status="success",
                         sessionId=ui_session_id,
