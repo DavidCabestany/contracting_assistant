@@ -23,6 +23,7 @@ from models import (
 from prompts import AUGMENTED_PROMPT, FOLLOW_UP_PROMPT
 from services import (
     auto_attach_files,
+    auto_attach_files_gxp_citation,
     detect_prior_doc_from_query,
     extract_file_locations,
     generate_answer_with_context,
@@ -283,6 +284,27 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             else:
                 logger.info("077 ▶ No files auto-attached")
                 files = []
+        logger.info("080 ▶ files after auto attach = %s", files)
+
+        # Step 2-b: Attach files for GxP citation-related issues
+        if not files:
+            logger.info(
+                "075 ▶ No files provided – checking for auto-attach opportunities"
+            )
+
+            # Use defect-specific file matcher for GCP citations (CROs, Service Providers)
+            matches = auto_attach_files_gxp_citation(user_txt, kb_path)
+            if matches:
+                files = matches
+                logger.info(
+                    "076 ▶ Auto-attached files based on user query = %s | kb_path = %s",
+                    files,
+                    kb_path,
+                )
+            else:
+                logger.info("077 ▶ No files auto-attached")
+                files = []
+
         logger.info("080 ▶ files after auto attach = %s", files)
 
         # Step 3: Handle summary requests first

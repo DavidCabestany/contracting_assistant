@@ -62,9 +62,7 @@ def load_known_files_from_s3() -> dict[str, str]:
     return known_files
 
 
-def auto_attach_files_tia(
-    user_txt: str, kb_path: str
-) -> list[tuple[str, str]]:
+def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
     """Auto-match files from S3 based on query contents and restrict to given kb_path."""
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
@@ -86,7 +84,7 @@ def auto_attach_files_tia(
                 break
 
 
-def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
+def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     """Auto-match files from S3 based on query contents and restrict to given kb_path."""
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
@@ -122,9 +120,8 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
     if any(keyword in query_lc for keyword in gcp_keywords):
         if gcp_file in known_files and known_files[gcp_file] == kb_path:
             if gcp_file not in matched_files:
-                matched_files.append(gcp_file)
-
-    return matched_files
+                matched_files.add(gcp_file)
+    return list(matched_files)
 
 
 def is_invalid_response(text: str) -> bool:

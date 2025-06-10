@@ -15,6 +15,7 @@ from .embeddings import get_embeddings, similarity
 from .memory import get_file_memory
 from .qna import (
     auto_attach_files,
+    auto_attach_files_gxp_citation,
     detect_prior_doc_from_query,
     extract_file_locations,
     generate_answer_with_context,
@@ -37,6 +38,7 @@ __all__ = [
     # qna
     "load_known_files_from_s3",
     "auto_attach_files",
+    "auto_attach_files_gxp_citation",
     "detect_prior_doc_from_query",
     "is_invalid_response",
     "needs_summary",
