@@ -80,7 +80,7 @@ app.include_router(
 # Feedback Details endpoints
 app.include_router(
     feedbackdetails_router,
-    prefix="/admin/feedbackdetails",
+    prefix="/admin/feedback",
     tags=["Admin only tracking"],
 )
 

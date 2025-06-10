@@ -10,28 +10,15 @@ logger = logging.getLogger(__name__)
 
 
 class ResponseTimeLogic:
-    """Logic for calculating date ranges and aggregating response time datafor generating response time graphs over various timeframes:7 days, 30 days, 90 days, and 365 days."""
+    """Logic for calculating date ranges and aggregating response time data for generating response time graphs over various timeframes: 7 days, 30 days, 90 days, and 365 days."""
 
     @staticmethod
     def calculate_date_range(timeframe: str) -> tuple:
-        """Calculate the start and end dates based on the selected timeframe.
-
-        Args:
-            timeframe (str): Time period for aggregation
-                ('last7days', 'last30days', 'last90days', 'last365days').
-
-        Returns:
-            tuple: (start_date, end_date) as datetime.date objects.
-
-        Raises:
-            ValueError: If an invalid timeframe is provided.
-        """
+        """Calculate the start and end dates based on the selected timeframe."""
         now = datetime.now()
         if timeframe == "last7days":
             end_date = now.date()
-            start_date = end_date - timedelta(
-                days=6
-            )  # include today and 6 days back
+            start_date = end_date - timedelta(days=6)
             return start_date, end_date
         elif timeframe == "last30days":
             end_date = now.date()
@@ -50,66 +37,66 @@ class ResponseTimeLogic:
 
     @staticmethod
     def filter_and_calculate(df: pd.DataFrame, timeframe: str) -> list:
-        """Aggregate and calculate average response durations for the specified timeframe.
-
-        Args:
-            df (pd.DataFrame): DataFrame with 'timestamp' and 'duration_s' columns.
-            timeframe (str): Time period to aggregate ('last7days', 'last30days', 'last90days', 'last365days').
-
-        Returns:
-            list: List of dict results for plotting graphs. Each dict contains:
-                'label': str (x-axis label for the graph)
-                'value': float or None (aggregated value for the period)
-        """
+        """Aggregate and calculate average response durations for the specified timeframe."""
         if df is None or df.empty:
             logger.info(f"No data available for timeframe: {timeframe}")
-            return []
-
-        logger.info(
-            f"Filtering and calculating average response time for timeframe: {timeframe}, DF size: {df.shape}"
-        )
+            # Pad all expected labels with value 0
+            if timeframe == "last7days":
+                today = datetime.now().date()
+                days = [today - timedelta(days=i) for i in reversed(range(7))]
+                return [
+                    {"label": d.strftime("%d-%b"), "value": 0} for d in days
+                ]
+            elif timeframe == "last30days":
+                now = datetime.now()
+                labels = ResponseTimeLogic._get_all_weeks_labels(now)
+                return [{"label": lbl, "value": 0} for lbl in labels]
+            elif timeframe == "last90days":
+                now = datetime.now()
+                labels = ResponseTimeLogic._get_all_months_labels(now, 3)
+                return [{"label": lbl, "value": 0} for lbl in labels]
+            elif timeframe == "last365days":
+                now = datetime.now()
+                labels = ResponseTimeLogic._get_all_quarters_labels(now)
+                return [{"label": lbl, "value": 0} for lbl in labels]
+            else:
+                return []
 
         if timeframe == "last7days":
-            # Group by each day (ensure no missing days)
+            df = df.copy()
             df["date"] = df["timestamp"].dt.date
-            # Remove days with invalid duration or nan, but keep duration zero for valid calculations
+            date_range = [
+                datetime.now().date() - timedelta(days=i)
+                for i in reversed(range(7))
+            ]
             res = (
                 df.groupby("date")["duration_s"]
                 .mean()
                 .reset_index()
                 .sort_values("date", ascending=True)
             )
-            # Ensure all 7 days are represented
-            start_date = df["date"].min()
-            end_date = df["date"].max()
-            all_days = pd.date_range(start=start_date, end=end_date, freq="D")
-            res = (
-                res.set_index("date")
-                .reindex(all_days, fill_value=float("nan"))
-                .reset_index()
-            )
-            res.columns = ["date", "duration_s"]
-            # Only last 7 days
-            last_7 = res.tail(7)
-            logger.info("Daily averages for last 7 days:\n%s", last_7)
+            avg_map = {
+                row["date"]: row["duration_s"] for _, row in res.iterrows()
+            }
             return [
                 {
-                    "label": row["date"].strftime("%d-%b"),
+                    "label": d.strftime("%d-%b"),
                     "value": (
-                        round(row["duration_s"], 2)
-                        if pd.notnull(row["duration_s"])
-                        else None
+                        round(avg_map[d], 2)
+                        if d in avg_map and pd.notnull(avg_map[d])
+                        else 0
                     ),
                 }
-                for _, row in last_7.iterrows()
+                for d in date_range
             ]
 
         elif timeframe == "last30days":
-            current_date = datetime.now()
-            start_date = current_date - timedelta(days=29)
+            now = datetime.now()
+            start_date = now - timedelta(days=29)
+            df = df.copy()
             df = df[
                 (df["timestamp"].dt.date >= start_date.date())
-                & (df["timestamp"].dt.date <= current_date.date())
+                & (df["timestamp"].dt.date <= now.date())
             ]
 
             def assign_week_label(date):
@@ -128,55 +115,51 @@ class ResponseTimeLogic:
             avg_per_week = (
                 df.groupby("week_label")["duration_s"].mean().reset_index()
             )
-            avg_per_week["month"] = avg_per_week["week_label"].apply(
-                lambda x: datetime.strptime(x.split()[1], "%b").month
-            )
-            avg_per_week["week_number"] = avg_per_week["week_label"].apply(
-                lambda x: int(x.split()[0][1])
-            )
-            avg_per_week.sort_values(by=["month", "week_number"], inplace=True)
-            for week_label, dates in df.groupby("week_label")["timestamp"]:
-                week_dates = dates.dt.date.unique()
-                logger.info(
-                    f"{week_label} -> Dates: {', '.join(map(str, week_dates))}"
-                )
+
+            week_labels = ResponseTimeLogic._get_all_weeks_labels(now)
+            avg_map = {
+                row["week_label"]: row["duration_s"]
+                for _, row in avg_per_week.iterrows()
+            }
             return [
                 {
-                    "label": row["week_label"],
-                    "value": round(row["duration_s"], 2),
+                    "label": label,
+                    "value": (
+                        round(avg_map[label], 2)
+                        if label in avg_map and pd.notnull(avg_map[label])
+                        else 0
+                    ),
                 }
-                for _, row in avg_per_week.iterrows()
+                for label in week_labels
             ]
 
         elif timeframe == "last90days":
+            now = datetime.now()
+            df = df.copy()
             df["month_year"] = df["timestamp"].dt.strftime("%b %Y")
             avg_per_month = (
                 df.groupby("month_year")["duration_s"].mean().reset_index()
             )
-            avg_per_month["month"] = avg_per_month["month_year"].apply(
-                lambda x: datetime.strptime(x, "%b %Y").month
-            )
-            avg_per_month["year"] = avg_per_month["month_year"].apply(
-                lambda x: datetime.strptime(x, "%b %Y").year
-            )
-            avg_per_month.sort_values(by=["year", "month"], inplace=True)
-            unique_months = df["month_year"].unique()
-            for month in unique_months:
-                month_dates = df[df["month_year"] == month][
-                    "timestamp"
-                ].dt.date.unique()
-                logger.info(
-                    f"{month} -> Dates: {', '.join(map(str, month_dates))}"
-                )
+            month_labels = ResponseTimeLogic._get_all_months_labels(now, 3)
+            avg_map = {
+                row["month_year"]: row["duration_s"]
+                for _, row in avg_per_month.iterrows()
+            }
             return [
                 {
-                    "label": row["month_year"],
-                    "value": round(row["duration_s"], 2),
+                    "label": label,
+                    "value": (
+                        round(avg_map[label], 2)
+                        if label in avg_map and pd.notnull(avg_map[label])
+                        else 0
+                    ),
                 }
-                for _, row in avg_per_month.iterrows()
+                for label in month_labels
             ]
 
         elif timeframe == "last365days":
+            now = datetime.now()
+            df = df.copy()
             df["quarter"] = df["timestamp"].dt.to_period("Q")
             df["quarter_label"] = df["quarter"].apply(
                 lambda x: f"Q{x.quarter} {x.year}"
@@ -184,28 +167,59 @@ class ResponseTimeLogic:
             avg_per_quarter = (
                 df.groupby("quarter_label")["duration_s"].mean().reset_index()
             )
-            avg_per_quarter["year"] = avg_per_quarter["quarter_label"].apply(
-                lambda x: int(x.split()[1])
-            )
-            avg_per_quarter["quarter"] = avg_per_quarter[
-                "quarter_label"
-            ].apply(lambda x: int(x[1]))
-            avg_per_quarter.sort_values(by=["year", "quarter"], inplace=True)
-            unique_quarters = df["quarter_label"].unique()
-            for quarter in unique_quarters:
-                quarter_dates = df[df["quarter_label"] == quarter][
-                    "timestamp"
-                ].dt.date.unique()
-                logger.info(
-                    f"{quarter} -> Dates: {', '.join(map(str, quarter_dates))}"
-                )
+            quarter_labels = ResponseTimeLogic._get_all_quarters_labels(now)
+            avg_map = {
+                row["quarter_label"]: row["duration_s"]
+                for _, row in avg_per_quarter.iterrows()
+            }
             return [
                 {
-                    "label": row["quarter_label"],
-                    "value": round(row["duration_s"], 2),
+                    "label": label,
+                    "value": (
+                        round(avg_map[label], 2)
+                        if label in avg_map and pd.notnull(avg_map[label])
+                        else 0
+                    ),
                 }
-                for _, row in avg_per_quarter.iterrows()
+                for label in quarter_labels
             ]
+
         else:
             logger.error(f"Unsupported timeframe: {timeframe}")
             return []
+
+    @staticmethod
+    def _get_all_weeks_labels(now):
+        labels = []
+        # Get the last 4 weeks covering the last 30 days
+        current = now
+        for i in reversed(range(4)):
+            week_start = current - timedelta(days=current.day - 1)
+            week_num = i + 1
+            labels.append(f"W{week_num} {calendar.month_abbr[current.month]}")
+            current = week_start - timedelta(days=1)
+        labels.reverse()
+        return labels
+
+    @staticmethod
+    def _get_all_months_labels(now, num_months):
+        labels = []
+        for i in reversed(range(num_months)):
+            month = (now.month - i - 1) % 12 + 1
+            year = now.year if now.month - i > 0 else now.year - 1
+            labels.append(f"{calendar.month_abbr[month]} {year}")
+        return labels
+
+    @staticmethod
+    def _get_all_quarters_labels(now):
+        labels = []
+        year = now.year
+        current_q = (now.month - 1) // 3 + 1
+        for i in reversed(range(4)):
+            q = current_q - i
+            q_year = year
+            if q <= 0:
+                q += 4
+                q_year -= 1
+            labels.append(f"Q{q} {q_year}")
+        return labels

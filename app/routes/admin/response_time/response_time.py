@@ -1,4 +1,4 @@
-"""This class Calculate the response time over a given timeframe."""
+"""This class calculates the response time over a given timeframe."""
 
 import logging
 

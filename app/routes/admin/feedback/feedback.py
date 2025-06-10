@@ -1,8 +1,9 @@
-"""This is a feedback graph class providing feedback trend and statistics APIs."""
+"""This module provides API endpoints for tracking feedback trends and statistics."""
 
 import calendar
 import logging
-from datetime import date, datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException
 from models import (
@@ -15,67 +16,55 @@ from models import (
     TrendData,
 )
 from routes.admin.utils.feedback_utils import (
+    fetch_feedback_items_in_timewindow,  # <-- Use this for unified filtering!
+)
+from routes.admin.utils.feedback_utils import (
     calculate_timeframe,
-    fetch_feedback_data_extended,
-    fetch_feedback_trends_data,
+    feedback_class,
+    parse_date_flexible,
 )
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 feedback_data_router = APIRouter()
 
 
-def normalize_feedback_value(val):
-    """Normalize DynamoDB IsFeedbackPositive value so True/False/yes/no etc. and 'no_feedback' are handled consistently.Returns: 'positive', 'negative', or 'no_feedback'."""
-    if isinstance(val, bool):
-        return "positive" if val else "negative"
-    if isinstance(val, (int, float)):
-        return "positive" if val else "negative"
-    if isinstance(val, str):
-        # Remove whitespace, lower, etc.
-        v = val.strip().lower()
-        if v in ("true", "yes", "positive", "1"):
-            return "positive"
-        elif v in ("false", "no", "negative", "0"):
-            return "negative"
-        elif v == "no_feedback":
-            return "no_feedback"
-    return None  # Unclear/unknown
-
-
-def get_week_label(dt: datetime) -> str:
-    """Return the week label (W1-W4) and month abbreviation for a date."""
+def get_week_label_and_year(dt: datetime) -> (str, int, int, int):  # type: ignore
+    """Returns the week label (e.g., W1 Jan), year, month, and week index (1-4) for a given datetime."""
     day = dt.day
-    month = dt.strftime("%b")
+    month = dt.month
+    year = dt.year
+    month_abbr = dt.strftime("%b")
     if 1 <= day <= 7:
-        return f"W1 {month}"
+        week_idx = 1
     elif 8 <= day <= 14:
-        return f"W2 {month}"
+        week_idx = 2
     elif 15 <= day <= 21:
-        return f"W3 {month}"
+        week_idx = 3
     else:
-        return f"W4 {month}"
+        week_idx = 4
+    label = f"W{week_idx} {month_abbr}"
+    return label, year, month, week_idx
 
 
 def get_month_label(dt: datetime) -> str:
-    """Return the label as 'Mon YYYY'."""
+    """Returns the month label (e.g., Jan 2024) for a given datetime."""
     return dt.strftime("%b %Y")
 
 
 def get_quarter_label(dt: datetime) -> str:
-    """Return the label as 'Qx YYYY' based on the month."""
+    """Returns the quarter label (e.g., Q1 2024) for a given datetime."""
     quarter = (dt.month - 1) // 3 + 1
     return f"Q{quarter} {dt.year}"
 
 
 def week_sortkey(label: str) -> tuple:
-    """Sort key for week labels."""
+    """Returns a sort key tuple for week labels (e.g., W2 Feb) to enable chronological sorting."""
     week, month_abbr = label.split()
     today = datetime.now()
     year = (
         today.year
-        if month_abbr != "Dec" or today.month >= 12
+        if (month_abbr != "Dec" or today.month >= 12)
         else today.year - 1
     )
     try:
@@ -89,7 +78,7 @@ def week_sortkey(label: str) -> tuple:
 
 
 def month_sortkey(label: str) -> tuple:
-    """Sort key for month labels like 'May 2025'."""
+    """Returns a sort key tuple for month labels (e.g., Jan 2024)."""
     month_abbr, year = label.split()
     month = list(calendar.month_abbr).index(month_abbr)
     year = int(year)
@@ -97,137 +86,183 @@ def month_sortkey(label: str) -> tuple:
 
 
 def quarter_sortkey(label: str) -> tuple:
-    """Sort key for quarter labels like 'Q2 2025'."""
+    """Returns a sort key tuple for quarter labels (e.g., Q2 2023)."""
     quarter, year = label.split()
     quarter = int(quarter[1])
     year = int(year)
     return (year, quarter)
 
 
-def construct_trend_data(aggregated_data, timeframe) -> list:
-    """Construct trend data for the expected UI grouping/labeling rules.
+def aggregate_stats(items):
+    """Aggregate all feedback stats over filtered items.Returns the counts of positive, negative, and no feedback items."""
+    pos, neg, nofb = 0, 0, 0
+    for item in items:
+        val = item.get("IsFeedbackPositive")
+        label = feedback_class(val)
+        if label == "positive":
+            pos += 1
+        elif label == "negative":
+            neg += 1
+        else:
+            nofb += 1
+    return pos, neg, nofb
 
-    Args:
-        aggregated_data: Dict of grouped data from DB (keys are dates as datetime.date/datetime).
-        timeframe: String like 'last30days', 'last90days', 'last365days' or others.
 
-    Returns:
-        List[Dict]: Sorted trend elements with appropriate labels/values.
-    """
-    trend_dict = {}
+def aggregate_trend(items, timeframe, start_dt, end_dt):
+    """Aggregate feedback items into appropriate time buckets, both positive and negative.Fills all buckets in the range, even if zero."""
+    # 1. Group
+    buckets = defaultdict(lambda: {"positive": 0, "negative": 0})
+    for item in items:
+        dt = parse_date_flexible(item["Timestamp"])
+        val = item.get("IsFeedbackPositive")
+        label = feedback_class(val)
+        # Per-timeframe key
+        if timeframe == "last7days":
+            bucket = dt.date()
+        elif timeframe == "last30days":
+            # Bucket by *Monday* of each week by day, make key a date
+            week_start = (dt - timedelta(days=dt.weekday())).date()
+            bucket = week_start
+        elif timeframe == "last90days":
+            # Bucket by month
+            bucket = datetime(dt.year, dt.month, 1)
+        elif timeframe == "last365days":
+            # Bucket by quarter
+            q_start_month = (((dt.month - 1) // 3) * 3) + 1
+            bucket = datetime(dt.year, q_start_month, 1)
+        else:
+            bucket = dt.date()
+        if label == "positive":
+            buckets[bucket]["positive"] += 1
+        elif label == "negative":
+            buckets[bucket]["negative"] += 1
+        # 'no_feedback' is not counted in trend
 
-    if timeframe == "last30days":
-        # aggregate by (label, year, month, week)
-        buckets = {}
-        for dt, data in aggregated_data.items():
-            # dt can be datetime.date or datetime
-            if isinstance(dt, date) and not isinstance(dt, datetime):
-                dt = datetime.combine(dt, datetime.min.time())
-            label, year, month, week_idx = get_week_label_and_year(dt)
-            key = (year, month, week_idx, label)
-            if key not in buckets:
-                buckets[key] = {"positive": 0, "negative": 0}
-            buckets[key]["positive"] += data.get("positive", 0)
-            buckets[key]["negative"] += data.get("negative", 0)
-        # sort by year, month, week_idx
-        sorted_keys = sorted(buckets.keys())
-        trend_data = [
-            {
-                "label": label,
-                "value": label,
-                "negative": buckets[key]["negative"],
-                "positive": buckets[key]["positive"],
-            }
-            for (year, month, week_idx, label) in sorted_keys
-        ]
-        return trend_data
+    # 2. Fill missing buckets for full period
+    out = []
+    if timeframe == "last7days":
+        cur = start_dt.date()
+        end_date = end_dt.date()
+        while cur <= end_date:
+            data = buckets.get(cur, {"positive": 0, "negative": 0})
+            out.append(
+                {
+                    "label": cur.strftime("%Y-%m-%d"),
+                    "value": cur.strftime("%Y-%m-%d"),
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                }
+            )
+            cur += timedelta(days=1)
+        return out
+
+    elif timeframe == "last30days":
+        # Fill by Monday date for each week in window
+        cur = (start_dt - timedelta(days=start_dt.weekday())).date()
+        endw = (end_dt - timedelta(days=end_dt.weekday())).date()
+        while cur <= endw:
+            label, *_ = get_week_label_and_year(
+                datetime.combine(cur, datetime.min.time())
+            )
+            data = buckets.get(cur, {"positive": 0, "negative": 0})
+            out.append(
+                {
+                    "label": label,
+                    "value": label,
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                }
+            )
+            cur += timedelta(days=7)
+        return out
 
     elif timeframe == "last90days":
-        for dt, data in aggregated_data.items():
-            label = get_month_label(dt)
-            if label not in trend_dict:
-                trend_dict[label] = {"negative": 0, "positive": 0}
-            trend_dict[label]["negative"] += data.get("negative", 0)
-            trend_dict[label]["positive"] += data.get("positive", 0)
-        sorted_labels = sorted(trend_dict.keys(), key=month_sortkey)
-        trend_data = [
-            {
-                "label": label,
-                "value": label,
-                "negative": trend_dict[label]["negative"],
-                "positive": trend_dict[label]["positive"],
-            }
-            for label in sorted_labels
-        ]
+        cur = datetime(start_dt.year, start_dt.month, 1)
+        end_month = datetime(end_dt.year, end_dt.month, 1)
+        while cur <= end_month:
+            label = get_month_label(cur)
+            data = buckets.get(cur, {"positive": 0, "negative": 0})
+            out.append(
+                {
+                    "label": label,
+                    "value": label,
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                }
+            )
+            # Next month
+            if cur.month == 12:
+                cur = cur.replace(year=cur.year + 1, month=1)
+            else:
+                cur = cur.replace(month=cur.month + 1)
+        return out
 
     elif timeframe == "last365days":
-        for dt, data in aggregated_data.items():
-            label = get_quarter_label(dt)
-            if label not in trend_dict:
-                trend_dict[label] = {"negative": 0, "positive": 0}
-            trend_dict[label]["negative"] += data.get("negative", 0)
-            trend_dict[label]["positive"] += data.get("positive", 0)
-        sorted_labels = sorted(trend_dict.keys(), key=quarter_sortkey)
-        trend_data = [
-            {
-                "label": label,
-                "value": label,
-                "negative": trend_dict[label]["negative"],
-                "positive": trend_dict[label]["positive"],
-            }
-            for label in sorted_labels
-        ]
-    else:
-        # Fallback to default: raw dates, sorted in ascending order.
-        # This is used for last 7 days or custom period per day
-        pair_list = []
-        for dt, data in aggregated_data.items():
-            # Ensure dt is a datetime for .strftime
-            if isinstance(dt, date) and not isinstance(dt, datetime):
-                dt = datetime.combine(dt, datetime.min.time())
-            pair_list.append(
-                (
-                    dt,
-                    {
-                        "label": dt.strftime("%Y-%m-%d"),
-                        "value": dt.strftime("%Y-%m-%d"),
-                        "negative": data.get("negative", 0),
-                        "positive": data.get("positive", 0),
-                    },
-                )
+
+        def quarter_start(dt):
+            m = (((dt.month - 1) // 3) * 3) + 1
+            return datetime(dt.year, m, 1)
+
+        cur = quarter_start(start_dt)
+        endq = quarter_start(end_dt)
+        while cur <= endq:
+            label = get_quarter_label(cur)
+            data = buckets.get(cur, {"positive": 0, "negative": 0})
+            out.append(
+                {
+                    "label": label,
+                    "value": label,
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                }
             )
-        # Sort by datetime (ascending)
-        pair_list.sort(key=lambda x: x[0])
-        trend_data = [item for dt, item in pair_list]
-    return trend_data
+            # Next quarter
+            if cur.month >= 10:
+                cur = cur.replace(year=cur.year + 1, month=1)
+            else:
+                cur = cur.replace(month=cur.month + 3)
+        return out
+
+    else:
+        # fallback: daily
+        cur = start_dt.date()
+        end_date = end_dt.date()
+        while cur <= end_date:
+            data = buckets.get(cur, {"positive": 0, "negative": 0})
+            out.append(
+                {
+                    "label": cur.strftime("%Y-%m-%d"),
+                    "value": cur.strftime("%Y-%m-%d"),
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                }
+            )
+            cur += timedelta(days=1)
+        return out
 
 
 @feedback_data_router.post(
     "/getFeedbackTrend", response_model=FeedbackTrendResponse
 )
 async def get_feedback_trend(request: FeedbackTrendRequest):
-    """Fetch feedback trend data grouped for visualization.
-
-    - last30days: data grouped into weeks (W1-W4 per month)
-    - last90days: grouped by calendar months
-    - last365days: grouped by quarter (Q1-Q4 per year)
-
-    Returns:
-        FeedbackTrendResponse containing data[] with label/value/positive/negative keys.
-    """
+    """Fetch feedback trend data grouped for visualization."""
     try:
         current_time = datetime.now()
         start_time, end_time, _, _ = calculate_timeframe(
             request.timeframe, current_time, include_previous=False
         )
-        aggregated_data = fetch_feedback_trends_data(
-            start_time, end_time, request.timeframe
-        )
-
-        trend_data = construct_trend_data(aggregated_data, request.timeframe)
-
+        # Unified fetch!
+        items = fetch_feedback_items_in_timewindow(start_time, end_time)
         logger.info(
-            f"Feedback trend data fetched for {request.timeframe}: {len(trend_data)} items"
+            f"Fetched feedback items for trend ({request.timeframe}): {items}"
+        )
+        trend_data = aggregate_trend(
+            items, request.timeframe, start_time, end_time
+        )
+        logger.info(
+            f"Feedback trend data fetched for {request.timeframe}: {len(trend_data)} items "
+            f"(sum positive={sum(x['positive'] for x in trend_data)}, "
+            f"sum negative={sum(x['negative'] for x in trend_data)})"
         )
         return FeedbackTrendResponse(
             data=[TrendData(**item) for item in trend_data]
@@ -243,24 +278,22 @@ async def get_feedback_trend(request: FeedbackTrendRequest):
     "/getFeedbackData", response_model=FeedbackDataResponse
 )
 async def get_feedback_data(request: FeedbackDataRequest):
-    """Fetches aggregated feedback statistics (counts, percentages, changes) for positive, negative, and no feedback types.
-
-    Returns:
-        FeedbackDataResponse with count/percentage/stats for each type for current and previous periods.
-    """
+    """Fetch aggregated feedback statistics (counts, percentages, changes)."""
     try:
         current_time = datetime.now()
         start_time, end_time, prev_start, prev_end = calculate_timeframe(
             request.timeframe, current_time, include_previous=True
         )
 
-        # Get counts for selected and previous periods
-        pos, neg, nof, _ = fetch_feedback_data_extended(start_time, end_time)
-        ppos, pneg, pnof, _ = fetch_feedback_data_extended(
-            prev_start, prev_end
+        items = fetch_feedback_items_in_timewindow(start_time, end_time)
+        pos, neg, nofb = aggregate_stats(items)
+        prev_items = fetch_feedback_items_in_timewindow(prev_start, prev_end)
+        ppos, pneg, pnofb = aggregate_stats(prev_items)
+        logger.info(
+            f"Aggregated stats: positive={pos}, negative={neg}, no_feedback={nofb}; previous window: pos={ppos}, neg={pneg}, nofb={pnofb}"
         )
 
-        total = pos + neg + nof
+        total = pos + neg + nofb
 
         def pct(val, base):
             return round((val / base * 100), 2) if base else 0.0
@@ -270,25 +303,22 @@ async def get_feedback_data(request: FeedbackDataRequest):
                 return 100 if curr > 0 else 0
             return round(((curr - prev) / prev) * 100)
 
-        # Fill the FeedbackDataItem list (percent breakdown)
         data_items = [
             FeedbackDataItem(name="positive", value=pct(pos, total)),
             FeedbackDataItem(name="negative", value=pct(neg, total)),
-            FeedbackDataItem(name="no_feedback", value=pct(nof, total)),
+            FeedbackDataItem(name="no_feedback", value=pct(nofb, total)),
         ]
-
         pct_data = PctData(
             positiveCountFeedback=pos,
             negativeCountFeedback=neg,
-            noCountFeedback=nof,
+            noCountFeedback=nofb,
             positiveCountFeedback_pct=pct(pos, total),
             negativeCountFeedback_pct=pct(neg, total),
-            noCountFeedback_pct=pct(nof, total),
+            noCountFeedback_pct=pct(nofb, total),
             positive_pct_change=pct_change(pos, ppos),
             negative_pct_change=pct_change(neg, pneg),
-            no_feedback_pct_change=pct_change(nof, pnof),
+            no_feedback_pct_change=pct_change(nofb, pnofb),
         )
-
         return FeedbackDataResponse(data=data_items, pct_data=pct_data)
 
     except Exception as e:
@@ -296,33 +326,3 @@ async def get_feedback_data(request: FeedbackDataRequest):
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch feedback data: {str(e)}"
         )
-
-
-def calculate_pct_feedback(total_selected: int, total_feedback: int) -> int:
-    """Calculate the percentage of selected feedback out of total feedback.
-
-    Returns:
-        Rounded integer percentage, or 0 if denominator is zero.
-    """
-    if total_feedback == 0:
-        return 0
-    pct_feedback = total_selected / total_feedback * 100
-    return round(pct_feedback)
-
-
-def get_week_label_and_year(dt: datetime) -> (str, int, int, int):
-    """Return week label, year, month number, and week index for proper sorting."""
-    day = dt.day
-    month = dt.month
-    year = dt.year
-    month_abbr = dt.strftime("%b")
-    if 1 <= day <= 7:
-        week_idx = 1
-    elif 8 <= day <= 14:
-        week_idx = 2
-    elif 15 <= day <= 21:
-        week_idx = 3
-    else:
-        week_idx = 4
-    label = f"W{week_idx} {month_abbr}"
-    return label, year, month, week_idx

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from boto3 import resource
 from config import get_secret
@@ -19,15 +19,21 @@ dynamodb = resource("dynamodb", region_name=REGION_ID)
 table = dynamodb.Table(CHAT_TABLE)
 
 
+def parse_date_flexible(ts: str) -> Optional[datetime]:
+    """Robustly parse a date string supporting ISO and 'DD-MM-YYYY' formats.Returns datetime or None if parsing fails."""
+    try:
+        return datetime.fromisoformat(ts)
+    except Exception:
+        pass
+    try:
+        return datetime.strptime(ts, "%d-%m-%Y")
+    except Exception:
+        pass
+    return None  # Give up
+
+
 def feedback_class(val):
-    """Normalize the DynamoDB IsFeedbackPositive value.
-
-    Args:
-        val: The raw value from DynamoDB ("true", True, "false", False, "no_feedback", etc.)
-
-    Returns:
-        'positive', 'negative', 'no_feedback', or None.
-    """
+    """Normalize the DynamoDB IsFeedbackPositive value."""
     if isinstance(val, bool):
         return "positive" if val else "negative"
     if isinstance(val, (int, float)):
@@ -41,51 +47,6 @@ def feedback_class(val):
         elif v == "no_feedback":
             return "no_feedback"
     return None
-
-
-def fetch_feedback_data(
-    start_time: datetime, end_time: datetime, is_positive: bool
-) -> Tuple[Dict[str, int], int, int]:
-    """Fetch and aggregate feedback data from DynamoDB within a specified timeframe."""
-    items = scan_table(
-        table=table,
-        projection_expression="#ts, isFeedbackPositive",
-        expression_attribute_names={"#ts": "Timestamp"},
-        error_handling="return_empty",
-    )
-
-    feedback_data = {"positive": 0, "negative": 0}
-    total_positive = 0
-    total_negative = 0
-
-    for item in items:
-        timestamp_str = item.get("Timestamp", "")
-        feedback_positive = item.get("isFeedbackPositive")
-
-        if not timestamp_str:
-            logger.error(f"Missing timestamp in item: {item}")
-            continue
-
-        try:
-            feedback_timestamp = datetime.fromisoformat(timestamp_str)
-            if start_time <= feedback_timestamp <= end_time:
-                fb_type = feedback_class(feedback_positive)
-                if fb_type == "positive":
-                    feedback_data["positive"] += 1
-                    total_positive += 1
-                elif fb_type == "negative":
-                    feedback_data["negative"] += 1
-                    total_negative += 1
-        except Exception as e:
-            logger.error(
-                f"Error parsing timestamp {timestamp_str} in item: {item}: {e}"
-            )
-
-    total_selected = total_positive if is_positive else total_negative
-    logger.info(
-        f"Total feedback selected ({'positive' if is_positive else 'negative'}): {total_selected}"
-    )
-    return feedback_data, total_selected, total_positive + total_negative
 
 
 def calculate_timeframe(
@@ -114,113 +75,51 @@ def calculate_timeframe(
         prev_end_time = start_time
     else:
         raise ValueError("Invalid timeframe")
-
     logger.info(
         f"Calculated timeframe for {timeframe}: start={start_time}, end={end_time}"
     )
     return start_time, end_time, prev_start_time, prev_end_time
 
 
-def fetch_feedback_trends_data(
-    start_time: datetime, end_time: datetime, timeframe: str
-) -> Dict[datetime, Dict[str, int]]:
-    """Fetch and aggregate feedback trends from DynamoDB based on a timeframe.
-
-    Returns:
-        Dict mapping datetime (bucket) to {"positive": int, "negative": int}
-    """
+def fetch_feedback_items_in_timewindow(start_time, end_time) -> List[dict]:
+    """Fetch all feedback items in the given time window, with robust timestamp parsing.Returns list of dicts."""
     items = scan_table(
         table=table,
-        projection_expression="#ts, isFeedbackPositive",
+        projection_expression="#ts, IsFeedbackPositive",
         expression_attribute_names={"#ts": "Timestamp"},
         error_handling="return_empty",
     )
-
-    trend_data = {}
+    filtered = []
     for item in items:
-        timestamp_str = item.get("Timestamp", "")
-        feedback_positive = item.get("isFeedbackPositive")
-
-        if not timestamp_str:
-            logger.error(f"Missing timestamp in item: {item}")
+        raw_ts = item.get("Timestamp", "")
+        if not raw_ts:
             continue
-
-        try:
-            feedback_timestamp = datetime.fromisoformat(timestamp_str)
-            if not (start_time <= feedback_timestamp <= end_time):
-                continue
-
-            fb_type = feedback_class(feedback_positive)
-            if fb_type not in ("positive", "negative"):
-                continue  # skip "no_feedback" and malformed
-
-            # Decide on grouping key
-            key = None
-            if timeframe == "last7days":
-                key = feedback_timestamp.date()
-            elif timeframe == "last30days":
-                key = (
-                    feedback_timestamp
-                    - timedelta(days=feedback_timestamp.weekday())
-                ).date()
-            elif timeframe == "last90days":
-                key = datetime(
-                    feedback_timestamp.year, feedback_timestamp.month, 1
-                )
-            elif timeframe == "last365days":
-                quarter = (feedback_timestamp.month - 1) // 3 + 1
-                month_start = (quarter - 1) * 3 + 1
-                key = datetime(feedback_timestamp.year, month_start, 1)
-            else:
-                key = feedback_timestamp.date()
-
-            if key not in trend_data:
-                trend_data[key] = {"positive": 0, "negative": 0}
-
-            if fb_type == "positive":
-                trend_data[key]["positive"] += 1
-            elif fb_type == "negative":
-                trend_data[key]["negative"] += 1
-        except Exception as e:
-            logger.error(
-                f"Error parsing timestamp {timestamp_str} in item: {item}: {e}"
-            )
-
-    logger.info(f"Feedback trend data fetched: {trend_data}")
-    return trend_data
+        dt = parse_date_flexible(raw_ts)
+        if not dt:
+            continue
+        if not (start_time <= dt <= end_time):
+            continue
+        filtered.append(
+            {
+                "Timestamp": raw_ts,
+                "IsFeedbackPositive": item.get("IsFeedbackPositive"),
+            }
+        )
+    logger.info(
+        f"Filtered DB items for [{start_time} - {end_time}]: {filtered}"
+    )
+    return filtered
 
 
 def fetch_feedback_data_extended(start_time, end_time):
-    """Fetch and aggregate feedback data for positive, negative, and no_feedback.
-
-    Returns:
-        - positive_count (int): positive feedbacks
-        - negative_count (int): negative feedbacks
-        - no_feedback_count (int): 'no_feedback' responses
-        - details (dict): category counts
-    """
-    items = scan_table(
-        table=table,
-        projection_expression="#ts, isFeedbackPositive",
-        expression_attribute_names={"#ts": "Timestamp"},
-        error_handling="return_empty",
-    )
+    """Fetch and aggregate feedback data for positive, negative, and no_feedback."""
+    items = fetch_feedback_items_in_timewindow(start_time, end_time)
 
     positive = 0
     negative = 0
     no_feedback = 0
     for item in items:
-        ts = item.get("Timestamp", "")
-        val = item.get("isFeedbackPositive", None)
-        if not ts:
-            continue
-        try:
-            dt = datetime.fromisoformat(ts)
-        except Exception:
-            continue
-        if not (start_time <= dt <= end_time):
-            continue
-
+        val = item.get("IsFeedbackPositive", None)
         label = feedback_class(val)
         if label == "positive":
             positive += 1
@@ -239,3 +138,54 @@ def fetch_feedback_data_extended(start_time, end_time):
             "no_feedback": no_feedback,
         },
     )
+
+
+def fetch_feedback_trends_data(
+    start_time: datetime, end_time: datetime, timeframe: str
+) -> Dict[datetime, Dict[str, int]]:
+    """Fetch and aggregate feedback trends from DynamoDB based on a timeframe.
+
+    Returns:
+        Dict mapping datetime (bucket) to {"positive": int, "negative": int}
+    """
+    items = fetch_feedback_items_in_timewindow(start_time, end_time)
+    logger.info(
+        f"Items returned for trend aggregation in [{start_time} - {end_time}]: {items}"
+    )
+    trend_data = {}
+
+    for item in items:
+        raw_ts = item.get("Timestamp", "")
+        feedback_positive = item.get("IsFeedbackPositive")
+        dt = parse_date_flexible(raw_ts)
+        if not dt:
+            continue
+
+        fb_type = feedback_class(feedback_positive)
+        if fb_type not in ("positive", "negative"):
+            continue  # skip "no_feedback" or missing
+
+        # Decide on grouping key
+        if timeframe == "last7days":
+            key = dt.date()
+        elif timeframe == "last30days":
+            key = (dt - timedelta(days=dt.weekday())).date()
+        elif timeframe == "last90days":
+            key = datetime(dt.year, dt.month, 1)
+        elif timeframe == "last365days":
+            quarter = (dt.month - 1) // 3 + 1
+            month_start = (quarter - 1) * 3 + 1
+            key = datetime(dt.year, month_start, 1)
+        else:
+            key = dt.date()
+
+        if key not in trend_data:
+            trend_data[key] = {"positive": 0, "negative": 0}
+
+        if fb_type == "positive":
+            trend_data[key]["positive"] += 1
+        elif fb_type == "negative":
+            trend_data[key]["negative"] += 1
+
+    logger.info(f"Feedback trend aggregation result / buckets: {trend_data}")
+    return trend_data

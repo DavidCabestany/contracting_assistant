@@ -172,7 +172,7 @@ def parse_citation(item) -> RetrievedCitationModel:
 
 
 @feedbackdetails_router.post(
-    "/feedbackdetails", response_model=FeedbackDetailsResponse
+    "/getFeedbackDetails", response_model=FeedbackDetailsResponse
 )
 async def get_feedback_details(request: FeedbackDetailsRequest):
     """Returns feedback details for the admin UI.Supports window filtered by "last7days", "last30days", "last90days", "last365days", or a custom window.
