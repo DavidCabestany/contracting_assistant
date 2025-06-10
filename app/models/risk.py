@@ -7,6 +7,28 @@ from typing import Any, List
 from pydantic import BaseModel, Field
 
 
+class RiskDetail(BaseModel):
+    """Details of a specific risk identified in a clause."""
+    clause_name: str
+    risk_content: str
+    risk_score: int
+    risk_level: str
+    clause_type: str 
+    risk_importance: str
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """Exclude fields when serializing for the API response."""
+       
+        exclude_set = {
+            "risk_score",
+            "risk_level",
+            "clause_type",
+            "risk_importance",
+        }
+        kwargs.setdefault("exclude", set()).update(exclude_set)
+        print(f"kwargs in RiskDetail.model_dump: {kwargs}") 
+        return super().model_dump(**kwargs)
+    
 class RiskClause(BaseModel):
     """Represents a single risk clause identified in a contract or document.
 
@@ -20,17 +42,44 @@ class RiskClause(BaseModel):
 
 
 class RiskCategory(BaseModel):
-    """Represents a HighRisksClauses,MediumRisksClauses and LowRisksClauses identified in a contract or document.
+    """Categorizes risks by their severity level for a specific type (e.g., Contractual)."""
+    HighRisksClauses: List[RiskDetail] = Field(default_factory=list)
+    MediumRisksClauses: List[RiskDetail] = Field(default_factory=list)
+    LowRisksClauses: List[RiskDetail] = Field(default_factory=list)
+    
+    total_risks: int = 0
+    high_risk_count: int = 0
+    medium_risk_count: int = 0
+    low_risk_count: int = 0
 
-    Attributes:
-       HighRisksClauses
-       MediumRisksClauses
-       LowRisksClauses
-    """
+    def add_risk(self, risk_detail: RiskDetail):
+        """Adds a risk detail to the appropriate list and updates counts."""
+        if risk_detail.risk_level == "HighRisksClauses":
+            self.HighRisksClauses.append(risk_detail)
+            self.high_risk_count += 1
+        elif risk_detail.risk_level == "MediumRisksClauses":
+            self.MediumRisksClauses.append(risk_detail)
+            self.medium_risk_count += 1
+        elif risk_detail.risk_level == "LowRisksClauses":
+            self.LowRisksClauses.append(risk_detail)
+            self.low_risk_count += 1
+        else:
+            print(f"Warning: RiskDetail for '{risk_detail.clause_name}' has unhandled risk_level: '{risk_detail.risk_level}'. Not added to H/M/L lists.")
+            return 
 
-    HighRisksClauses: List[RiskClause] = Field(default_factory=list)
-    MediumRisksClauses: List[RiskClause] = Field(default_factory=list)
-    LowRisksClauses: List[RiskClause] = Field(default_factory=list)
+        self.total_risks += 1
+
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """Exclude count fields when serializing for the API response."""
+        exclude_set = {
+            "total_risks",
+            "high_risk_count",
+            "medium_risk_count",
+            "low_risk_count",
+        }
+        kwargs.setdefault("exclude", set()).update(exclude_set)
+        return super().model_dump(**kwargs)
 
 
 class AdditionalRisk(BaseModel):

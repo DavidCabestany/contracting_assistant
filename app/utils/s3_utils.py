@@ -8,11 +8,16 @@ This module provides functions for:
 
 from __future__ import annotations
 
+import json
+import gzip
+import io
 import re
 from typing import Any
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
+from fastapi import HTTPException
 
 from .constants import logger
 
@@ -121,3 +126,74 @@ def get_filename_from_path(s3_path: str) -> str:
     except Exception as exc:  # noqa: BLE001
         logger.info("Bad S3 path %s - %r", s3_path, exc)
         return ""
+
+
+def get_contract_risk_from_s3(userId,session_id,bucket):
+    """
+    Loads a JSON-serializable dictionary from an S3 bucket.
+
+    Args:
+        bucket_name (str): The name of the S3 bucket.
+        object_key (str): The key (path) within the bucket where the data is stored.
+
+    Returns:
+        dict: The dictionary loaded from S3, or None if there was an error.
+    """
+    folder_path = f"contract_risks/{userId}/{session_id}/risk_data.json"
+    try:
+        response = s3_client.get_object(Bucket=bucket, Key=folder_path)
+        content_encoding = response['ResponseMetadata']['HTTPHeaders'].get('content-encoding')
+        body = response['Body'].read()
+
+        if content_encoding == 'gzip':
+            with gzip.GzipFile(fileobj=io.BytesIO(body), mode='rb') as gz:
+                json_data = gz.read().decode('utf-8')
+        else:
+            json_data = body.decode('utf-8')
+
+        data = json.loads(json_data)
+        return data
+    except s3_client.exceptions.NoSuchKey as e:
+        print(f"File not found in S3: {e}")
+        return None
+    except Exception as e:
+        print(f"Error loading data from S3: {e}")
+        return None
+
+
+def store_contract_risk_to_s3(userId,session_id,data,bucket,compress=True):
+    """
+    Stores a JSON-serializable dictionary in an S3 bucket.
+
+    Args:
+        data (dict): The dictionary to store.
+        bucket_name (str): The name of the S3 bucket.
+        object_key (str): The key (path) within the bucket where the data will be stored.
+        compress (bool, optional): Whether to compress the data using gzip. Defaults to True.
+    """
+    folder_path = f"contract_risks/{userId}/{session_id}/risk_data.json"
+    try:
+        json_data = json.dumps(data, indent=2) 
+        if compress:
+            buffer = io.BytesIO()
+            with gzip.GzipFile(fileobj=buffer, mode='wb') as gz:
+                gz.write(json_data.encode('utf-8'))
+            body = buffer.getvalue()
+            content_encoding = 'gzip'
+        else:
+            body = json_data.encode('utf-8')
+            content_encoding = None
+
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=folder_path,
+            Body=body,
+            ContentType='application/json',
+            ContentEncoding=content_encoding 
+        )
+        logger.info(
+            f"[{session_id}] Successfully stored risk data to S3: s3://{bucket}/{folder_path}"
+        )
+    except (BotoCoreError, ClientError) as exc:
+        logger.exception(f"[{session_id}] S3 upload failed")
+        raise HTTPException(500, "S3 upload failed") from exc
