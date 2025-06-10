@@ -319,7 +319,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     citations=[],
                     feedback=Feedback(
                         feedbackDisplayOptions=FeedbackDisplayOptions(
-                            thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+                            thumbsUp="N", thumbsDown="N", feedbackText="N"
                         )
                     ),
                 ),
@@ -350,7 +350,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     citations=[],
                     feedback=Feedback(
                         feedbackDisplayOptions=FeedbackDisplayOptions(
-                            thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+                            thumbsUp="N", thumbsDown="N", feedbackText="N"
                         )
                     ),
                 ),
@@ -529,12 +529,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 answer=QnAAnswer(ans=answer),
                                 transactionCount=tx_count,
                                 citations=citations,
-                                feedback=Feedback(
-                                    feedbackDisplayOptions=FeedbackDisplayOptions(
-                                        thumbsUp="Y",
-                                        thumbsDown="Y",
-                                        feedbackText="Y",
-                                    )
+                                feedbackDisplayOptions=FeedbackDisplayOptions(
+                                    thumbsUp="N",
+                                    thumbsDown="N",
+                                    feedbackText="N",
                                 ),
                             ),
                         )
@@ -596,9 +594,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             citations=citations,
                             feedback=Feedback(
                                 feedbackDisplayOptions=FeedbackDisplayOptions(
-                                    thumbsUp="Y",
-                                    thumbsDown="Y",
-                                    feedbackText="Y",
+                                    thumbsUp="N",
+                                    thumbsDown="N",
+                                    feedbackText="N",
                                 )
                             ),
                         ),
@@ -716,9 +714,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                         citations=citations,
                                         feedback=Feedback(
                                             feedbackDisplayOptions=FeedbackDisplayOptions(
-                                                thumbsUp="Y",
-                                                thumbsDown="Y",
-                                                feedbackText="Y",
+                                                thumbsUp="N",
+                                                thumbsDown="N",
+                                                feedbackText="N",
                                             )
                                         ),
                                     ),
@@ -782,9 +780,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                     citations=citations,
                                     feedback=Feedback(
                                         feedbackDisplayOptions=FeedbackDisplayOptions(
-                                            thumbsUp="Y",
-                                            thumbsDown="Y",
-                                            feedbackText="Y",
+                                            thumbsUp="N",
+                                            thumbsDown="N",
+                                            feedbackText="N",
                                         )
                                     ),
                                 ),
@@ -831,12 +829,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 answer=QnAAnswer(ans=answer),
                                 transactionCount=tx_count,
                                 citations=citations,
-                                feedback=Feedback(
-                                    feedbackDisplayOptions=FeedbackDisplayOptions(
-                                        thumbsUp="Y",
-                                        thumbsDown="Y",
-                                        feedbackText="Y",
-                                    )
+                                feedbackDisplayOptions=FeedbackDisplayOptions(
+                                    thumbsUp="N",
+                                    thumbsDown="N",
+                                    feedbackText="N",
                                 ),
                             ),
                         )
@@ -896,9 +892,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             citations=citations,
                             feedback=Feedback(
                                 feedbackDisplayOptions=FeedbackDisplayOptions(
-                                    thumbsUp="Y",
-                                    thumbsDown="Y",
-                                    feedbackText="Y",
+                                    thumbsUp="N",
+                                    thumbsDown="N",
+                                    feedbackText="N",
                                 )
                             ),
                         ),
@@ -952,9 +948,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             citations=citations,
                             feedback=Feedback(
                                 feedbackDisplayOptions=FeedbackDisplayOptions(
-                                    thumbsUp="Y",
-                                    thumbsDown="Y",
-                                    feedbackText="Y",
+                                    thumbsUp="N",
+                                    thumbsDown="N",
+                                    feedbackText="N",
                                 )
                             ),
                         ),
@@ -1168,7 +1164,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 citations=citations,
                 feedback=Feedback(
                     feedbackDisplayOptions=FeedbackDisplayOptions(
-                        thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+                        thumbsUp="N", thumbsDown="N", feedbackText="N"
                     )
                 ),
             ),
