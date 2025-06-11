@@ -32,6 +32,8 @@ from .constants import (
     PRIOR_DOC,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
+    QUESTION_MAP,
+    TIA_FOLLOWUP_KEYWORDS,
 )
 from .storage import add_prefix
 from .templates import retrieve_template
@@ -642,127 +644,6 @@ TIA_SECONDARY_CONTEXTUAL_KEYWORDS = {
 # -------------------------
 # CLARIFICATION LOGIC
 # -------------------------
-
-TIA_INITIAL_FIXED_QUESTIONS = [
-    "What type of data is being processed?",
-    "What is the direction of the data flow (are we sharing data with the vendor or are we receiving data from the vendor)?",
-    "If we share data, will the vendor process it on our behalf or for its own purposes?",
-    "If we receive data, do we receive it for our own purposes?",
-]
-
-TIA_FOLLOWUP_KEYWORDS = {
-    "type of data": [
-        "patient",
-        "patients",
-        "clinical",
-        "trial",
-        "clinical trial",
-        "participant",
-        "sample",
-        "subject",
-        "sensitive data",
-        "sensitive information",
-        "health",
-        "health info",
-        "biological",
-        "medical data",
-        "anonymized",
-        "anonymised",
-        "pseudonymized",
-        "pseudo",
-        "raw data",
-        "de-identified",
-        "dataset",
-    ],
-    "data flow": [
-        # Direction—capture both ways:
-        "share",
-        "shared",
-        "sharing",
-        "send",
-        "sent",
-        "sending",
-        "transfer",
-        "transferred",
-        "transferring",
-        "receive",
-        "receiving",
-        "received",
-        # Explicit directions:
-        "from vendor",
-        "to vendor",
-        "from institution",
-        "to institution",
-        "vendor to az",
-        "az to vendor",
-        "institution to az",
-        "az to institution",
-        "send to",
-        "sent by",
-        "received by",
-        "received from",
-    ],
-    "share data details": [
-        "on our behalf",
-        "their own purposes",
-        "for its own use",
-        "process data",
-        "controller",
-        "processor",
-        "acting as a processor",
-        "acting as a controller",
-        "sub-processor",
-        "uses data",
-        "handling on behalf of",
-        "owner",
-    ],
-    "receive data details": [
-        "for our own purposes",
-        "internal use",
-        "for our benefit",
-        "own use",
-        "research purpose",
-        "regulatory",
-        "analysis",
-        "presenting",
-        "az use only",
-        "az's purposes",
-    ],
-    "vendor identity": [
-        "vendor",
-        "institution",
-        "supplier",
-        "third party",
-        "site",
-        "provider",
-        "partner",
-        "consultant",
-        "research org",
-        "affiliate",
-    ],
-    "location": [
-        "uk",
-        "eu",
-        "europe",
-        "outside uk",
-        "outside eu",
-        "international",
-        "cross-border",
-        "within eu",
-        "within uk",
-        "not leaving uk",
-        "not leaving eu",
-        "not transferred",
-        "not moving outside",
-    ],
-}
-
-QUESTION_MAP = {
-    "type of data": TIA_INITIAL_FIXED_QUESTIONS[0],
-    "data flow": TIA_INITIAL_FIXED_QUESTIONS[1],
-    "share data details": TIA_INITIAL_FIXED_QUESTIONS[2],
-    "receive data details": TIA_INITIAL_FIXED_QUESTIONS[3],
-}
 
 
 def tia_trigger_initial_clarification(query: str) -> bool:
