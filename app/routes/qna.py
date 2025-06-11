@@ -418,7 +418,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     citations=[],
                 )
                 return QueryResponse(
-                    status="tab_mismatch",
+                    status="success",
                     sessionId=ui_session_id,
                     userQuery=user_txt,
                     result=Result(
