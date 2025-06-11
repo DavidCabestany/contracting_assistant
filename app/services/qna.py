@@ -32,6 +32,8 @@ from .constants import (
     PRIOR_DOC,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
+    QUESTION_MAP,
+    TIA_FOLLOWUP_KEYWORDS,
 )
 from .storage import add_prefix
 from .templates import retrieve_template
@@ -639,33 +641,9 @@ TIA_SECONDARY_CONTEXTUAL_KEYWORDS = {
     "EU",
 }
 
-
 # -------------------------
 # CLARIFICATION LOGIC
 # -------------------------
-
-TIA_INITIAL_FIXED_QUESTIONS = [
-    "What type of data is being processed?",
-    "What is the direction of the data flow (are we sharing data with the vendor or are we receiving data from the vendor)?",
-    "If we share data, will the vendor process it on our behalf or for its own purposes?",
-    "If we receive data, do we receive it for our own purposes?",
-]
-
-TIA_FOLLOWUP_KEYWORDS = {
-    "type of data": ["patient", "clinical", "trial", "sensitive", "health"],
-    "data flow": ["share", "receive", "send", "transfer"],
-    "vendor role": ["on our behalf", "own purpose", "vendor process"],
-    "purpose": ["r&d", "objective", "purpose", "communication"],
-    "vendor identity": ["vendor", "institution"],
-    "location": ["uk", "eu", "outside", "location", "international"],
-}
-
-QUESTION_MAP = {
-    "type of data": TIA_INITIAL_FIXED_QUESTIONS[0],
-    "data flow": TIA_INITIAL_FIXED_QUESTIONS[1],
-    "vendor role": TIA_INITIAL_FIXED_QUESTIONS[2],
-    "receive data": TIA_INITIAL_FIXED_QUESTIONS[3],
-}
 
 
 def tia_trigger_initial_clarification(query: str) -> bool:
