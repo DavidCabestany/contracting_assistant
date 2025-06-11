@@ -402,8 +402,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     user_txt,
                 )
                 confirmation_msg = (
-                    f"The question you’re asking looks like it belongs to the **{tab_names[topic_check]}** tab, "
-                    f"but you’re currently in **{tab_names[selected_tab]}**.\n"
+                    f"The question you’re asking looks like it belongs to the {tab_names[topic_check]} tab, "
+                    f"but you’re currently in {tab_names[selected_tab]}.\n"
                     "Please consider switch tabs and ask again.\n"
                     'Or, if you want to continue here anyway, just reply "continue".'
                 )
