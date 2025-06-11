@@ -269,58 +269,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("060 ▶ kb_path = %s", kb_path)
         logger.info("070 ▶ bedrock_session_id = %s", bedrock_session_id)
 
-        # STEP 1-A: EARLY RETURN for BACKDATING QUERIES
-        BACKDATING_POLICY_STATEMENT = (
-            "No contract shall ever be backdated (date of signature indicated as earlier than it was in reality) "
-            "as it could be deemed fraudulent and may constitute an offence. This is AstraZeneca's policy. See CAN Handbook, page 30."
-        )
-        BACKDATING_REFERENCE = [
-            {
-                "filePath": "https://azcdi-us-ops-procure-ds-dev.s3.amazonaws.com/general/CAN%20HANDBOOK%204.0.pdf#page=30",
-                "pageNumber": 30,
-                "fileName": "CAN HANDBOOK 4.0.pdf",
-            }
-        ]
-
-        user_txt_lower = user_txt.lower().strip()
-        if (
-            "backdating" in user_txt_lower
-            or "backdate" in user_txt_lower
-            or "backdated" in user_txt_lower
-        ):
-            logger.info(
-                "BACKDATING DETECTED in user query: returning official policy statement and citation."
-            )
-            end_time = datetime.datetime.now().isoformat()
-            _store_chat_log(
-                request,
-                BACKDATING_POLICY_STATEMENT,
-                msg_id,
-                ui_session_id,
-                start_time,
-                end_time,
-                BACKDATING_REFERENCE,
-            )
-            logger.info(
-                "Backdating policy response stored and returned. EXIT ask_question."
-            )
-            return QueryResponse(
-                status="success",
-                sessionId=ui_session_id,
-                userQuery=user_txt,
-                result=Result(
-                    messageId=msg_id,
-                    answer=QnAAnswer(ans=BACKDATING_POLICY_STATEMENT),
-                    transactionCount=tx_count,
-                    citations=BACKDATING_REFERENCE,
-                    feedback=Feedback(
-                        feedbackDisplayOptions=FeedbackDisplayOptions(
-                            thumbsUp="N", thumbsDown="N", feedbackText="N"
-                        )
-                    ),
-                ),
-            )
-
         # Step 2: Attach files based on detected keywords if no files
         if not files:
             logger.info(
