@@ -373,13 +373,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     citations=[],
                     feedback=Feedback(
                         feedbackDisplayOptions=FeedbackDisplayOptions(
-                            thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+                            thumbsUp="N", thumbsDown="N", feedbackText="N"
                         )
                     ),
                 ),
             )
 
-        user_txt = request.query.text.strip()
         if user_txt.lower() == "continue":
             logger.info(
                 "User override: skipping tab check and continuing as requested."
