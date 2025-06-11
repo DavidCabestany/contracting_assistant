@@ -1228,20 +1228,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("510 ▶ Storing chat log")
         answer = re.split(r"\nUser:\s", answer)[0].strip()
 
-        # --- Backdating Policy Injection (MUST-HAVE) ---
-        BACKDATING_POLICY_STATEMENT = (
-            "Note: No contract shall ever be backdated (date of signature indicated as earlier than it was in reality) "
-            "as it could be deemed fraudulent and may constitute an offence."
-        )
-
-        user_txt_lower = user_txt.lower()
-        if (
-            "backdating" in user_txt_lower
-            or "backdate" in user_txt_lower
-            or "backdated" in user_txt_lower
-        ):
-            answer = f"{BACKDATING_POLICY_STATEMENT}\n\n{answer}"
-
         end_time = datetime.datetime.now().isoformat()
         _store_chat_log(
             request,
