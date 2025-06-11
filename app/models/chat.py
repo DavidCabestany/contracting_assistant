@@ -36,7 +36,7 @@ class ChatInteraction(BaseModel):
         UserMessageSearch (Optional[str]): Preprocessed version of user message for search.
         BotResponse (Optional[str]): Bot's response to the user.
         BotResponseSearch (Optional[str]): Preprocessed bot response for search indexing.
-        isFeedbackPositive (Optional[bool]): Whether user feedback was positive.
+        IsFeedbackPositive (Optional[bool]): Whether user feedback was positive.
         FeedbackComment (Optional[str]): Additional comment from user as feedback.
         Timestamp (Optional[str]): Timestamp of the interaction (ISO 8601 recommended).
         SessionStatus (Optional[str]): Status of the session (e.g., active, closed).
@@ -51,7 +51,7 @@ class ChatInteraction(BaseModel):
     UserMessageSearch: Optional[str] = None
     BotResponse: Optional[str] = None
     BotResponseSearch: Optional[str] = None
-    isFeedbackPositive: Union[
+    IsFeedbackPositive: Union[
         Literal[True], Literal[False], Literal["no_feedback"]
     ] = "no_feedback"
     FeedbackComment: Optional[str] = None
@@ -62,14 +62,14 @@ class ChatInteraction(BaseModel):
     ChatMetadata: ChatMetadata
     apiKey: Optional[str] = None
 
-    @field_validator("isFeedbackPositive", mode="before")
+    @field_validator("IsFeedbackPositive", mode="before")
     def no_null_feedback(cls, v):
-        """Validates the value of isFeedbackPositive to allow only True, False, or "no_feedback".
+        """Validates the value of IsFeedbackPositive to allow only True, False, or "no_feedback".
 
         Any other value, including None or null, will be replaced by "no_feedback".
 
         Args:
-            v: The input value for isFeedbackPositive.
+            v: The input value for IsFeedbackPositive.
 
         Returns:
             Literal[True, False, "no_feedback"]: The validated value.

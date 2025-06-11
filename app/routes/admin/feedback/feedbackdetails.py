@@ -235,8 +235,8 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             continue
 
         # Feedback type filter
-        isFeedbackPositive = item.get("IsFeedbackPositive")
-        val = str(isFeedbackPositive).strip().lower()
+        IsFeedbackPositive = item.get("IsFeedbackPositive")
+        val = str(IsFeedbackPositive).strip().lower()
         if val in ("true", "1"):
             item_positive = True
         elif val in ("false", "0"):

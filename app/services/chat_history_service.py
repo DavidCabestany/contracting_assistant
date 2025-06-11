@@ -31,16 +31,22 @@ def store_interaction(interaction: ChatInteraction):
     """Store a user-bot chat interaction in DynamoDB."""
     try:
         interaction_instance = interaction.dict()
+        # Patch: Accept both FE and BE key, always store as IsFeedbackPositive
+        if "isFeedbackPositive" in interaction_instance:
+            interaction_instance["IsFeedbackPositive"] = (
+                interaction_instance.pop("isFeedbackPositive")
+            )
+
         # This covers both None and missing key
-        if interaction_instance.get("isFeedbackPositive") not in {
+        if interaction_instance.get("IsFeedbackPositive") not in {
             True,
             False,
             "no_feedback",
         }:
             logging.info(
-                f"Corrected isFeedbackPositive to 'no_feedback' for item: {interaction_instance}"
+                f"Corrected IsFeedbackPositive to 'no_feedback' for item: {interaction_instance}"
             )
-            interaction_instance["isFeedbackPositive"] = "no_feedback"
+            interaction_instance["IsFeedbackPositive"] = "no_feedback"
 
         table.put_item(Item=interaction_instance)
         return {"message": "User-bot interaction stored successfully"}
@@ -217,12 +223,12 @@ def update_feedback(feedback: FeedbackRequest):
 
         item = response["Items"][0]
         key = {"UserId": item["UserId"], "Timestamp": item["Timestamp"]}
-        update_expr = "SET isFeedbackPositive = :fb"
+        update_expr = "SET IsFeedbackPositive = :fb"
         # The line below always ensures a valid value is written
         expr_vals = {
             ":fb": (
-                feedback.isFeedbackPositive
-                if feedback.isFeedbackPositive is not None
+                feedback.IsFeedbackPositive
+                if feedback.IsFeedbackPositive is not None
                 else "no_feedback"
             )
         }
