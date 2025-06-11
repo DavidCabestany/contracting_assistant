@@ -1159,8 +1159,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     "307 ▶ KB answer deemed valid, will overwrite previous LLM answer"
                 )
                 answer = kb_answer
-                if not citations and kb_citations:
-                    citations = kb_citations
+                citations = kb_citations
             else:
                 logger.warning(
                     "308 ⚠ KB retrieval returned invalid/empty response – keeping prior answer"
