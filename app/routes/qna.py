@@ -132,7 +132,10 @@ def _build_prompt_with_optional_history(
             logger.info(f"▶ follow up response line 148 {result_text}")
             logger.info("▶ classification result_text=%.200s", result_text)
             is_follow_up = result_text.startswith("IS_FOLLOW_UP:")
-            full_prompt = f"{history_txt}\nUser: {user_txt}"
+            if is_follow_up:
+                full_prompt = f"{history_txt}\nUser: {user_txt}"
+            else:
+                full_prompt = user_txt
 
     except Exception as e:
         logger.exception(
@@ -386,6 +389,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             # Proceed directly to QnA/answer logic using the current tab.
         else:
             topic_check = await db_tab_checker(user_txt)
+            topic_check = "A"
             kb_map = {"general": "A", "alexion": "B", "privacy": "C"}
             tab_names = {
                 "A": "General Queries",
