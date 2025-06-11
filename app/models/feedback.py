@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FeedbackDisplayOptions(BaseModel):
@@ -49,5 +49,6 @@ class FeedbackRequest(BaseModel):
     messageId: Optional[str] = None
     IsFeedbackPositive: Union[
         Literal[True], Literal[False], Literal["no_feedback"]
-    ] = "no_feedback"
+    ] = Field("no_feedback", alias="isFeedbackPositive")
+
     feedbackComment: Optional[str] = None

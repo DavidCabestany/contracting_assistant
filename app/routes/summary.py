@@ -670,7 +670,7 @@ async def generate_summary(
     # Step 10: Build API response
     feedback = Feedback(
         feedbackDisplayOptions=FeedbackDisplayOptions(
-            thumbsUp="Y", thumbsDown="Y", feedbackText="Y"
+            thumbsUp="N", thumbsDown="N", feedbackText="N"
         )
     )
     result = Result(
