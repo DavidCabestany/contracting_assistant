@@ -495,6 +495,30 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             pass
 
         # Step 4: Prompt construction and follow-up detection
+
+        ## Backdating temporary fix
+        user_txt_lower = user_txt.lower()
+        reset_history_for_backdating = any(
+            kw in user_txt_lower
+            for kw in ["backdating", "backdate", "backdated"]
+        )
+
+        if reset_history_for_backdating:
+            logger.info(
+                "Backdating detected. Prompt will be built without previous history/context."
+            )
+            chat_history_list = []  # ensure it's always empty for backdating
+        else:
+            chat_history_list = [
+                msg["UserMessage"]
+                for msg in session_history(ui_session_id).get(
+                    ui_session_id, []
+                )
+                if msg.get("UserMessage")
+            ]
+
+        # Usual followup flow
+
         logger.info(
             "100 ▶ Building prompt, loading session history and follow-up detection"
         )
