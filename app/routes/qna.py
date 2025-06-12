@@ -40,7 +40,6 @@ from services import (
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
-    db_tab_checker,
     extract_keywords_from_query,
     get_knowledge_base_folder,
     get_knowledge_base_id,
@@ -382,60 +381,60 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 ),
             )
 
-        if user_txt.lower() == "continue":
-            logger.info(
-                "User override: skipping tab check and continuing as requested."
-            )
-            # Proceed directly to QnA/answer logic using the current tab.
-        else:
-            topic_check = await db_tab_checker(user_txt)
-            kb_map = {"general": "A", "alexion": "B", "privacy": "C"}
-            tab_names = {
-                "A": "General Queries",
-                "B": "Alexion",
-                "C": "Privacy",
-            }
-            selected_tab = kb_map.get(kb_path)
+        # if user_txt.lower() == "continue":
+        #     logger.info(
+        #         "User override: skipping tab check and continuing as requested."
+        #     )
+        #     # Proceed directly to QnA/answer logic using the current tab.
+        # else:
+        #     topic_check = await db_tab_checker(user_txt)
+        #     kb_map = {"general": "A", "alexion": "B", "privacy": "C"}
+        #     tab_names = {
+        #         "A": "General Queries",
+        #         "B": "Alexion",
+        #         "C": "Privacy",
+        #     }
+        #     selected_tab = kb_map.get(kb_path)
 
-            if topic_check != selected_tab:
-                logger.info(
-                    "Tab mismatch: user in %s, LLM suggests %s for query: %r",
-                    tab_names.get(selected_tab, selected_tab),
-                    tab_names.get(topic_check, topic_check),
-                    user_txt,
-                )
-                confirmation_msg = (
-                    f"The question you’re asking looks like it belongs to the {tab_names[topic_check]} tab, "
-                    f"but you’re currently in {tab_names[selected_tab]}.\n"
-                    "Please consider switch tabs and ask again.\n"
-                    'Or, if you want to continue here anyway, just reply "continue".'
-                )
-                end_time = datetime.datetime.now().isoformat()
-                _store_chat_log(
-                    request,
-                    confirmation_msg,
-                    msg_id,
-                    ui_session_id,
-                    start_time,
-                    end_time,
-                    citations=[],
-                )
-                return QueryResponse(
-                    status="success",
-                    sessionId=ui_session_id,
-                    userQuery=user_txt,
-                    result=Result(
-                        messageId=msg_id,
-                        answer=QnAAnswer(ans=confirmation_msg),
-                        transactionCount=tx_count,
-                        citations=[],
-                        feedback=Feedback(
-                            feedbackDisplayOptions=FeedbackDisplayOptions(
-                                thumbsUp="N", thumbsDown="N", feedbackText="N"
-                            )
-                        ),
-                    ),
-                )
+        #     if topic_check != selected_tab:
+        #         logger.info(
+        #             "Tab mismatch: user in %s, LLM suggests %s for query: %r",
+        #             tab_names.get(selected_tab, selected_tab),
+        #             tab_names.get(topic_check, topic_check),
+        #             user_txt,
+        #         )
+        #         confirmation_msg = (
+        #             f"The question you’re asking looks like it belongs to the {tab_names[topic_check]} tab, "
+        #             f"but you’re currently in {tab_names[selected_tab]}.\n"
+        #             "Please consider switch tabs and ask again.\n"
+        #             'Or, if you want to continue here anyway, just reply "continue".'
+        #         )
+        #         end_time = datetime.datetime.now().isoformat()
+        #         _store_chat_log(
+        #             request,
+        #             confirmation_msg,
+        #             msg_id,
+        #             ui_session_id,
+        #             start_time,
+        #             end_time,
+        #             citations=[],
+        #         )
+        #         return QueryResponse(
+        #             status="success",
+        #             sessionId=ui_session_id,
+        #             userQuery=user_txt,
+        #             result=Result(
+        #                 messageId=msg_id,
+        #                 answer=QnAAnswer(ans=confirmation_msg),
+        #                 transactionCount=tx_count,
+        #                 citations=[],
+        #                 feedback=Feedback(
+        #                     feedbackDisplayOptions=FeedbackDisplayOptions(
+        #                         thumbsUp="N", thumbsDown="N", feedbackText="N"
+        #                     )
+        #                 ),
+        #             ),
+        #         )
 
         # Step 3-b: TIA clarification and detection
         logger.info("085 ▶ Checking for TIA clarification")
@@ -506,15 +505,55 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             logger.info(
                 "Backdating detected. Prompt will be built without previous history/context."
             )
-            chat_history_list = []  # ensure it's always empty for backdating
-        else:
-            chat_history_list = [
-                msg["UserMessage"]
-                for msg in session_history(ui_session_id).get(
-                    ui_session_id, []
+            try:
+                resp = retrieve_and_generate_prioritized_doc(
+                    user_txt_lower,
+                    get_knowledge_base_id(request.query.knowledgeType),
+                    kb_path,
+                    files=[PRIOR_DOC],
+                    session_id=bedrock_session_id,
                 )
-                if msg.get("UserMessage")
-            ]
+                answer = resp["output"]["text"]
+
+                citations = extract_file_locations(
+                    resp, allowed_files=files if files else None
+                )
+                _bedrock_sessions[ui_session_id] = resp["sessionId"]
+                bedrock_session_id = resp["sessionId"]
+                logger.info("200 ▶ prioritized answer = %.100s", answer)
+                end_time = datetime.datetime.now().isoformat()
+                _store_chat_log(
+                    request,
+                    answer,
+                    msg_id,
+                    ui_session_id,
+                    start_time,
+                    end_time,
+                    citations,
+                )
+                return QueryResponse(
+                    status="success",
+                    sessionId=ui_session_id,
+                    userQuery=user_txt,
+                    result=Result(
+                        messageId=msg_id,
+                        answer=QnAAnswer(ans=answer),
+                        transactionCount=tx_count,
+                        citations=citations,
+                        feedbackDisplayOptions=FeedbackDisplayOptions(
+                            thumbsUp="N",
+                            thumbsDown="N",
+                            feedbackText="N",
+                        ),
+                    ),
+                )
+
+            except Exception as e:
+                logger.warning(
+                    "130 EXCEPTION: Direct LLM with KB context failed: %s",
+                    e,
+                )
+            pass
 
         # Usual followup flow
 
