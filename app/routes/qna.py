@@ -389,7 +389,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             # Proceed directly to QnA/answer logic using the current tab.
         else:
             topic_check = await db_tab_checker(user_txt)
-            topic_check = "A"
             kb_map = {"general": "A", "alexion": "B", "privacy": "C"}
             tab_names = {
                 "A": "General Queries",
