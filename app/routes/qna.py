@@ -500,7 +500,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             kw in user_txt_lower
             for kw in ["backdating", "backdate", "backdated"]
         )
-
+        user_txt_lower = "can we backdate a contract?"
         if reset_history_for_backdating:
             logger.info(
                 "Backdating detected. Prompt will be built without previous history/context."

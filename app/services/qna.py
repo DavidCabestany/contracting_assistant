@@ -84,6 +84,7 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
             if phrase in start_end_query:
                 matched_files.append(file_name)
                 break
+    return matched_files
 
 
 def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
@@ -183,35 +184,21 @@ def detect_prior_doc_from_query(query: str) -> str:
         },
         {
             "file": [
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+                "Data Protection Appendix - Sharing Anonymised Data.pdf",
                 "Data Protection Appendix – Receiving Anonymised Data.pdf",
-            ],
-            "keywords": ["data protection appendix", "anonymised"],
-        },
-        {
-            "file": [
                 "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
+                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
             ],
-            "keywords": ["data protection appendix", "anonymized"],
+            "keywords": ["personal", "anonymized"],
         },
         {
             "file": [
                 "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
                 "Data Protection Appendix – Receiving Anonymised Data.pdf",
+                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
                 "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
             ],
-            "keywords": ["anonymized"],
-        },
-        {
-            "file": [
-                "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
-            ],
-            "keywords": ["anonymised"],
+            "keywords": ["personal", "anonymised"],
         },
     ]
     query_lower = query.lower()
