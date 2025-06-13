@@ -1189,7 +1189,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             citations = []
                         else:
                             citations = retrieve_citations_from_query(
-                                query=prompt,
+                                query=answer,
                                 kb_id=kb_id,
                                 kb_path=kb_path,
                                 files=files,
