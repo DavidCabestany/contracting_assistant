@@ -184,21 +184,35 @@ def detect_prior_doc_from_query(query: str) -> str:
         },
         {
             "file": [
-                "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
                 "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+                "Data Protection Appendix – Receiving Anonymised Data.pdf",
             ],
-            "keywords": ["personal", "anonymized"],
+            "keywords": ["data protection appendix", "anonymised"],
+        },
+        {
+            "file": [
+                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+                "Data Protection Appendix – Receiving Anonymised Data.pdf",
+            ],
+            "keywords": ["data protection appendix", "anonymized"],
         },
         {
             "file": [
                 "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
                 "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+                "Data Protection Appendix – Receiving Anonymised Data.pdf",
                 "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
             ],
-            "keywords": ["personal", "anonymised"],
+            "keywords": ["anonymized"],
+        },
+        {
+            "file": [
+                "Data Protection Appendix - Sharing Anonymised Data.pdf",
+                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+                "Data Protection Appendix – Receiving Anonymised Data.pdf",
+                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+            ],
+            "keywords": ["anonymised"],
         },
     ]
     query_lower = query.lower()
