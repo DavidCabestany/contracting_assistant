@@ -500,7 +500,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             kw in user_txt_lower
             for kw in ["backdating", "backdate", "backdated"]
         )
-        user_txt_lower = "No contract shall ever be backdated (date of signature indicated as earlier than it was in reality) as it could be deemed fraudulent and may constitute an offence." + user_txt_lower
         if reset_history_for_backdating:
             logger.info(
                 "Backdating detected. Prompt will be built without previous history/context."
@@ -1190,7 +1189,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             citations = []
                         else:
                             citations = retrieve_citations_from_query(
-                                query=answer,
+                                query=prompt,
                                 kb_id=kb_id,
                                 kb_path=kb_path,
                                 files=files,
