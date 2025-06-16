@@ -8,6 +8,8 @@ from .prompts import (
     DEFAULT_INSTRUCTION,
     FOLLOW_UP_PROMPT,
     TEMPLATE,
+    TOPIC_CHECKER,
+    TEMPLATE,
     TOPIC_CHECKER,)
 
 
@@ -17,7 +19,8 @@ from .risk_prompt import (
     ADDITIONAL_RISKS,
     RISKS_SUMMARY,
     RISK_MATRIX_CATEGORY,
-    RISK_MITIGATION_PROMPT,)
+    RISK_MITIGATION_PROMPT,
+)
 
 __all__ = [
     "BASE_PROMPT",
@@ -29,9 +32,6 @@ __all__ = [
     "TEMPLATE",
     "TOPIC_CHECKER",
     ##risk prompts
-    # "RISK_MATRIX_SPC_RISK_PROMPT",
-    # "RISK_MATRIX_ALL_RISKS_PROMPT",
-    # "RISK_MATRIX_PROMPT",
     "RISK_MATRIX_ALL_RISKS_PROMPT2",
     "RISK_MITIGATION_PROMPT",
     "USER_QUERY_RISKS",

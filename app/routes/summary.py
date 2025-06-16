@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-import re
+import os
 import uuid
 from typing import Optional, Union
 import os
@@ -239,6 +239,15 @@ async def generate_summary(
                     ans = risk_categorization_fn(content,queryText,msg_id,userId,session_id)
                     answer = ans
                     raw_answer = json.dumps(answer)
+                    if category=="1":
+                        risk_rules = get_risk_matrix_details()
+                        clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
+                        clause_prompt = get_clauses(queryText,clauses_lst)
+                        llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
+                        clauses_identified = llm_resp.content.strip() ##list 
+                        answer=get_risks_from_query(clauses_identified,ans)
+                        raw_answer=json.dumps(answer)
+
             elif category == "3":
                 body_prompt = generate_prompt(
                     content, queryText, RISK_MITIGATION_PROMPT
@@ -258,7 +267,6 @@ async def generate_summary(
             f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
         )
         if category in ("4"):
-            ##move this to risk_categorization.py
             raw_answer, payload = get_category4(msg_id, full_prompt)
             if payload is None:
                 inner = _extract_json(raw_answer.replace("```json", "```"))
@@ -295,7 +303,7 @@ async def generate_summary(
                 )
                 answer = _wrap_plain(current_ans_text)
 
-            logger.info("User requires Risk mitigation strategies")
+            #logger.info("User requires Risk mitigation strategies")
         # Step 8: Fallback if response is irrelevant
         if IRRELEVANT in answer.get("ans") or "3" in category:
             logger.warning(
