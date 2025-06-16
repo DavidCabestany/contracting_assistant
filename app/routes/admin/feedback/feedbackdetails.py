@@ -159,15 +159,30 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
                 request.timeframe, current_time
             )
         except Exception:
-            logger.debug(f"Skipping: Bad Timestamp {ts}")
-            continue
-        if not (start_dt <= ts_dt <= end_dt):
-            continue
+            raise HTTPException(
+                400,
+                "Invalid timeframe: use last7days, last30days, last90days, last365days, or custom.",
+            )
 
-        # Feedback type filter
-        IsFeedbackPositive = item.get("IsFeedbackPositive")
-        val = str(IsFeedbackPositive).strip().lower()
-        if val in ("true", "1"):
+    db_items = fetch_feedbackdetails_items_in_timewindow(start_dt, end_dt)
+
+    logger.info(
+        "=== Records in requested timeframe (%s to %s) ===", start_dt, end_dt
+    )
+    for idx, item in enumerate(db_items):
+        logger.info(
+            "Record [%d]: UserId(PRID)=%r | Timestamp=%r | IsFeedbackPositive=%r",
+            idx + 1,
+            item.get("UserId"),
+            item.get("Timestamp"),
+            item.get("IsFeedbackPositive"),
+        )
+
+    rows = []
+    for item in db_items:
+        feedback_raw = item.get("IsFeedbackPositive")
+        val = str(feedback_raw).strip().lower()
+        if val in ("true", "1", "yes", "y", "t"):
             item_positive = True
         elif val in ("false", "0", "no", "n", "f"):
             item_positive = False
