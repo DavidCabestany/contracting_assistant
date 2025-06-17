@@ -71,6 +71,54 @@ HIGH_PRIORITY_QUERIES = {
     },
 }
 
+## Documentation Topics for detect_prior_doc_from_query
+DOCUMENT_TOPICS = [
+    {
+        "file": [
+            "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
+        ],
+        "keywords": ["supplier", "controller", "processor"],
+    },
+    {
+        "file": [
+            "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
+        ],
+        "keywords": ["dpa"],
+    },
+    {
+        "file": [
+            "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+            "Data Protection Appendix – Receiving Anonymised Data.pdf",
+        ],
+        "keywords": ["data protection appendix", "anonymised"],
+    },
+    {
+        "file": [
+            "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+            "Data Protection Appendix – Receiving Anonymised Data.pdf",
+        ],
+        "keywords": ["data protection appendix", "anonymized"],
+    },
+    {
+        "file": [
+            "Data Protection Appendix - Sharing Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+            "Data Protection Appendix – Receiving Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+        ],
+        "keywords": ["anonymized"],
+    },
+    {
+        "file": [
+            "Data Protection Appendix - Sharing Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+            "Data Protection Appendix – Receiving Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+        ],
+        "keywords": ["anonymised"],
+    },
+]
+
 # TIA Clarification Constants
 
 ## TIA Clarification ───────

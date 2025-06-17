@@ -21,6 +21,7 @@ from .clients import (
 )
 from .constants import (
     BUCKET_CONTAINER,
+    DOCUMENT_TOPICS,
     GUARDRAIL_ID,
     GUARDRAIL_VERSION_ID,
     HIGH_PRIORITY_QUERIES,
@@ -151,52 +152,6 @@ def is_high_priority_query(query: str, category: str) -> bool:
 
 def detect_prior_doc_from_query(query: str) -> str:
     """Detect a relevant prior document from the user query."""
-    DOCUMENT_TOPICS = [
-        {
-            "file": [
-                "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-            ],
-            "keywords": ["supplier", "controller", "processor"],
-        },
-        {
-            "file": [
-                "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
-            ],
-            "keywords": ["dpa"],
-        },
-        {
-            "file": [
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-            ],
-            "keywords": ["data protection appendix", "anonymised"],
-        },
-        {
-            "file": [
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-            ],
-            "keywords": ["data protection appendix", "anonymized"],
-        },
-        {
-            "file": [
-                "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
-            ],
-            "keywords": ["anonymized"],
-        },
-        {
-            "file": [
-                "Data Protection Appendix - Sharing Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-                "Data Protection Appendix – Receiving Anonymised Data.pdf",
-                "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
-            ],
-            "keywords": ["anonymised"],
-        },
-    ]
     query_lower = query.lower()
     for doc in DOCUMENT_TOPICS:
         if all(k in query_lower for k in doc["keywords"]):
