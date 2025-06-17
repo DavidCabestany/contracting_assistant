@@ -150,6 +150,11 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             end_dt = datetime.fromisoformat(
                 request.end_date.replace("Z", "+00:00")
             )
+
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            if end_dt.tzinfo is None:
+                end_dt = end_dt.replace(tzinfo=timezone.utc)
         except Exception as ex:
             raise HTTPException(400, f"Invalid custom date: {ex}")
     else:
