@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections import defaultdict
 from collections.abc import Sequence
 
 from utils import extract_file_locations
@@ -22,7 +21,6 @@ from .clients import (
 )
 from .constants import (
     BUCKET_CONTAINER,
-    FINAL_RESPONSE_REQUIRED,
     GUARDRAIL_ID,
     GUARDRAIL_VERSION_ID,
     HIGH_PRIORITY_QUERIES,
@@ -32,8 +30,6 @@ from .constants import (
     PRIOR_DOC,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
-    QUESTION_MAP,
-    TIA_FOLLOWUP_KEYWORDS,
 )
 from .storage import add_prefix
 from .templates import retrieve_template
@@ -630,248 +626,248 @@ def retrieve_citations_from_query(
     return citations
 
 
-## TIA Clarification
-# Triggers and Clarification Questions
-TIA_PRIMARY_CLARIFICATION_TRIGGERS = {
-    "TIA",
-    "Tia assessment",
-    "tia",
-    "Transfer Impact Assessment",
-    "Exhibit",
-    "exhibit",
-    "Agreement",
-    "agreement",
-}
-TIA_SECONDARY_CONTEXTUAL_KEYWORDS = {
-    "vendor",
-    "institution",
-    "location",
-    "database",
-    "clinical trial",
-    "clinical trials",
-    "medical communication",
-    "Medical Communications",
-    "publications",
-    "UK",
-    "EU",
-}
+# ## TIA Clarification
+# # Triggers and Clarification Questions
+# TIA_PRIMARY_CLARIFICATION_TRIGGERS = {
+#     "TIA",
+#     "Tia assessment",
+#     "tia",
+#     "Transfer Impact Assessment",
+#     "Exhibit",
+#     "exhibit",
+#     "Agreement",
+#     "agreement",
+# }
+# TIA_SECONDARY_CONTEXTUAL_KEYWORDS = {
+#     "vendor",
+#     "institution",
+#     "location",
+#     "database",
+#     "clinical trial",
+#     "clinical trials",
+#     "medical communication",
+#     "Medical Communications",
+#     "publications",
+#     "UK",
+#     "EU",
+# }
 
-# -------------------------
-# CLARIFICATION LOGIC
-# -------------------------
-
-
-def tia_trigger_initial_clarification(query: str) -> bool:
-    """Determines if the user query contains any initial trigger keywords requiring clarification.
-
-    Args:
-        query (str): The user's input query string.
-
-    Returns:
-        bool: True if any initial trigger keywords from the question map are found in the query,
-              indicating that clarification questions should be asked; False otherwise.
-    """
-    q = query.lower()
-    primary_hits = sum(
-        1
-        for word in map(str.lower, TIA_PRIMARY_CLARIFICATION_TRIGGERS)
-        if word in q
-    )
-    secondary_hits = sum(
-        1
-        for word in map(str.lower, TIA_SECONDARY_CONTEXTUAL_KEYWORDS)
-        if word in q
-    )
-    logger.info(
-        f"[Trigger Check] Primary hits: {primary_hits}, Secondary hits: {secondary_hits}"
-    )
-    return primary_hits >= 2 and secondary_hits >= 2
+# # -------------------------
+# # CLARIFICATION LOGIC
+# # -------------------------
 
 
-def detect_present_keywords_for_tia(text: str) -> set[str]:
-    """Detects which predefined keyword categories are present in the input text.
+# def tia_trigger_initial_clarification(query: str) -> bool:
+#     """Determines if the user query contains any initial trigger keywords requiring clarification.
 
-    Args:
-        text (str): The input string to analyze.
+#     Args:
+#         query (str): The user's input query string.
 
-    Returns:
-        set[str]: A set of keys from FOLLOWUP_KEYWORDS that were detected in the text.
-    """
-    text = text.lower()
-    found = set()
-    for key, keywords in TIA_FOLLOWUP_KEYWORDS.items():
-        if any(kw in text for kw in keywords):
-            found.add(key)
-    logger.info(f"[Keyword Detection] Found fields: {found}")
-    return found
-
-
-def detect_missing_keywords_for_tia(context_text: str) -> list[str]:
-    """Identifies which required keyword categories are missing from the context text.
-
-    Args:
-        context_text (str): The text containing accumulated user input and chat context.
-
-    Returns:
-        list[str]: A list of questions (from QUESTION_MAP) that correspond to missing keyword categories.
-    """
-    context_lc = context_text.lower()
-    missing = []
-    for key, words in TIA_FOLLOWUP_KEYWORDS.items():
-        if key not in QUESTION_MAP:
-            continue  # ← avoid KeyError by skipping unmapped keys
-        if not any(word in context_lc for word in words):
-            missing.append(QUESTION_MAP[key])
-    logger.info(f"[Missing Keywords] → {missing}")
-    return missing
+#     Returns:
+#         bool: True if any initial trigger keywords from the question map are found in the query,
+#               indicating that clarification questions should be asked; False otherwise.
+#     """
+#     q = query.lower()
+#     primary_hits = sum(
+#         1
+#         for word in map(str.lower, TIA_PRIMARY_CLARIFICATION_TRIGGERS)
+#         if word in q
+#     )
+#     secondary_hits = sum(
+#         1
+#         for word in map(str.lower, TIA_SECONDARY_CONTEXTUAL_KEYWORDS)
+#         if word in q
+#     )
+#     logger.info(
+#         f"[Trigger Check] Primary hits: {primary_hits}, Secondary hits: {secondary_hits}"
+#     )
+#     return primary_hits >= 2 and secondary_hits >= 2
 
 
-def fallback_final_answer_for_tia(context_text: str) -> str:
-    """Generates a final fallback answer based on keywords found in the context text.
+# def detect_present_keywords_for_tia(text: str) -> set[str]:
+#     """Detects which predefined keyword categories are present in the input text.
 
-    If the context contains sufficient detail about data transfer, returns a definitive
-    answer about the need for a Transfer Impact Assessment (TIA). Otherwise, requests
-    additional information.
+#     Args:
+#         text (str): The input string to analyze.
 
-    Args:
-        context_text (str): The full context accumulated from the chat.
-
-    Returns:
-        str: A final answer or a request for additional clarification.
-    """
-    context = context_text.lower()
-    if all(
-        term in context
-        for term in ["clinical", "patient", "vendor", "on our behalf"]
-    ):
-        if "outside" in context or "international" in context:
-            return "Yes, a Transfer Impact Assessment (TIA) is required because data is being transferred outside the UK or EU."
-        return (
-            "A TIA is not required as long as data stays within the UK or EU. "
-            "Ensure a Data Processing Agreement is still in place."
-        )
-    return (
-        "To answer your question correctly, I need more information:\n"
-        + "\n".join(
-            "- " + q for q in detect_missing_keywords_for_tia(context)[:2]
-        )
-    )
+#     Returns:
+#         set[str]: A set of keys from FOLLOWUP_KEYWORDS that were detected in the text.
+#     """
+#     text = text.lower()
+#     found = set()
+#     for key, keywords in TIA_FOLLOWUP_KEYWORDS.items():
+#         if any(kw in text for kw in keywords):
+#             found.add(key)
+#     logger.info(f"[Keyword Detection] Found fields: {found}")
+#     return found
 
 
-session_context_memory = defaultdict(set)
-REQUIRED_KEYS = set(TIA_FOLLOWUP_KEYWORDS.keys())
+# def detect_missing_keywords_for_tia(context_text: str) -> list[str]:
+#     """Identifies which required keyword categories are missing from the context text.
+
+#     Args:
+#         context_text (str): The text containing accumulated user input and chat context.
+
+#     Returns:
+#         list[str]: A list of questions (from QUESTION_MAP) that correspond to missing keyword categories.
+#     """
+#     context_lc = context_text.lower()
+#     missing = []
+#     for key, words in TIA_FOLLOWUP_KEYWORDS.items():
+#         if key not in QUESTION_MAP:
+#             continue  # ← avoid KeyError by skipping unmapped keys
+#         if not any(word in context_lc for word in words):
+#             missing.append(QUESTION_MAP[key])
+#     logger.info(f"[Missing Keywords] → {missing}")
+#     return missing
 
 
-def build_clarification_prompt_for_tia(
-    all_user_msgs: list[str], all_bot_msgs: list[str], session_id: str
-) -> str:
-    """Builds a prompt for the LLM to process based on accumulated user and assistant interactions.
+# def fallback_final_answer_for_tia(context_text: str) -> str:
+#     """Generates a final fallback answer based on keywords found in the context text.
 
-    Args:
-        all_user_msgs (list[str]): A list of all user messages in the session.
-        all_bot_msgs (list[str]): A list of all bot messages in the session.
-        session_id (str): The unique session identifier.
+#     If the context contains sufficient detail about data transfer, returns a definitive
+#     answer about the need for a Transfer Impact Assessment (TIA). Otherwise, requests
+#     additional information.
 
-    Returns:
-        str: A formatted prompt detailing context and instructions for the LLM.
-    """
-    # Construct the history block for the entire conversation
-    history_block = "\n".join(all_user_msgs + all_bot_msgs)
+#     Args:
+#         context_text (str): The full context accumulated from the chat.
 
-    # Update session context with detected keywords
-    current_context = session_context_memory[session_id]
-    detected_keywords = detect_present_keywords_for_tia(history_block)
-    current_context.update(detected_keywords)
-
-    # Determine missing keywords for the current context
-    missing_questions = detect_missing_keywords_for_tia(history_block)
-
-    # Compile the LLM prompt with context and instructions
-    prompt = f"""
-    You are a Legal/Contract Assistant specializing in Transfer Impact Assessments (TIAs).
-
-    Below is the full context of the discussion between the user and assistant. Your primary goal is to synthesize this context
-    to determine if further clarification is needed or if a final response can be provided.
-
-    Context:
-    {history_block}
-
-    Instructions:
-    - Use the accumulated session context to inform your response.
-    - Avoid asking any questions already answered in previous interactions.
-    - If all of the following are clearly answered:
-      * Type of data
-      * Flow of data (shared/received)
-      * Role of vendor
-      * Purpose of processing
-      * Vendor identity
-      * Location of data
-    Then return: FINAL_RESPONSE_REQUIRED.
-
-    - If some aspects are still unclear, ask 1–2 missing clarification questions from: {missing_questions}.
-    - Ensure the conversation is cohesive and contextually coherent.
-
-    Your response should seamlessly continue the current conversation without unnecessary repetition.
-    """.strip()
-
-    return prompt
+#     Returns:
+#         str: A final answer or a request for additional clarification.
+#     """
+#     context = context_text.lower()
+#     if all(
+#         term in context
+#         for term in ["clinical", "patient", "vendor", "on our behalf"]
+#     ):
+#         if "outside" in context or "international" in context:
+#             return "Yes, a Transfer Impact Assessment (TIA) is required because data is being transferred outside the UK or EU."
+#         return (
+#             "A TIA is not required as long as data stays within the UK or EU. "
+#             "Ensure a Data Processing Agreement is still in place."
+#         )
+#     return (
+#         "To answer your question correctly, I need more information:\n"
+#         + "\n".join(
+#             "- " + q for q in detect_missing_keywords_for_tia(context)[:2]
+#         )
+#     )
 
 
-def tia_followup_user_query(
-    user_query: str, tx_count: int, chat_history: list[str], session_id: str
-) -> str:
-    """Processes a user query in the context of a TIA-related session.
+# session_context_memory = defaultdict(set)
+# REQUIRED_KEYS = set(TIA_FOLLOWUP_KEYWORDS.keys())
 
-    This function manages user interactions by processing queries related to
-    Transfer Impact Assessments (TIAs). It determines whether additional
-    clarification is needed or if a final response can be issued, based on
-    session-specific context and past interactions.
 
-    Args:
-        user_query: The current query provided by the user as a string.
-        tx_count: An integer representing the number of interactions in the
-            current session.
-        chat_history: A list of strings representing prior messages exchanged
-            between the user and the assistant in the session.
-        session_id: A string uniquely identifying the session for context tracking.
+# def build_clarification_prompt_for_tia(
+#     all_user_msgs: list[str], all_bot_msgs: list[str], session_id: str
+# ) -> str:
+#     """Builds a prompt for the LLM to process based on accumulated user and assistant interactions.
 
-    Returns:
-        A string containing either a request for additional clarification or a
-        final response to the user's query, depending on the sufficiency of
-        the gathered information.
-    """
-    logger.info(f"[Follow-up Detected] TX={tx_count}, Session={session_id}")
+#     Args:
+#         all_user_msgs (list[str]): A list of all user messages in the session.
+#         all_bot_msgs (list[str]): A list of all bot messages in the session.
+#         session_id (str): The unique session identifier.
 
-    all_user_msgs = [
-        msg for i, msg in enumerate(chat_history) if i % 2 == 0
-    ] + [user_query]
-    all_bot_msgs = [msg for i, msg in enumerate(chat_history) if i % 2 == 1]
+#     Returns:
+#         str: A formatted prompt detailing context and instructions for the LLM.
+#     """
+#     # Construct the history block for the entire conversation
+#     history_block = "\n".join(all_user_msgs + all_bot_msgs)
 
-    context_block = "\n".join(all_user_msgs + all_bot_msgs)
+#     # Update session context with detected keywords
+#     current_context = session_context_memory[session_id]
+#     detected_keywords = detect_present_keywords_for_tia(history_block)
+#     current_context.update(detected_keywords)
 
-    detected = detect_present_keywords_for_tia(context_block)
-    session_context_memory[session_id].update(detected)
+#     # Determine missing keywords for the current context
+#     missing_questions = detect_missing_keywords_for_tia(history_block)
 
-    missing = detect_missing_keywords_for_tia(context_block)
+#     # Compile the LLM prompt with context and instructions
+#     prompt = f"""
+#     You are a Legal/Contract Assistant specializing in Transfer Impact Assessments (TIAs).
 
-    if tx_count == 0 and tia_trigger_initial_clarification(user_query):
-        logger.info("]Trigger Fired] Asking for initial clarification set")
-        if len(missing) == 0:
-            return FINAL_RESPONSE_REQUIRED
-        return (
-            "To answer your question correctly, I need more information:\n"
-            + "\n".join(f"- {q}" for q in missing[:2])
-        )
+#     Below is the full context of the discussion between the user and assistant. Your primary goal is to synthesize this context
+#     to determine if further clarification is needed or if a final response can be provided.
 
-    if tx_count < 3:
-        if not missing:
-            logger.info("[Clarification Complete] All required fields found")
-            return FINAL_RESPONSE_REQUIRED
-        logger.info(f"[Follow-up] Still missing fields → {missing}")
-        return (
-            "To answer your question correctly, I need more information:\n"
-            + "\n".join(f"- {q}" for q in missing[:2])
-        )
+#     Context:
+#     {history_block}
 
-    logger.info("[TX >= 3] Fallback final answer logic triggered")
-    return fallback_final_answer_for_tia(context_block)
+#     Instructions:
+#     - Use the accumulated session context to inform your response.
+#     - Avoid asking any questions already answered in previous interactions.
+#     - If all of the following are clearly answered:
+#       * Type of data
+#       * Flow of data (shared/received)
+#       * Role of vendor
+#       * Purpose of processing
+#       * Vendor identity
+#       * Location of data
+#     Then return: FINAL_RESPONSE_REQUIRED.
+
+#     - If some aspects are still unclear, ask 1–2 missing clarification questions from: {missing_questions}.
+#     - Ensure the conversation is cohesive and contextually coherent.
+
+#     Your response should seamlessly continue the current conversation without unnecessary repetition.
+#     """.strip()
+
+#     return prompt
+
+
+# def tia_followup_user_query(
+#     user_query: str, tx_count: int, chat_history: list[str], session_id: str
+# ) -> str:
+#     """Processes a user query in the context of a TIA-related session.
+
+#     This function manages user interactions by processing queries related to
+#     Transfer Impact Assessments (TIAs). It determines whether additional
+#     clarification is needed or if a final response can be issued, based on
+#     session-specific context and past interactions.
+
+#     Args:
+#         user_query: The current query provided by the user as a string.
+#         tx_count: An integer representing the number of interactions in the
+#             current session.
+#         chat_history: A list of strings representing prior messages exchanged
+#             between the user and the assistant in the session.
+#         session_id: A string uniquely identifying the session for context tracking.
+
+#     Returns:
+#         A string containing either a request for additional clarification or a
+#         final response to the user's query, depending on the sufficiency of
+#         the gathered information.
+#     """
+#     logger.info(f"[Follow-up Detected] TX={tx_count}, Session={session_id}")
+
+#     all_user_msgs = [
+#         msg for i, msg in enumerate(chat_history) if i % 2 == 0
+#     ] + [user_query]
+#     all_bot_msgs = [msg for i, msg in enumerate(chat_history) if i % 2 == 1]
+
+#     context_block = "\n".join(all_user_msgs + all_bot_msgs)
+
+#     detected = detect_present_keywords_for_tia(context_block)
+#     session_context_memory[session_id].update(detected)
+
+#     missing = detect_missing_keywords_for_tia(context_block)
+
+#     if tx_count == 0 and tia_trigger_initial_clarification(user_query):
+#         logger.info("]Trigger Fired] Asking for initial clarification set")
+#         if len(missing) == 0:
+#             return FINAL_RESPONSE_REQUIRED
+#         return (
+#             "To answer your question correctly, I need more information:\n"
+#             + "\n".join(f"- {q}" for q in missing[:2])
+#         )
+
+#     if tx_count < 3:
+#         if not missing:
+#             logger.info("[Clarification Complete] All required fields found")
+#             return FINAL_RESPONSE_REQUIRED
+#         logger.info(f"[Follow-up] Still missing fields → {missing}")
+#         return (
+#             "To answer your question correctly, I need more information:\n"
+#             + "\n".join(f"- {q}" for q in missing[:2])
+#         )
+
+#     logger.info("[TX >= 3] Fallback final answer logic triggered")
+#     return fallback_final_answer_for_tia(context_block)

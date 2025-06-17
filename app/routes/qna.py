@@ -21,7 +21,7 @@ from models import (
     Result,
 )
 from prompts import AUGMENTED_PROMPT, FOLLOW_UP_PROMPT
-from services import (
+from services import (  # tia_followup_user_query,; tia_trigger_initial_clarification,
     auto_attach_files,
     auto_attach_files_gxp_citation,
     detect_prior_doc_from_query,
@@ -35,8 +35,6 @@ from services import (
     retrieve_file_chunks,
     session_history,
     store_interaction,
-    tia_followup_user_query,
-    tia_trigger_initial_clarification,
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
@@ -436,61 +434,61 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         #             ),
         #         )
 
-        # Step 3-b: TIA clarification and detection
-        logger.info("085 ▶ Checking for TIA clarification")
-        chat_history_list = [
-            msg["UserMessage"]
-            for msg in session_history(ui_session_id).get(ui_session_id, [])
-            if msg.get("UserMessage")
-        ]
-        # Only proceed with TIA logic if query is TIA-relevant
-        if tia_trigger_initial_clarification(user_txt):
-            tia_clarification_text = tia_followup_user_query(
-                user_txt, int(tx_count), chat_history_list, ui_session_id
-            )
+        # # Step 3-b: TIA clarification and detection
+        # logger.info("085 ▶ Checking for TIA clarification")
+        # chat_history_list = [
+        #     msg["UserMessage"]
+        #     for msg in session_history(ui_session_id).get(ui_session_id, [])
+        #     if msg.get("UserMessage")
+        # ]
+        # # Only proceed with TIA logic if query is TIA-relevant
+        # if tia_trigger_initial_clarification(user_txt):
+        #     tia_clarification_text = tia_followup_user_query(
+        #         user_txt, int(tx_count), chat_history_list, ui_session_id
+        #     )
 
-            try:
-                if (
-                    tia_clarification_text
-                    and tia_clarification_text != "FINAL_RESPONSE_REQUIRED"
-                ):
-                    logger.info(
-                        "[Clarification Needed] Skipping KB and responding with follow-up questions."
-                    )
-                    end_time = datetime.datetime.now().isoformat()
-                    _store_chat_log(
-                        request,
-                        tia_clarification_text,
-                        msg_id,
-                        ui_session_id,
-                        start_time,
-                        end_time,
-                        citations=[],
-                    )
-                    return QueryResponse(
-                        status="success",
-                        sessionId=ui_session_id,
-                        userQuery=user_txt,
-                        result=Result(
-                            messageId=msg_id,
-                            answer=QnAAnswer(ans=tia_clarification_text),
-                            transactionCount=tx_count,
-                            citations=[],
-                            feedback=Feedback(
-                                feedbackDisplayOptions=FeedbackDisplayOptions(
-                                    thumbsUp="N",
-                                    thumbsDown="N",
-                                    feedbackText="N",
-                                )
-                            ),
-                        ),
-                    )
-            except Exception as e:
-                logger.warning(
-                    "Clarification for TIA failed: %s",
-                    e,
-                )
-            pass
+        #     try:
+        #         if (
+        #             tia_clarification_text
+        #             and tia_clarification_text != "FINAL_RESPONSE_REQUIRED"
+        #         ):
+        #             logger.info(
+        #                 "[Clarification Needed] Skipping KB and responding with follow-up questions."
+        #             )
+        #             end_time = datetime.datetime.now().isoformat()
+        #             _store_chat_log(
+        #                 request,
+        #                 tia_clarification_text,
+        #                 msg_id,
+        #                 ui_session_id,
+        #                 start_time,
+        #                 end_time,
+        #                 citations=[],
+        #             )
+        #             return QueryResponse(
+        #                 status="success",
+        #                 sessionId=ui_session_id,
+        #                 userQuery=user_txt,
+        #                 result=Result(
+        #                     messageId=msg_id,
+        #                     answer=QnAAnswer(ans=tia_clarification_text),
+        #                     transactionCount=tx_count,
+        #                     citations=[],
+        #                     feedback=Feedback(
+        #                         feedbackDisplayOptions=FeedbackDisplayOptions(
+        #                             thumbsUp="N",
+        #                             thumbsDown="N",
+        #                             feedbackText="N",
+        #                         )
+        #                     ),
+        #                 ),
+        #             )
+        #     except Exception as e:
+        #         logger.warning(
+        #             "Clarification for TIA failed: %s",
+        #             e,
+        #         )
+        #     pass
 
         # Step 4: Prompt construction and follow-up detection
 
