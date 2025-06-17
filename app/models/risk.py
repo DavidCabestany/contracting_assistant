@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 class RiskDetail(BaseModel):
     """Details of a specific risk identified in a clause."""
-    clause_name: str
-    risk_content: str
+    title: str
+    description: str
     risk_score: int
     risk_level: str
     clause_type: str 

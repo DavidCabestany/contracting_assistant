@@ -237,6 +237,7 @@ async def generate_summary(
                         raw_answer=json.dumps(answer)
                 else:
                     ans = risk_categorization_fn(content,queryText,msg_id,userId,session_id)
+                    payload_json2 = get_contract_risk_from_s3(userId,session_id,BUCKET_CONTAINER)
                     answer = ans
                     raw_answer = json.dumps(answer)
                     if category=="1":
@@ -245,7 +246,7 @@ async def generate_summary(
                         clause_prompt = get_clauses(queryText,clauses_lst)
                         llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
                         clauses_identified = llm_resp.content.strip() ##list 
-                        answer=get_risks_from_query(clauses_identified,ans)
+                        answer=get_risks_from_query(clauses_identified,payload_json2)
                         raw_answer=json.dumps(answer)
 
             elif category == "3":

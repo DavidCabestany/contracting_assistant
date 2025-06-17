@@ -26,6 +26,7 @@ Medium : 5-7
 Low : 1-4
 identified_clauses : {identified_clauses}
 risk_rules :{risk_rules}
+Do not mention risk_ID.
 Output Json :
 ```json
 {{

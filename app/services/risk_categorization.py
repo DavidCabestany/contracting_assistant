@@ -86,7 +86,7 @@ def get_risks_from_query(clauses_identified:str,payload_json2:str):
         assessment_answer.StandardAZRisks.LowRisksClauses)
 
         for risk_detail in all_risks_from_source:
-            if risk_detail.clause_name in target_clause_names:
+            if risk_detail.title in target_clause_names:
                 # Add the risk to the correct category in the new object
                 if risk_detail.clause_type == 'Contractual':
                     filtered_assessment.ContractualRisks.add_risk(risk_detail)
@@ -285,8 +285,8 @@ def risk_categorization_fn(content,queryText,msg_id,userId,session_id):
     ##Step 7 Semi - Final output creation
     for clause_name,details in payload_json2.items():
         risk_detail = RiskDetail(
-        clause_name=clause_name,
-        risk_content=str(details['details']),
+        title=clause_name,
+        description=str(details['details']),
         risk_score=details['risk_score'],
         risk_level=details['risk_level'],
         clause_type=details['clause_type'],
@@ -564,22 +564,22 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
         return {
             "HighRisksClauses": [
                 {
-                    "clause_name": risk_detail.clause_name + "(" + risk_detail.risk_importance + ")",
-                    "risk_content": risk_detail.risk_content
+                    "title": risk_detail.title + "(" + risk_detail.risk_importance + ")",
+                    "description": risk_detail.description
                 }
                 for risk_detail in risk_category.HighRisksClauses
             ],
             "MediumRisksClauses": [
                 {
-                    "clause_name": risk_detail.clause_name +"(" + risk_detail.risk_importance + ")",
-                    "risk_content": risk_detail.risk_content
+                    "title": risk_detail.title +"(" + risk_detail.risk_importance + ")",
+                    "description": risk_detail.description
                 }
                 for risk_detail in risk_category.MediumRisksClauses
             ],
             "LowRisksClauses": [
                 {
-                    "clause_name": risk_detail.clause_name +"(" + risk_detail.risk_importance + ")",
-                    "risk_content": risk_detail.risk_content
+                    "title": risk_detail.title +"(" + risk_detail.risk_importance + ")",
+                    "description": risk_detail.description
                 }
                 for risk_detail in risk_category.LowRisksClauses
             ]
