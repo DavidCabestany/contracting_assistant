@@ -67,7 +67,7 @@ class RiskCategory(BaseModel):
             self.low_risk_count += 1
         else:
             print(
-                f"Warning: RiskDetail for '{risk_detail.clause_name}' has unhandled risk_level: '{risk_detail.risk_level}'. Not added to H/M/L lists."
+                f"Warning: RiskDetail for '{risk_detail.title}' has unhandled risk_level: '{risk_detail.risk_level}'. Not added to H/M/L lists."
             )
             return
 
