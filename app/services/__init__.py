@@ -13,7 +13,7 @@ from .clients import s3_client
 from .doc_retriever import retrieve_documents
 from .embeddings import get_embeddings, similarity
 from .memory import get_file_memory
-from .qna import (
+from .qna import (  # tia_followup_user_query,; tia_trigger_initial_clarification,
     auto_attach_files,
     auto_attach_files_gxp_citation,
     detect_prior_doc_from_query,
@@ -25,8 +25,6 @@ from .qna import (
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
     retrieve_file_chunks,
-    tia_followup_user_query,
-    tia_trigger_initial_clarification,
 )
 from .templates import retrieve_template
 

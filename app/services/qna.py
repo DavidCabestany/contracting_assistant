@@ -84,25 +84,10 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[tuple[str, str]]:
 
 
 def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
-    """Auto-match files from S3 based on query contents and restrict to given kb_path."""
+    """Return all compliance files clearly needed for GxP scenarios."""
     known_files = load_known_files_from_s3()
     query_lc = user_txt.lower()
-    start_end_query = query_lc[:50] + query_lc[-50:]
     matched_files = []
-
-    for file_name, file_kb_path in known_files.items():
-        # Only consider files from the active kb_path
-        if file_kb_path != kb_path:
-            continue
-
-        base_name = file_name.lower().replace(".pdf", "")
-        words = re.findall(r"\b\w+\b", base_name)
-
-        for i in range(len(words) - 2):
-            phrase = " ".join(words[i : i + 3])
-            if phrase in start_end_query:
-                matched_files.append(file_name)
-                break
 
     # FORCE-INJECT GCP if clinical trial keywords are detected
     gcp_keywords = [
@@ -120,6 +105,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         if gcp_file in known_files and known_files[gcp_file] == kb_path:
             if gcp_file not in matched_files:
                 matched_files.append(gcp_file)
+
     # FORCE-INJECT GDP if distribution keywords are detected
     gdp_keywords = [
         "good distribution practice",
