@@ -43,12 +43,12 @@ from .response import (
     Result,
 )
 from .risk import (
-    RiskAssessmentAnswer,
     AdditionalRisk,
+    RiskAssessmentAnswer,
     RiskAssessmentResponse,
+    RiskCategory,
     RiskClause,
     RiskDetail,
-    RiskCategory,
 )
 from .site import Language, Site
 

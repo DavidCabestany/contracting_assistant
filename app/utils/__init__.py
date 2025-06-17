@@ -35,20 +35,20 @@ from .prompt_utils import (
     business_unit_prompt,
     generate_prompt,
     generate_prompt_risk,
+    generate_prompt_risk_test,
+    generate_prompt_summary,
+    get_additional_risk,
+    get_clauses,
     get_knowledge_base_folder,
     get_knowledge_base_id,
     get_risk_matrix_details,
     prompt_query_cat,
-    generate_prompt_risk_test,
-    get_clauses,
-    get_additional_risk,
-    generate_prompt_summary,
 )
 from .s3_utils import (
     extract_file_locations,
     generate_presigned_url,
-    get_filename_from_path,
     get_contract_risk_from_s3,
+    get_filename_from_path,
     store_contract_risk_to_s3,
 )
 

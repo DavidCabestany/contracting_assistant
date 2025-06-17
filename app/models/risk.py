@@ -9,16 +9,16 @@ from pydantic import BaseModel, Field
 
 class RiskDetail(BaseModel):
     """Details of a specific risk identified in a clause."""
+
     title: str
     description: str
     risk_score: int
     risk_level: str
-    clause_type: str 
+    clause_type: str
     risk_importance: str
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
         """Exclude fields when serializing for the API response."""
-       
         exclude_set = {
             "risk_score",
             "risk_level",
@@ -26,9 +26,10 @@ class RiskDetail(BaseModel):
             "risk_importance",
         }
         kwargs.setdefault("exclude", set()).update(exclude_set)
-        print(f"kwargs in RiskDetail.model_dump: {kwargs}") 
+        print(f"kwargs in RiskDetail.model_dump: {kwargs}")
         return super().model_dump(**kwargs)
-    
+
+
 class RiskClause(BaseModel):
     """Represents a single risk clause identified in a contract or document.
 
@@ -43,10 +44,11 @@ class RiskClause(BaseModel):
 
 class RiskCategory(BaseModel):
     """Categorizes risks by their severity level for a specific type (e.g., Contractual)."""
+
     HighRisksClauses: List[RiskDetail] = Field(default_factory=list)
     MediumRisksClauses: List[RiskDetail] = Field(default_factory=list)
     LowRisksClauses: List[RiskDetail] = Field(default_factory=list)
-    
+
     total_risks: int = 0
     high_risk_count: int = 0
     medium_risk_count: int = 0
@@ -64,11 +66,12 @@ class RiskCategory(BaseModel):
             self.LowRisksClauses.append(risk_detail)
             self.low_risk_count += 1
         else:
-            print(f"Warning: RiskDetail for '{risk_detail.clause_name}' has unhandled risk_level: '{risk_detail.risk_level}'. Not added to H/M/L lists.")
-            return 
+            print(
+                f"Warning: RiskDetail for '{risk_detail.clause_name}' has unhandled risk_level: '{risk_detail.risk_level}'. Not added to H/M/L lists."
+            )
+            return
 
         self.total_risks += 1
-
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
         """Exclude count fields when serializing for the API response."""

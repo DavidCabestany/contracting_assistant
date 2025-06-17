@@ -7,8 +7,7 @@ import json
 import logging
 import os
 import uuid
-from typing import Optional, Union
-import os
+from typing import Optional
 
 import boto3
 from auth.utils import verify_token
@@ -26,38 +25,36 @@ from models import (
     Result,
     RiskAssessmentAnswer,
     RiskAssessmentResponse,
-    RiskDetail
 )
-from prompts import (
+from prompts import (  # RISK_MATRIX_ALL_RISKS_PROMPT,; RISK_MATRIX_SPC_RISK_PROMPT,
     BASE_PROMPT,
-    #RISK_MATRIX_ALL_RISKS_PROMPT,
-    #RISK_MATRIX_SPC_RISK_PROMPT,
     RISK_MITIGATION_PROMPT,
 )
-from pydantic import ValidationError
 from routes.qna import (
     retrieve_and_generate,
 )
 from services.chat_history_service import store_interaction
 from services.memory import ChatMessageHistory
 from services.memory_helpers import load_history, save_history
+from services.risk_categorization import (
+    _extract_json,
+    _wrap_plain,
+    get_all_clauses_froms3,
+    get_category4,
+    get_risks_from_query,
+    risk_categorization_fn,
+)
 from utils import (
     extract_keywords_from_query,
     extract_pdf_contents,
     extract_text_from_word,
     generate_prompt,
-    generate_prompt_risk,
+    get_clauses,
+    get_contract_risk_from_s3,
     get_file_type,
     get_risk_matrix_details,
     prompt_query_cat,
-    get_contract_risk_from_s3,
-    get_clauses,
 )
-from services.risk_categorization import (risk_categorization_fn,
-                                          get_all_clauses_froms3,
-                                          get_risks_from_query,get_category4,
-                                          _extract_json,_wrap_plain
-                                          )
 
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
@@ -146,11 +143,13 @@ async def generate_summary(
         try:
             file_bytes_to_process = await file.read()
             file_name_to_process = file.filename
-            logger.info(f"[{msg_id}] File received: name={file_name_to_process}, size={len(file_bytes_to_process)}")
+            logger.info(
+                f"[{msg_id}] File received: name={file_name_to_process}, size={len(file_bytes_to_process)}"
+            )
 
             folder_path = f"contracts/{userId}/{session_id}"
             s3_key = f"{folder_path}/{file_name_to_process}"
-        
+
             s3.put_object(
                 Bucket=BUCKET_CONTAINER,
                 Key=s3_key,
@@ -167,21 +166,28 @@ async def generate_summary(
             raise HTTPException(400, f"Error reading file: {exc}") from exc
 
     elif transactionCount != "0":
-        logger.info(f"[{msg_id}] No new file uploaded. Checking S3 for existing session file.")
-        file_bytes_to_process, file_name_to_process = _get_session_file_from_s3(
-            s3, BUCKET_CONTAINER, userId, session_id, msg_id
-    )
+        logger.info(
+            f"[{msg_id}] No new file uploaded. Checking S3 for existing session file."
+        )
+        file_bytes_to_process, file_name_to_process = (
+            _get_session_file_from_s3(
+                s3, BUCKET_CONTAINER, userId, session_id, msg_id
+            )
+        )
 
     if file_bytes_to_process and file_name_to_process:
-        content = _extract_content_from_bytes(file_bytes_to_process, file_name_to_process, msg_id)
-        logger.debug(f"[{msg_id}] Successfully extracted content from {file_name_to_process}")
+        content = _extract_content_from_bytes(
+            file_bytes_to_process, file_name_to_process, msg_id
+        )
+        logger.debug(
+            f"[{msg_id}] Successfully extracted content from {file_name_to_process}"
+        )
     else:
         logger.info(f"[{msg_id}] No file provided or found for this session.")
         raw_answer = "Please upload your contract first, then ask a specific question related to it."
         chat_mem: ChatMessageHistory = ChatMessageHistory(session_id)
         if not queryText or not queryText.strip():
             queryText = "No text was provided"
-
 
     if raw_answer is None:
         # Step 2: Load chat memory
@@ -221,33 +227,51 @@ async def generate_summary(
                 raw_answer = "Your question doesn't seem related to the contract you uploaded. Please ask something relevant to the document."
                 answer = _wrap_plain(raw_answer)
 
-            if category=="1" or category=="2":
-                payload_json2 = get_contract_risk_from_s3(userId,session_id,BUCKET_CONTAINER)
-                if payload_json2 :
-                    if category=="2":
-                       answer=get_all_clauses_froms3(payload_json2)
-                       raw_answer=json.dumps(answer)
+            if category == "1" or category == "2":
+                payload_json2 = get_contract_risk_from_s3(
+                    userId, session_id, BUCKET_CONTAINER
+                )
+                if payload_json2:
+                    if category == "2":
+                        answer = get_all_clauses_froms3(payload_json2)
+                        raw_answer = json.dumps(answer)
                     else:
                         risk_rules = get_risk_matrix_details()
-                        clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
-                        clause_prompt = get_clauses(queryText,clauses_lst)
-                        llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
-                        clauses_identified = llm_resp.content.strip() ##list 
-                        answer=get_risks_from_query(clauses_identified,payload_json2)
-                        raw_answer=json.dumps(answer)
+                        clauses_lst = extract_clause_names_from_risk_rules(
+                            risk_rules
+                        )
+                        clause_prompt = get_clauses(queryText, clauses_lst)
+                        llm_resp = ChatBedrock(
+                            model_id=MODEL_ID, max_tokens=4000
+                        ).invoke(clause_prompt)
+                        clauses_identified = llm_resp.content.strip()  ##list
+                        answer = get_risks_from_query(
+                            clauses_identified, payload_json2
+                        )
+                        raw_answer = json.dumps(answer)
                 else:
-                    ans = risk_categorization_fn(content,queryText,msg_id,userId,session_id)
-                    payload_json2 = get_contract_risk_from_s3(userId,session_id,BUCKET_CONTAINER)
+                    ans = risk_categorization_fn(
+                        content, queryText, msg_id, userId, session_id
+                    )
+                    payload_json2 = get_contract_risk_from_s3(
+                        userId, session_id, BUCKET_CONTAINER
+                    )
                     answer = ans
                     raw_answer = json.dumps(answer)
-                    if category=="1":
+                    if category == "1":
                         risk_rules = get_risk_matrix_details()
-                        clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
-                        clause_prompt = get_clauses(queryText,clauses_lst)
-                        llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
-                        clauses_identified = llm_resp.content.strip() ##list 
-                        answer=get_risks_from_query(clauses_identified,payload_json2)
-                        raw_answer=json.dumps(answer)
+                        clauses_lst = extract_clause_names_from_risk_rules(
+                            risk_rules
+                        )
+                        clause_prompt = get_clauses(queryText, clauses_lst)
+                        llm_resp = ChatBedrock(
+                            model_id=MODEL_ID, max_tokens=4000
+                        ).invoke(clause_prompt)
+                        clauses_identified = llm_resp.content.strip()  ##list
+                        answer = get_risks_from_query(
+                            clauses_identified, payload_json2
+                        )
+                        raw_answer = json.dumps(answer)
 
             elif category == "3":
                 body_prompt = generate_prompt(
@@ -304,7 +328,7 @@ async def generate_summary(
                 )
                 answer = _wrap_plain(current_ans_text)
 
-            #logger.info("User requires Risk mitigation strategies")
+            # logger.info("User requires Risk mitigation strategies")
         # Step 8: Fallback if response is irrelevant
         if IRRELEVANT in answer.get("ans") or "3" in category:
             logger.warning(
@@ -338,7 +362,7 @@ async def generate_summary(
         answer = _wrap_plain(raw_answer)
     # Step 9: Save chat history
     chat_mem.add_user_message(queryText)
-    chat_mem.add_ai_message(raw_answer) 
+    chat_mem.add_ai_message(raw_answer)
     save_history(chat_mem)
     logger.debug(f"[{msg_id}] Updated and saved chat history")
 
@@ -399,7 +423,6 @@ async def generate_summary(
     return api_resp
 
 
-
 def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
     """Extracts the names of all top-level clauses from the risk_rules checklist.
 
@@ -440,51 +463,75 @@ def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
     return clause_names
 
 
-
-
 def _get_session_file_from_s3(s3_client, bucket, user_id, session_id, msg_id):
     """Retrieves the latest file for a given session from S3."""
     prefix = f"contracts/{user_id}/{session_id}/"
     try:
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=2)
+        response = s3_client.list_objects_v2(
+            Bucket=bucket, Prefix=prefix, MaxKeys=2
+        )
         # Find the first actual file object, ignoring the "folder" placeholder
-        file_object = next((obj for obj in response.get("Contents", []) if obj["Key"] != prefix and obj["Size"] > 0), None)
+        file_object = next(
+            (
+                obj
+                for obj in response.get("Contents", [])
+                if obj["Key"] != prefix and obj["Size"] > 0
+            ),
+            None,
+        )
 
         if not file_object:
-            logger.info(f"[{msg_id}] No existing file found in S3 at prefix: {prefix}")
+            logger.info(
+                f"[{msg_id}] No existing file found in S3 at prefix: {prefix}"
+            )
             return None, None
 
         key = file_object["Key"]
         file_name = os.path.basename(key)
         logger.info(f"[{msg_id}] Found existing file in S3: {key}")
-        
+
         obj_response = s3_client.get_object(Bucket=bucket, Key=key)
         file_bytes = obj_response["Body"].read()
-        logger.info(f"[{msg_id}] Successfully read {len(file_bytes)} bytes from S3 object: {key}")
+        logger.info(
+            f"[{msg_id}] Successfully read {len(file_bytes)} bytes from S3 object: {key}"
+        )
         return file_bytes, file_name
 
     except ClientError as e:
-        logger.exception(f"[{msg_id}] S3 ClientError retrieving session file from {prefix}")
+        logger.exception(
+            f"[{msg_id}] S3 ClientError retrieving session file from {prefix}"
+        )
         raise HTTPException(500, "S3 error retrieving session file.") from e
     except Exception as e:
-        logger.exception(f"[{msg_id}] Unexpected error retrieving session file from {prefix}")
+        logger.exception(
+            f"[{msg_id}] Unexpected error retrieving session file from {prefix}"
+        )
         raise HTTPException(500, "Error retrieving session file.") from e
+
 
 def _extract_content_from_bytes(file_bytes, file_name, msg_id):
     """Extracts text content from file bytes based on file type."""
     try:
         ftype = get_file_type(file_name)
-        logger.info(f"[{msg_id}] Extracting content from: {file_name} (type: {ftype})")
+        logger.info(
+            f"[{msg_id}] Extracting content from: {file_name} (type: {ftype})"
+        )
 
         if ftype == ".pdf":
             return extract_pdf_contents(file_bytes)
         if ftype in {".doc", ".docx"}:
             return extract_text_from_word(file_bytes)
-        
+
         # Fallback for other file types (e.g., .txt) or unknown types
-        logger.warning(f"[{msg_id}] Unsupported file type '{ftype}'. Attempting to decode as plain text.")
+        logger.warning(
+            f"[{msg_id}] Unsupported file type '{ftype}'. Attempting to decode as plain text."
+        )
         return file_bytes.decode("utf-8", errors="replace")
 
     except Exception as exc:
-        logger.exception(f"[{msg_id}] Failed to extract content from file: {file_name}")
-        raise HTTPException(400, f"Failed to extract content from {file_name}: {exc}") from exc
+        logger.exception(
+            f"[{msg_id}] Failed to extract content from file: {file_name}"
+        )
+        raise HTTPException(
+            400, f"Failed to extract content from {file_name}: {exc}"
+        ) from exc

@@ -14,7 +14,13 @@ from pathlib import Path
 from typing import Final
 
 from langchain_core.prompts import PromptTemplate
-from prompts import BUSINESS_UNIT_PROMPT, CATEGORY_PROMPT, USER_QUERY_RISKS,ADDITIONAL_RISKS,RISKS_SUMMARY
+from prompts import (
+    ADDITIONAL_RISKS,
+    BUSINESS_UNIT_PROMPT,
+    CATEGORY_PROMPT,
+    RISKS_SUMMARY,
+    USER_QUERY_RISKS,
+)
 
 from .constants import ALEXION_ID, DOCS_DIR, GEN_ENQ_KB_ID, PRIVACY_KB_ID
 
@@ -103,6 +109,7 @@ def generate_prompt(content: str, query: str, template: str) -> str:
         template=template,
     ).format(content=content, Query=query)
 
+
 def generate_prompt_risk_test(
     template: str,
     identified_clauses: str,
@@ -127,7 +134,6 @@ def generate_prompt_risk_test(
     )
 
 
-
 def generate_prompt_summary(
     contract_clauses: str,
     additional_clauses: str,
@@ -149,40 +155,46 @@ def generate_prompt_summary(
         additional_clauses=additional_clauses,
     )
 
+
 def generate_prompt_risk(
     contract: str,
     template: str,
 ) -> str:
-    """Generate a prompt tailored for contract risk analysis.
+    """Generates a formatted LLM prompt string for contract risk analysis.
+
+    This function fills a prompt template with the given contract text so
+    it can be used directly for risk assessment by an LLM.
 
     Args:
-        contract (str): Contract text.
+        contract (str): The full contract text to be analyzed for risk.
+        template (str): The template string or object for prompt construction.
 
     Returns:
-        str: Formatted prompt string.
+        str: A formatted prompt with the contract text inserted, suitable for LLM use.
     """
     return PromptTemplate(
         input_variables=["contract"],
         template=template,
-    ).format(
-        Contract=contract
-    )
+    ).format(Contract=contract)
 
 
-def get_additional_risk(content:str,clauses: str) -> str:
-    """Identify any additional risks in the contract.
+def get_additional_risk(content: str, clauses: str) -> str:
+    """Creates a prompt to identify and extract additional risks from a contract.
+
+    Formats the ADDITIONAL_RISKS prompt template with both the contract content and
+    a list of already-identified clauses, so an LLM can detect further risks.
 
     Args:
-        content (str): contract content
-        clauses_lst : Already present clauses.
+        content (str): The full contract content for analysis.
+        clauses (str): Existing clause details as a string.
 
     Returns:
-        json: providing all the additional risks if any.
+        str: JSON-style prompt to be sent to the LLM, for additional risk extraction.
     """
     return PromptTemplate(
-        input_variables=["content","clauses"],
+        input_variables=["content", "clauses"],
         template=ADDITIONAL_RISKS,
-    ).format(contract=content,clauses=clauses)
+    ).format(contract=content, clauses=clauses)
 
 
 def prompt_query_cat(query: str) -> str:
@@ -200,23 +212,20 @@ def prompt_query_cat(query: str) -> str:
     ).format(Query=query)
 
 
-
-def get_clauses(query: str,clauses: list) -> str:
-    """To find the clauses asked in user query
+def get_clauses(query: str, clauses: list) -> str:
+    """To find the clauses asked in user query.
 
     Args:
         query (str): The user's query text.
         clauses (list): Clauses
 
     Returns:
-        list: risks in user query 
+        list: risks in user query
     """
     try:
         return PromptTemplate(
-            input_variables=["query","clauses"],
+            input_variables=["query", "clauses"],
             template=USER_QUERY_RISKS,
-        ).format(Query=query,Clauses=clauses)
+        ).format(Query=query, Clauses=clauses)
     except Exception as exc:
         print(exc)
-
-    

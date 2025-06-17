@@ -1,6 +1,6 @@
-"""Prompt templates used for risk related queries"""
+"""Prompt templates used for risk related queries."""
 
-RISK_MATRIX_ALL_RISKS_PROMPT2 = """Kindly provide details related to the clauses mentioned below in the format below -
+RISK_MATRIX_ALL_RISKS_PROMPT2 = """Kindly provide details related to the clauses mentioned below in the format below:
 If nothing is present for particular clause provide "NA" in details.Do not infer or invent details based on the context or description—these are provided only to help you understand what to look for.
 ```json
 {{
@@ -49,7 +49,6 @@ Concise Overall Risk Summary:
 """
 
 
-
 ADDITIONAL_RISKS = """
 Given the contract content below, and a list of already identified standard clause-based risks,
 please identify any other potential risks or concerns that are not explicitly covered by the standard clauses.
@@ -67,7 +66,7 @@ If no additional risks are found, return an empty list []
 [
 {{
   "title: "title_name"
-  "description": "Provide the details of that additional clauses in contract", 
+  "description": "Provide the details of that additional clauses in contract",
    // ... more additional clauses if any.
 }}
 ]
@@ -76,7 +75,7 @@ If no additional risks are found, return an empty list []
 
 
 USER_QUERY_RISKS = """
-You are a clause identifier assistant. Provide me a list of clauses that are explicitly asked by a user from the defined clauses list. 
+You are a clause identifier assistant. Provide me a list of clauses that are explicitly asked by a user from the defined clauses list.
 User Query:
 {Query}
 Clauses:
