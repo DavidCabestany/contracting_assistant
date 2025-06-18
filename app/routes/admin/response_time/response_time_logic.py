@@ -37,37 +37,37 @@ class ResponseTimeLogic:
 
     @staticmethod
     def filter_and_calculate(df: pd.DataFrame, timeframe: str) -> list:
-        """Aggregate and calculate average response durations for the specified timeframe."""
+        """Aggregate and calculate average response durations for the specified timeframe, using /getFeedbackTrend-like time buckets."""
         if df is None or df.empty:
             logger.info(f"No data available for timeframe: {timeframe}")
-            # Pad all expected labels with value 0
+            now = datetime.now()
             if timeframe == "last7days":
-                today = datetime.now().date()
-                days = [today - timedelta(days=i) for i in reversed(range(7))]
+                days = [
+                    now.date() - timedelta(days=i) for i in reversed(range(7))
+                ]
                 return [
                     {"label": d.strftime("%d-%b"), "value": 0} for d in days
                 ]
             elif timeframe == "last30days":
-                now = datetime.now()
-                labels = ResponseTimeLogic._get_all_weeks_labels(now)
+                labels = ResponseTimeLogic._trend_week_labels(now)
                 return [{"label": lbl, "value": 0} for lbl in labels]
             elif timeframe == "last90days":
-                now = datetime.now()
-                labels = ResponseTimeLogic._get_all_months_labels(now, 3)
+                labels = ResponseTimeLogic._trend_month_labels(now)
                 return [{"label": lbl, "value": 0} for lbl in labels]
             elif timeframe == "last365days":
-                now = datetime.now()
-                labels = ResponseTimeLogic._get_all_quarters_labels(now)
+                labels = ResponseTimeLogic._trend_quarter_labels(now)
                 return [{"label": lbl, "value": 0} for lbl in labels]
             else:
                 return []
 
+        now = datetime.now()
+
         if timeframe == "last7days":
             df = df.copy()
             df["date"] = df["timestamp"].dt.date
+            # Oldest (today-7) to newest (today-1), left to right
             date_range = [
-                datetime.now().date() - timedelta(days=i)
-                for i in reversed(range(7))
+                (now.date() - timedelta(days=i)) for i in range(7, 0, -1)
             ]
             res = (
                 df.groupby("date")["duration_s"]
@@ -91,14 +91,15 @@ class ResponseTimeLogic:
             ]
 
         elif timeframe == "last30days":
-            now = datetime.now()
-            start_date = now - timedelta(days=29)
+            now_ = now
+            start = now_ - timedelta(days=29)
             df = df.copy()
             df = df[
-                (df["timestamp"].dt.date >= start_date.date())
-                & (df["timestamp"].dt.date <= now.date())
+                (df["timestamp"].dt.date >= start.date())
+                & (df["timestamp"].dt.date <= now_.date())
             ]
 
+            # Assign week label
             def assign_week_label(date):
                 day = date.day
                 month = calendar.month_abbr[date.month]
@@ -111,12 +112,13 @@ class ResponseTimeLogic:
                 else:
                     return f"W4 {month}"
 
-            df["week_label"] = df["timestamp"].apply(assign_week_label)
+            df["week_label"] = df["timestamp"].dt.date.apply(
+                lambda dt: assign_week_label(dt)
+            )
             avg_per_week = (
                 df.groupby("week_label")["duration_s"].mean().reset_index()
             )
-
-            week_labels = ResponseTimeLogic._get_all_weeks_labels(now)
+            week_labels = ResponseTimeLogic._trend_week_labels(now_)
             avg_map = {
                 row["week_label"]: row["duration_s"]
                 for _, row in avg_per_week.iterrows()
@@ -134,15 +136,20 @@ class ResponseTimeLogic:
             ]
 
         elif timeframe == "last90days":
-            now = datetime.now()
+            now_ = now
+            start = now_ - timedelta(days=89)
             df = df.copy()
-            df["month_year"] = df["timestamp"].dt.strftime("%b %Y")
+            df = df[
+                (df["timestamp"].dt.date >= start.date())
+                & (df["timestamp"].dt.date <= now_.date())
+            ]
+            df["month_label"] = df["timestamp"].dt.strftime("%b %Y")
             avg_per_month = (
-                df.groupby("month_year")["duration_s"].mean().reset_index()
+                df.groupby("month_label")["duration_s"].mean().reset_index()
             )
-            month_labels = ResponseTimeLogic._get_all_months_labels(now, 3)
+            month_labels = ResponseTimeLogic._trend_month_labels(now_)
             avg_map = {
-                row["month_year"]: row["duration_s"]
+                row["month_label"]: row["duration_s"]
                 for _, row in avg_per_month.iterrows()
             }
             return [
@@ -158,16 +165,26 @@ class ResponseTimeLogic:
             ]
 
         elif timeframe == "last365days":
-            now = datetime.now()
+            now_ = now
+            start = now_ - timedelta(days=364)
             df = df.copy()
-            df["quarter"] = df["timestamp"].dt.to_period("Q")
-            df["quarter_label"] = df["quarter"].apply(
-                lambda x: f"Q{x.quarter} {x.year}"
+            df = df[
+                (df["timestamp"].dt.date >= start.date())
+                & (df["timestamp"].dt.date <= now_.date())
+            ]
+
+            # Quarter as "Qn YYYY"
+            def quarter_label(dt):
+                q = ((dt.month - 1) // 3) + 1
+                return f"Q{q} {dt.year}"
+
+            df["quarter_label"] = df["timestamp"].dt.date.apply(
+                lambda d: quarter_label(d)
             )
             avg_per_quarter = (
                 df.groupby("quarter_label")["duration_s"].mean().reset_index()
             )
-            quarter_labels = ResponseTimeLogic._get_all_quarters_labels(now)
+            quarter_labels = ResponseTimeLogic._trend_quarter_labels(now_)
             avg_map = {
                 row["quarter_label"]: row["duration_s"]
                 for _, row in avg_per_quarter.iterrows()
@@ -189,37 +206,64 @@ class ResponseTimeLogic:
             return []
 
     @staticmethod
-    def _get_all_weeks_labels(now):
-        labels = []
-        # Get the last 4 weeks covering the last 30 days
-        current = now
-        for i in reversed(range(4)):
-            week_start = current - timedelta(days=current.day - 1)
-            week_num = i + 1
-            labels.append(f"W{week_num} {calendar.month_abbr[current.month]}")
-            current = week_start - timedelta(days=1)
-        labels.reverse()
-        return labels
+    def _trend_week_labels(now):
+        # Compute all week-in-month ("Wn Mon") that have any overlap with the last 30 days
+        start = now - timedelta(days=29)
+        end = now
+        months = []
+        m = start.replace(day=1)
+        while m <= end:
+            months.append((m.year, m.month))
+            if m.month == 12:
+                m = m.replace(year=m.year + 1, month=1)
+            else:
+                m = m.replace(month=m.month + 1)
+        week_labels = []
+        for year, month in months:
+            days_in_month = calendar.monthrange(year, month)[1]
+            for widx, (low, high) in enumerate(
+                [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
+            ):
+                wk_start = datetime(year, month, low)
+                wk_end = datetime(year, month, high)
+                if (
+                    wk_end.date() < start.date()
+                    or wk_start.date() > end.date()
+                ):
+                    continue
+                label = f"W{widx} {calendar.month_abbr[month]}"
+                week_labels.append(label)
+        # Remove dups, preserve order
+        week_labels = list(dict.fromkeys(week_labels))
+        return week_labels
 
     @staticmethod
-    def _get_all_months_labels(now, num_months):
-        labels = []
-        for i in reversed(range(num_months)):
-            month = (now.month - i - 1) % 12 + 1
-            year = now.year if now.month - i > 0 else now.year - 1
-            labels.append(f"{calendar.month_abbr[month]} {year}")
-        return labels
+    def _trend_month_labels(now):
+        start = now - timedelta(days=89)
+        end = now
+        months = []
+        m = start.replace(day=1)
+        while m <= end:
+            months.append(f"{calendar.month_abbr[m.month]} {m.year}")
+            if m.month == 12:
+                m = m.replace(year=m.year + 1, month=1)
+            else:
+                m = m.replace(month=m.month + 1)
+        return months
 
     @staticmethod
-    def _get_all_quarters_labels(now):
-        labels = []
-        year = now.year
-        current_q = (now.month - 1) // 3 + 1
-        for i in reversed(range(4)):
-            q = current_q - i
-            q_year = year
-            if q <= 0:
-                q += 4
-                q_year -= 1
-            labels.append(f"Q{q} {q_year}")
-        return labels
+    def _trend_quarter_labels(now):
+        start = now - timedelta(days=364)
+        end = now
+        quarters = []
+        # Start from the first overlapping quarter
+        m = datetime(start.year, ((start.month - 1) // 3) * 3 + 1, 1)
+        while m <= end:
+            q = ((m.month - 1) // 3) + 1
+            quarters.append(f"Q{q} {m.year}")
+            # advance by 3 months
+            if m.month >= 10:
+                m = m.replace(year=m.year + 1, month=1)
+            else:
+                m = m.replace(month=m.month + 3)
+        return quarters

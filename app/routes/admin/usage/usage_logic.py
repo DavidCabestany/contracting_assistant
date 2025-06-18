@@ -71,52 +71,108 @@ class UsageLogic:
     def _agg_last7days(
         df: pd.DataFrame, now_date: datetime.date
     ) -> List[Dict]:
-        """Buckets usage per day for the past 7 days."""
-        label_fmt = "%Y-%m-%d"
-        days = [
-            (now_date - timedelta(days=i)).strftime(label_fmt)
-            for i in range(6, -1, -1)
-        ]
-        df["label"] = df["Timestamp"].dt.strftime(label_fmt)
+        """Buckets usage per day for the past 7 days. Label as 'DD-MMM'."""
+        iso_fmt = "%Y-%m-%d"
+        display_fmt = "%d-%b"
+
+        days = [(now_date - timedelta(days=i)) for i in range(6, -1, -1)]
+        iso_days = [d.strftime(iso_fmt) for d in days]
+        display_days = [d.strftime(display_fmt) for d in days]
+
+        # Group by iso format (YYYY-MM-DD, as before)
+        df["group_label"] = df["Timestamp"].dt.strftime(iso_fmt)
         start = pd.Timestamp(now_date - timedelta(days=6))
         df = df[df["Timestamp"] >= start]
-        usage = df.groupby("label").size().reindex(days, fill_value=0)
+        usage = (
+            df.groupby("group_label").size().reindex(iso_days, fill_value=0)
+        )
+
+        # Output using display_fmt in 'label'
         return [
-            {"label": day, "value": int(usage.get(day, 0))} for day in days
+            {"label": display_days[i], "value": int(usage.get(iso_days[i], 0))}
+            for i in range(7)
         ]
 
     @staticmethod
     def _agg_last30days(df: pd.DataFrame, now: datetime) -> List[Dict]:
-        """Buckets usage by week-in-month (W1-W4) for last 30 days.- W1: days 1–7, W2: 8–14, W3: 15–21, W4: 22–end.Label: 'Wk Month' (e.g., 'W2 May')Always returns the most recent 4 buckets spanning up to 2 months."""
-        # Date range: last 30 days including today
+        """Bucket usage by week-in-month (W1-W4 per calendar month, e.g., 'W2 Jun')for all week-buckets that overlap the last 30 days.This matches the revised /getFeedbackTrend grouping logic."""
         start = (now - timedelta(days=29)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
         mask = (df["Timestamp"] >= start) & (df["Timestamp"] <= end)
         df = df[mask].copy()
-        # Add week bucket per business logic
-        df["Day"] = df["Timestamp"].dt.day
-        df["Month"] = df["Timestamp"].dt.month
-        df["Year"] = df["Timestamp"].dt.year
-        df["WEEK"] = pd.cut(
-            df["Day"],
-            bins=[0, 7, 14, 21, 31],
-            labels=["W1", "W2", "W3", "W4"],
-            right=True,
-            include_lowest=True,
-        )
-        df["label"] = (
-            df["WEEK"].astype(str) + " " + df["Timestamp"].dt.strftime("%b")
-        )
         if df.empty:
-            labels = UsageLogic._get_calendar_week_labels(start, end)
+            # Create label list below and just return zeros for each bucket
+            months = []
+            m = start.replace(day=1)
+            while m <= end:
+                months.append((m.year, m.month))
+                if m.month == 12:
+                    m = m.replace(year=m.year + 1, month=1)
+                else:
+                    m = m.replace(month=m.month + 1)
+            labels = []
+            for year, month in months:
+                days_in_month = calendar.monthrange(year, month)[1]
+                for widx, (low, high) in enumerate(
+                    [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
+                ):
+                    wk_start = datetime(year, month, low, tzinfo=start.tzinfo)
+                    wk_end = datetime(year, month, high, tzinfo=start.tzinfo)
+                    if wk_end < start or wk_start > end:
+                        continue
+                    label = f"W{widx} {calendar.month_abbr[month]}"
+                    labels.append(label)
+            labels = sorted(
+                set(labels), key=lambda x: (x.split()[1], int(x[1]))
+            )
             return [{"label": label, "value": 0} for label in labels]
-        all_labels = UsageLogic._get_calendar_week_labels(start, end)
-        usage = df.groupby("label").size().reindex(all_labels, fill_value=0)
+
+        # Compute week bucket for each row
+        def week_label_from_row(ts):
+            day = ts.day
+            month_abbr = ts.strftime("%b")
+            if 1 <= day <= 7:
+                week_idx = 1
+            elif 8 <= day <= 14:
+                week_idx = 2
+            elif 15 <= day <= 21:
+                week_idx = 3
+            else:
+                week_idx = 4
+            return f"W{week_idx} {month_abbr}"
+
+        df["label"] = df["Timestamp"].apply(week_label_from_row)
+
+        # Get all relevant week-buckets (see which overlap window)
+        months = []
+        m = start.replace(day=1)
+        while m <= end:
+            months.append((m.year, m.month))
+            if m.month == 12:
+                m = m.replace(year=m.year + 1, month=1)
+            else:
+                m = m.replace(month=m.month + 1)
+        week_buckets = []
+        for year, month in months:
+            days_in_month = calendar.monthrange(year, month)[1]
+            for widx, (low, high) in enumerate(
+                [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
+            ):
+                wk_start = datetime(year, month, low, tzinfo=start.tzinfo)
+                wk_end = datetime(year, month, high, tzinfo=start.tzinfo)
+                if wk_end < start or wk_start > end:
+                    continue
+                label = f"W{widx} {calendar.month_abbr[month]}"
+                week_buckets.append(label)
+        # Remove duplicates, keep correct order
+        week_buckets = list(dict.fromkeys(week_buckets))
+
+        usage = df.groupby("label").size().reindex(week_buckets, fill_value=0)
         return [
             {"label": label, "value": int(usage[label])}
-            for label in all_labels
+            for label in week_buckets
         ]
 
     @staticmethod
@@ -149,42 +205,80 @@ class UsageLogic:
 
     @staticmethod
     def _agg_last90days(df: pd.DataFrame, now: datetime) -> List[Dict]:
-        """Buckets usage for last 90 days into calendar months.Label: 'Apr 2025', 'May 2025', etc.Returns: list of {label, value} sorted chronologically."""
-        start = now - timedelta(days=89)
-        end = now
+        """Bucket usage for last 90 days into calendar months (e.g., 'Apr 2025', 'May 2025'),including all calendar months overlapped by the window, even partial."""
+        start = (now - timedelta(days=89)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
         mask = (df["Timestamp"] >= start) & (df["Timestamp"] <= end)
         df = df[mask].copy()
+
+        # Find all months overlapped by the window
         months = []
-        for i in reversed(range(3)):
-            month_dt = now - pd.DateOffset(months=i)
-            label = month_dt.strftime("%b %Y")
-            key = month_dt.strftime("%Y-%m")
-            months.append({"label": label, "key": key})
-        df["yearmonth"] = df["Timestamp"].dt.strftime("%Y-%m")
-        usage = df.groupby("yearmonth").size()
-        result = []
-        for m in months:
-            value = int(usage.get(m["key"], 0))
-            result.append({"label": m["label"], "value": value})
-        return result
+        m = start.replace(day=1)
+        while m <= end:
+            months.append((m.year, m.month))
+            if m.month == 12:
+                m = m.replace(year=m.year + 1, month=1)
+            else:
+                m = m.replace(month=m.month + 1)
+        month_labels = [
+            f"{calendar.month_abbr[month]} {year}" for (year, month) in months
+        ]
+
+        def month_label_from_ts(ts):
+            return f"{ts.strftime('%b')} {ts.year}"
+
+        if not df.empty:
+            df["label"] = df["Timestamp"].apply(month_label_from_ts)
+            usage = (
+                df.groupby("label").size().reindex(month_labels, fill_value=0)
+            )
+        else:
+            usage = pd.Series([0] * len(month_labels), index=month_labels)
+        return [
+            {"label": label, "value": int(usage[label])}
+            for label in month_labels
+        ]
 
     @staticmethod
     def _agg_last365days(df: pd.DataFrame, now: datetime) -> List[Dict]:
-        """Buckets usage for last 365 days into calendar quarters."""
-        quarter_labels, quarter_lookup = UsageLogic._get_last4quarters_labels(
-            now
+        """Bucket usage for last 365 days into calendar quarters (e.g., 'Q2 2025'),including any quarter that overlaps with the window."""
+        start = (now - timedelta(days=364)).replace(
+            hour=0, minute=0, second=0, microsecond=0
         )
-        df["yearquarter"] = df["Timestamp"].apply(
-            lambda d: f"{(d.year)}-Q{((d.month - 1)//3)+1}"
-        )
-        df["label"] = df["yearquarter"].map(quarter_lookup)
-        start = now - timedelta(days=364)
-        df = df[df["Timestamp"] >= start]
-        usage = (
-            df.groupby("label").size().reindex(quarter_labels, fill_value=0)
-        )
+        end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        mask = (df["Timestamp"] >= start) & (df["Timestamp"] <= end)
+        df = df[mask].copy()
+
+        # Find all quarters overlapping with the window.
+        quarters = []
+        q_start = datetime(start.year, ((start.month - 1) // 3) * 3 + 1, 1)
+        while q_start <= end:
+            quarter = ((q_start.month - 1) // 3) + 1
+            quarters.append((q_start.year, quarter, q_start.month))
+            # advance by 3 months
+            if q_start.month >= 10:
+                q_start = q_start.replace(year=q_start.year + 1, month=1)
+            else:
+                q_start = q_start.replace(month=q_start.month + 3)
+        quarter_labels = [f"Q{q} {y}" for y, q, _ in quarters]
+
+        def quarter_label_from_ts(ts):
+            q = ((ts.month - 1) // 3) + 1
+            return f"Q{q} {ts.year}"
+
+        if not df.empty:
+            df["label"] = df["Timestamp"].apply(quarter_label_from_ts)
+            usage = (
+                df.groupby("label")
+                .size()
+                .reindex(quarter_labels, fill_value=0)
+            )
+        else:
+            usage = pd.Series([0] * len(quarter_labels), index=quarter_labels)
         return [
-            {"label": label, "value": int(usage.get(label, 0))}
+            {"label": label, "value": int(usage[label])}
             for label in quarter_labels
         ]
 
