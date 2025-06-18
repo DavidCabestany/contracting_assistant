@@ -113,11 +113,15 @@ async def db_tab_checker(query: str) -> tuple[str, str]:
         tab = result["tab"].lower()
         topic = result["topic"]
         if tab not in TOPICS_JSON:
-            logger.warning(f"Tab '{tab}' not in allowed tabs, defaulting to 'general'.")
+            logger.warning(
+                f"Tab '{tab}' not in allowed tabs, defaulting to 'general'."
+            )
             return "general", topic
         return tab, topic
     except Exception as exc:
-        logger.warning("Tab classification failed, defaulting to 'general': %r", exc)
+        logger.warning(
+            "Tab classification failed, defaulting to 'general': %r", exc
+        )
         return "general", "Unknown"
 
 
@@ -174,7 +178,9 @@ def extract_keywords_from_query(query: str, *, max_char: int = 2_000) -> str:
         str: Comma-separated keywords.
     """
     if not isinstance(query, str):
-        raise TypeError(f"extract_keywords_from_query expected str, got {type(query).__name__}")
+        raise TypeError(
+            f"extract_keywords_from_query expected str, got {type(query).__name__}"
+        )
     if not query:
         return ""
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections import defaultdict
 from collections.abc import Sequence
 
 from utils import extract_file_locations
@@ -32,8 +31,6 @@ from .constants import (
     PRIOR_DOC,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
-    QUESTION_MAP,
-    TIA_FOLLOWUP_KEYWORDS,
 )
 from .storage import add_prefix
 from .templates import retrieve_template
