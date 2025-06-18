@@ -1,0 +1,120 @@
+{
+    "general": [
+        {
+            "topic": "Contract Frameworks & Variants",
+            "description": "Master Services Agreements (routine and complex), SaaS addenda, AI Platform Agreements, R&D and clinical-trial modules (GXP, CT Conduct, Purchase Orders), SharePoint templates, “battle of the forms”, suite of contract documents, academic vs commercial distinctions"
+        },
+        {
+            "topic": "Scope, Deliverables & Service Levels",
+            "description": "Definition of services and deliverables, service-level metrics and credits, project plans, performance expectations, supplier negotiation guidance"
+        },
+        {
+            "topic": "Charges, Payments & Financial Terms",
+            "description": "Charges and payment terms, change-order process, Incoterms, pricing amendments, purchase-order mechanics"
+        },
+        {
+            "topic": "Liability, Indemnity & Insurance",
+            "description": "Limitations of liability, warranties and representations, insurance requirements, indemnification provisions including AI-specific nuances"
+        },
+        {
+            "topic": "Intellectual Property & Ownership",
+            "description": "Intellectual-property rights and ownership across MSA, SaaS, AI, and R&D arrangements; publication and records clauses"
+        },
+        {
+            "topic": "Confidentiality & Data Privacy",
+            "description": "Confidentiality agreements and clauses, confidentiality of negotiating positions, GDPR/data-privacy obligations, data-processing terms"
+        },
+        {
+            "topic": "Cybersecurity & Technical Safeguards",
+            "description": "Data-protection obligations, cybersecurity requirements, disaster-recovery and business-continuity planning, technical security standards"
+        },
+        {
+            "topic": "Regulatory & Compliance",
+            "description": "Compliance with laws and sanctions, GxP (GDP/GLP/GMP) applications, trade controls, third-party sustainability expectations, adverse-event reporting"
+        },
+        {
+            "topic": "Governance, Assignment & Third-Party Management",
+            "description": "Subcontracting, assignment and novation, parties and affiliates, roles and responsibilities tables, principal-investigator designation, expectations of third parties"
+        },
+        {
+            "topic": "Dispute Management & Termination",
+            "description": "Term and termination, consequences of termination, force-majeure events, governing law and jurisdiction, dispute-resolution clauses, audit rights and records"
+        }
+    ],
+    "privacy": [
+        {
+            "topic": "Cross-Border Transfer Mechanisms",
+            "description": "EU, UK and Swiss Standard Contractual Clauses (SCCs), PRC cross-border contracts, UK International Data-Transfer Addendum, transfer safeguards, description of data transferred"
+        },
+        {
+            "topic": "Applicable Laws & Frameworks",
+            "description": "GDPR, UK Data-Protection Act, Swiss Data-Protection Law, PRC PIPL, impact of local laws on contract performance"
+        },
+        {
+            "topic": "Roles & Relationship Structure",
+            "description": "Controller-processor distinctions, Data-Protection Appendix structure and purpose, supplier and overseas-recipient obligations, definitions of personal-information handling"
+        },
+        {
+            "topic": "Technical & Organisational Measures (TOMs)",
+            "description": "Encryption, access controls, physical security, incident-management procedures and other technical and organisational safeguards"
+        },
+        {
+            "topic": "Data-Subject Rights Handling",
+            "description": "Processes for handling data-subject requests, duration of processing, data erasure or return, description of personal information provided abroad"
+        },
+        {
+            "topic": "Sub-Processor Management",
+            "description": "Sub-processor approval requirements, flow-down obligations, supplier oversight and documentation"
+        },
+        {
+            "topic": "Breach & Incident Response",
+            "description": "Personal-data-breach notification duties, incident-response procedures, obligations in case of public-authority access"
+        },
+        {
+            "topic": "Audit, Compliance & Record Keeping",
+            "description": "Audit rights, compliance demonstration, record-keeping requirements, attachments and documentation of processing activities"
+        },
+        {
+            "topic": "Liability, Remedies & Indemnities",
+            "description": "Liability caps, indemnification, remedies for breach, non-compliance termination provisions"
+        },
+        {
+            "topic": "Governing Law & Jurisdiction",
+            "description": "Competent supervisory authorities, governing-law clauses, jurisdiction selection, local-law carve-outs"
+        },
+        {
+            "topic": "Controller & Processor Responsibilities",
+            "description": "Roles and obligations of controllers, processors, and sub-processors including data-handling duties, mutual responsibilities, and regulatory alignment"
+        }
+    ],
+    "alexion": [
+        {
+            "topic": "Contract Types & Selection",
+            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) that outline deliverables and timelines under an MSA; Data Processing Agreements (DPAs) whenever personal data is handled."
+        },
+        {
+            "topic": "Procurement Process & Thresholds",
+            "description": "Purchase Orders (POs) with standard T&Cs for spends below $10 k; Alexion contract templates and legal review required above $10 k; additional thresholds for healthcare-professional or high-value services; Request-for-Proposal (RFP) workflow for complex projects."
+        },
+        {
+            "topic": "Contract Management (iCertis)",
+            "description": "Use of the iCertis platform to create agreements, route them through approval and legal review stages, track lifecycle status, and resubmit drafts after comments until ready for signature."
+        },
+        {
+            "topic": "Vendor & Third-Party Risk Management (3PRM)",
+            "description": "Mandatory 3PRM assessments before onboarding, vendor-master requests via AskAZ, monitoring of financial and compliance risk, plus supplier-diversity and sustainability initiatives."
+        },
+        {
+            "topic": "Payment Terms & Financial Controls",
+            "description": "Country-specific maximum payment terms, milestone-based payments tied to approved deliverables, procedures for handling late payments, and capped pass-through or management fees to prevent budget overruns."
+        },
+        {
+            "topic": "Procurement Categories & Key Contacts",
+            "description": "Category structure covering Global Operations, IT & Telecom, Marketing & Market Access, Medical Affairs, Professional Services, and R&D; with named category leads and regional sourcing contacts."
+        },
+        {
+            "topic": "Compliance & Regulatory Requirements",
+            "description": "DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
+        }
+    ]
+}

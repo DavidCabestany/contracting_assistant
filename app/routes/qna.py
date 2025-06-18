@@ -38,6 +38,7 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
+    db_tab_checker,
     extract_keywords_from_query,
     get_knowledge_base_folder,
     get_knowledge_base_id,
@@ -366,60 +367,58 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 ),
             )
 
-        # if user_txt.lower() == "continue":
-        #     logger.info(
-        #         "User override: skipping tab check and continuing as requested."
-        #     )
-        #     # Proceed directly to QnA/answer logic using the current tab.
-        # else:
-        #     topic_check = await db_tab_checker(user_txt)
-        #     kb_map = {"general": "A", "alexion": "B", "privacy": "C"}
-        #     tab_names = {
-        #         "A": "General Queries",
-        #         "B": "Alexion",
-        #         "C": "Privacy",
-        #     }
-        #     selected_tab = kb_map.get(kb_path)
-
-        #     if topic_check != selected_tab:
-        #         logger.info(
-        #             "Tab mismatch: user in %s, LLM suggests %s for query: %r",
-        #             tab_names.get(selected_tab, selected_tab),
-        #             tab_names.get(topic_check, topic_check),
-        #             user_txt,
-        #         )
-        #         confirmation_msg = (
-        #             f"The question you’re asking looks like it belongs to the {tab_names[topic_check]} tab, "
-        #             f"but you’re currently in {tab_names[selected_tab]}.\n"
-        #             "Please consider switch tabs and ask again.\n"
-        #             'Or, if you want to continue here anyway, just reply "continue".'
-        #         )
-        #         end_time = datetime.datetime.now().isoformat()
-        #         _store_chat_log(
-        #             request,
-        #             confirmation_msg,
-        #             msg_id,
-        #             ui_session_id,
-        #             start_time,
-        #             end_time,
-        #             citations=[],
-        #         )
-        #         return QueryResponse(
-        #             status="success",
-        #             sessionId=ui_session_id,
-        #             userQuery=user_txt,
-        #             result=Result(
-        #                 messageId=msg_id,
-        #                 answer=QnAAnswer(ans=confirmation_msg),
-        #                 transactionCount=tx_count,
-        #                 citations=[],
-        #                 feedback=Feedback(
-        #                     feedbackDisplayOptions=FeedbackDisplayOptions(
-        #                         thumbsUp="N", thumbsDown="N", feedbackText="N"
-        #                     )
-        #                 ),
-        #             ),
-        #         )
+        if user_txt.lower() == "continue":
+            logger.info(
+                "User override: skipping tab check and continuing as requested."
+            )
+            # Proceed directly to QnA/answer logic using the current tab.
+        else:
+            tab, topic = await db_tab_checker(user_txt)
+            tab_names = {
+                "general": "General Queries",
+                "alexion": "Alexion",
+                "privacy": "Privacy",
+            }
+            selected_tab = kb_path
+            if tab != selected_tab:
+                logger.info(
+                    "Tab mismatch: user in %s, LLM suggests %s (topic: %s) for query: %r",
+                    tab_names.get(selected_tab, selected_tab),
+                    tab_names.get(tab, tab),
+                    topic,
+                    user_txt,
+                )
+                confirmation_msg = (
+                    f"The question you’re asking looks like it belongs to the {tab_names[tab]} tab "
+                    f"(topic: {topic}), but you’re currently in {tab_names[selected_tab]}.\n"
+                    "Please consider switching tabs and ask again.\n"
+                )
+                end_time = datetime.datetime.now().isoformat()
+                _store_chat_log(
+                    request,
+                    confirmation_msg,
+                    msg_id,
+                    ui_session_id,
+                    start_time,
+                    end_time,
+                    citations=[],
+                )
+                return QueryResponse(
+                    status="success",
+                    sessionId=ui_session_id,
+                    userQuery=user_txt,
+                    result=Result(
+                        messageId=msg_id,
+                        answer=QnAAnswer(ans=confirmation_msg),
+                        transactionCount=tx_count,
+                        citations=[],
+                        feedback=Feedback(
+                            feedbackDisplayOptions=FeedbackDisplayOptions(
+                                thumbsUp="N", thumbsDown="N", feedbackText="N"
+                            )
+                        ),
+                    ),
+                )
 
         # # Step 3-b: TIA clarification and detection
         # logger.info("085 ▶ Checking for TIA clarification")

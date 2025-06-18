@@ -12,11 +12,12 @@ from __future__ import annotations
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Final
 
 from langchain_aws import ChatBedrock
 from models import RiskAssessmentResponse
-from prompts import TOPIC_CHECKER
+from prompts import CLASSIFY_PROMPT, STYLE_PROMPT, TOPIC_CHECKER
 from pydantic import ValidationError
 
 from .constants import HAIKU, MODEL_ID, SONNET_V1
@@ -41,45 +42,22 @@ def is_refusal(answer: str) -> bool:
     return bool(REFUSAL_REGEX.search(answer))
 
 
+TOPICS_FILE = Path("docs/topics.json")
+with TOPICS_FILE.open(encoding="utf-8") as f:
+    TOPICS_JSON = json.load(f)
+
+
 # Prompt to classify the user query intent
-_CLASSIFY_PROMPT: Final = """
-You are a routing agent of AstraZeneca Policies.
-
-    Return exactly one word:
-    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts, except GxP concepts, those are rellevant.
-
-    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons also what about this country? And what is GDP? all topics related to GxP are allowed to the user. Gross Domestic Product is allowed. GCP is allowed any question about GxP including GCP, GDP, GMP, etc is rellevant and allowed.
-
-    SUMMARY  - if they merely pasted text or explicitly ask "summarise".
-
-    Now classify:
-    {query}
-    """
-
-# TODO(@kvcn639): Move prompt strings to a central templates/prompts module
 
 cleaner_llm = ChatBedrock(
     model_id=SONNET_V1,
     model_kwargs={"temperature": 0},
 )
 
-# System prompt containing software engineering principles and patterns
-style_cleaner_instruction = """
-You are an Answer Sanitizer. Your job is to take any answer provided in the `ans` field of a JSON payload and remove:
-  • Any apologies or “I'm sorry” language
-  • Repetition disclaimers (e.g., “As I mentioned,” “To clarify one last time,” etc.)
-  • Open-ended invites or offers for more questions (e.g., “feel free to ask,” “let me know if,” etc.)
-  • Any passive-aggressive or irrelevant filler
-
-If the answer is just "Sorry, I am unable to assist you with this request." just return it.
-
-Leave the factual content and explanations exactly as-is. the lists and details as-is. Do not rephrase it, do not add anything, and do not return any JSON—just output the cleaned answer text.
-"""
-
 
 def get_claude_response(query: str) -> str:
     """Sanitize LLM-style answer using Claude to remove filler and irrelevant content."""
-    prompt = f"""<system>\n{style_cleaner_instruction}\n</system>\n\nAnswer: {query}"""
+    prompt = f"""<system>\n{STYLE_PROMPT}\n</system>\n\nAnswer: {query}"""
 
     try:
         response = cleaner_llm.invoke(prompt)
@@ -112,7 +90,7 @@ def needs_summary(query: str) -> bool:
     """
     try:
         resp = ChatBedrock(model_id=MODEL_ID).invoke(
-            _CLASSIFY_PROMPT.format(query=query.strip()),
+            CLASSIFY_PROMPT.format(query=query.strip()),
         )
         return resp.content.strip().upper()
     except Exception as exc:
@@ -123,28 +101,24 @@ def needs_summary(query: str) -> bool:
         return "QUESTION"
 
 
-async def db_tab_checker(query: str) -> str:
-    """Async: Classifies a contract/legal query into a knowledge base tab.
-
-    Args:
-        query (str): The user’s input/question.
-
-    Returns:
-        str: "A" (General), "B" (Alexion), or "C" (Privacy)
-    """
-    prompt = TOPIC_CHECKER.format(query=query.strip())
+async def db_tab_checker(query: str) -> tuple[str, str]:
+    """Classifies a query into a tab and topic using LLM."""
+    prompt = TOPIC_CHECKER.format(
+        topics_json=json.dumps(TOPICS_JSON, ensure_ascii=False, indent=2),
+        query=query.strip(),
+    )
     try:
         resp = await ChatBedrock(model_id=MODEL_ID).ainvoke(prompt)
-        topic = resp.content.strip().upper()
-        if topic not in {"A", "B", "C"}:
-            logger.warning(
-                f"Unexpected LLM output for tab classification: {topic!r}"
-            )
-            return "A"  # or choose another fallback
-        return topic
+        result = json.loads(resp.content)
+        tab = result["tab"].lower()
+        topic = result["topic"]
+        if tab not in TOPICS_JSON:
+            logger.warning(f"Tab '{tab}' not in allowed tabs, defaulting to 'general'.")
+            return "general", topic
+        return tab, topic
     except Exception as exc:
-        logger.warning("Tab classification failed, defaulting to 'A': %r", exc)
-        return "A"
+        logger.warning("Tab classification failed, defaulting to 'general': %r", exc)
+        return "general", "Unknown"
 
 
 def llm_summarise(text: str) -> str:
@@ -200,9 +174,7 @@ def extract_keywords_from_query(query: str, *, max_char: int = 2_000) -> str:
         str: Comma-separated keywords.
     """
     if not isinstance(query, str):
-        raise TypeError(
-            f"extract_keywords_from_query expected str, got {type(query).__name__}"
-        )
+        raise TypeError(f"extract_keywords_from_query expected str, got {type(query).__name__}")
     if not query:
         return ""
 
