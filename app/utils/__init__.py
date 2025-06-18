@@ -35,6 +35,10 @@ from .prompt_utils import (
     business_unit_prompt,
     generate_prompt,
     generate_prompt_risk,
+    generate_prompt_risk_test,
+    generate_prompt_summary,
+    get_additional_risk,
+    get_clauses,
     get_knowledge_base_folder,
     get_knowledge_base_id,
     get_risk_matrix_details,
@@ -43,7 +47,9 @@ from .prompt_utils import (
 from .s3_utils import (
     extract_file_locations,
     generate_presigned_url,
+    get_contract_risk_from_s3,
     get_filename_from_path,
+    store_contract_risk_to_s3,
 )
 
 __all__ = [
@@ -70,6 +76,8 @@ __all__ = [
     "generate_presigned_url",
     "extract_file_locations",
     "get_filename_from_path",
+    "get_contract_risk_from_s3",
+    "store_contract_risk_to_s3",
     # prompt_utils
     "business_unit_prompt",
     "get_knowledge_base_id",
@@ -78,6 +86,10 @@ __all__ = [
     "generate_prompt",
     "generate_prompt_risk",
     "prompt_query_cat",
+    "generate_prompt_risk_test",
+    "get_clauses",
+    "get_additional_risk",
+    "generate_prompt_summary",
     # file_utils
     "extract_pdf_contents",
     "extract_text_from_word",

@@ -145,10 +145,11 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
         end_date = end_dt.date()
         while cur <= end_date:
             data = buckets.get(cur, {"positive": 0, "negative": 0})
+            formatted_date = cur.strftime("%d-%b")
             out.append(
                 {
-                    "label": cur.strftime("%Y-%m-%d"),
-                    "value": cur.strftime("%Y-%m-%d"),
+                    "label": formatted_date,
+                    "value": formatted_date,
                     "positive": data["positive"],
                     "negative": data["negative"],
                 }

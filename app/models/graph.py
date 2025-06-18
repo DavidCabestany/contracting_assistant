@@ -251,18 +251,11 @@ class RetrievedCitationModel(BaseModel):
 
 
 class FeedbackDetailsRow(BaseModel):
-    """Row of feedback detail corresponding to a single feedback instance.
-
-    Attributes:
-        prid: User's PRID (UserId from the chat table).
-        query: Original user message (question or query).
-        retrievedCitation: Information about the retrieved document and the page.
-        feedbackComment: The free-text comment provided as feedback.
-    """
+    """This is FeedbackDetailsRow model."""
 
     prid: str
     query: str
-    retrievedCitation: RetrievedCitationModel
+    retrievedCitations: Optional[List[RetrievedCitationModel]] = None
     feedbackComment: str
 
 

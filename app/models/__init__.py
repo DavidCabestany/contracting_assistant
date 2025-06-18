@@ -43,9 +43,12 @@ from .response import (
     Result,
 )
 from .risk import (
+    AdditionalRisk,
     RiskAssessmentAnswer,
     RiskAssessmentResponse,
+    RiskCategory,
     RiskClause,
+    RiskDetail,
 )
 from .site import Language, Site
 
@@ -67,9 +70,12 @@ __all__ = [
     "DocumentAnswer",
     "QnAAnswer",
     # risk
+    "RiskDetail",
     "RiskClause",
     "RiskAssessmentAnswer",
+    "AdditionalRisk",
     "RiskAssessmentResponse",
+    "RiskCategory",
     # chat
     "ChatMetadata",
     "ChatInteraction",

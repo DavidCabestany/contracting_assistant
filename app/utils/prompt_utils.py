@@ -14,7 +14,13 @@ from pathlib import Path
 from typing import Final
 
 from langchain_core.prompts import PromptTemplate
-from prompts import BUSINESS_UNIT_PROMPT, CATEGORY_PROMPT
+from prompts import (
+    ADDITIONAL_RISKS,
+    BUSINESS_UNIT_PROMPT,
+    CATEGORY_PROMPT,
+    RISKS_SUMMARY,
+    USER_QUERY_RISKS,
+)
 
 from .constants import ALEXION_ID, DOCS_DIR, GEN_ENQ_KB_ID, PRIVACY_KB_ID
 
@@ -104,34 +110,91 @@ def generate_prompt(content: str, query: str, template: str) -> str:
     ).format(content=content, Query=query)
 
 
-def generate_prompt_risk(
-    contract: str,
-    query: str,
+def generate_prompt_risk_test(
     template: str,
-    risk_rules: str,
-    clauses_lst: list,
+    identified_clauses: str,
+    risk_rules: list,
 ) -> str:
     """Generate a prompt tailored for contract risk analysis.
 
     Args:
-        contract (str): Contract text.
-        risk_rules (str): JSON string of rules.
-        query (str): Risk-related user question.
+        identified_clauses : clauses identified in contract
         template (str): Prompt template.
-        clauses_lst(List): clauses
+        risk_rules(json): risk template
 
     Returns:
         str: Formatted prompt string.
     """
     return PromptTemplate(
-        input_variables=["contract", "risk_rules", "Query"],
+        input_variables=["identified_clauses", "risk_rules"],
         template=template,
     ).format(
+        identified_clauses=identified_clauses,
         risk_rules=risk_rules,
-        Contract=contract,
-        Query=query,
-        clauses=clauses_lst,
     )
+
+
+def generate_prompt_summary(
+    contract_clauses: str,
+    additional_clauses: str,
+) -> str:
+    """Generate a contract risks summary.
+
+    Args:
+        contract_clauses(str) : risk rules clauses identified in contract
+        additional_clauses (str): additional clauses if any
+
+    Returns:
+        summary: a short summary of clauses
+    """
+    return PromptTemplate(
+        input_variables=["contract_clauses", "additional_clauses"],
+        template=RISKS_SUMMARY,
+    ).format(
+        contract_clauses=contract_clauses,
+        additional_clauses=additional_clauses,
+    )
+
+
+def generate_prompt_risk(
+    contract: str,
+    template: str,
+) -> str:
+    """Generates a formatted LLM prompt string for contract risk analysis.
+
+    This function fills a prompt template with the given contract text so
+    it can be used directly for risk assessment by an LLM.
+
+    Args:
+        contract (str): The full contract text to be analyzed for risk.
+        template (str): The template string or object for prompt construction.
+
+    Returns:
+        str: A formatted prompt with the contract text inserted, suitable for LLM use.
+    """
+    return PromptTemplate(
+        input_variables=["contract"],
+        template=template,
+    ).format(Contract=contract)
+
+
+def get_additional_risk(content: str, clauses: str) -> str:
+    """Creates a prompt to identify and extract additional risks from a contract.
+
+    Formats the ADDITIONAL_RISKS prompt template with both the contract content and
+    a list of already-identified clauses, so an LLM can detect further risks.
+
+    Args:
+        content (str): The full contract content for analysis.
+        clauses (str): Existing clause details as a string.
+
+    Returns:
+        str: JSON-style prompt to be sent to the LLM, for additional risk extraction.
+    """
+    return PromptTemplate(
+        input_variables=["content", "clauses"],
+        template=ADDITIONAL_RISKS,
+    ).format(contract=content, clauses=clauses)
 
 
 def prompt_query_cat(query: str) -> str:
@@ -147,3 +210,22 @@ def prompt_query_cat(query: str) -> str:
         input_variables=["Query"],
         template=CATEGORY_PROMPT,
     ).format(Query=query)
+
+
+def get_clauses(query: str, clauses: list) -> str:
+    """To find the clauses asked in user query.
+
+    Args:
+        query (str): The user's query text.
+        clauses (list): Clauses
+
+    Returns:
+        list: risks in user query
+    """
+    try:
+        return PromptTemplate(
+            input_variables=["query", "clauses"],
+            template=USER_QUERY_RISKS,
+        ).format(Query=query, Clauses=clauses)
+    except Exception as exc:
+        print(exc)
