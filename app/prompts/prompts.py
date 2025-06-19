@@ -162,8 +162,17 @@ NEW_QUESTION: [User query]
 """
 
 TOPIC_CHECKER = """
-You are Contract Assistant, Classify the following legal or contract-related query according to the valid tabs and topics below (in JSON format):
+You are a contract classification assistant.
 
+Classify the following legal or contract-related query using the valid tabs and topics below (in JSON format).
+
+When two topics in different tabs appear equally likely consider:
+- "general": AstraZeneca-wide contract content, payment terms, procurement, and commercial topics.
+- "alexion": Alexion internal processes and policies only (not general AZ terms).
+- "privacy": Data privacy and personal data handling.
+
+
+The json to follow:
 {topics_json}
 
 Given the user query below, return a JSON object like:
