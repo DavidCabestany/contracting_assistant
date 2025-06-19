@@ -1,7 +1,7 @@
 """Prompt templates used for risk related queries."""
 
 RISK_MATRIX_ALL_RISKS_PROMPT2 = """Kindly provide details related to the clauses mentioned below in the format below:
-If nothing is present for particular clause provide "NA" in details.Do not infer or invent details based on the context or description—these are provided only to help you understand what to look for.
+If nothing is present for particular clause provide only "NA" in details.Do not infer or invent details based on the context or description—these are provided only to help you understand what to look for.
 ```json
 {{
   "Termination Clause"(It addresses the conditions and procedures under which a contract may be ended before its agreed expiration. It outlines who can terminate, on what grounds (such as convenience or breach), the notice periods required, and what happens after termination, including handover, transition, and settlement of outstanding obligations. This ensures both parties understand their rights and responsibilities if the contract ends early.)                                                                                                                                                                                                                                                                                                                  : "Provide the details in contract"
@@ -50,10 +50,10 @@ Concise Overall Risk Summary:
 
 
 ADDITIONAL_RISKS = """
-Given the contract content below, and a list of already identified standard clause-based risks,
-please identify any other potential risks or concerns that are not explicitly covered by the standard clauses.
-Focus on ambiguities, omissions, or terms that could pose a business, legal, or operational risk.
-
+Given the contract content below, and a list of already identified clauses risks,
+please identify any other potential risks or concerns that are not explicitly covered by the below already identified clauses.
+Focus on ambiguities, omissions, or terms that could pose a business, legal, or operational risk to Astrazeneca.
+Do not make up that are already covered.
 Already Identified Clauses:
 {clauses}
 

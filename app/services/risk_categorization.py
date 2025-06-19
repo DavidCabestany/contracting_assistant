@@ -223,7 +223,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         HTTPException: If LLM invocation fails for any required prompt.
     """
     risk_rules = get_risk_matrix_details()
-    ##Step 1 Fetch 11 risks details
+    ##Step 1 Fetch 10 risks details
     body_prompt2 = generate_prompt_risk(content, RISK_MATRIX_ALL_RISKS_PROMPT2)
 
     try:
@@ -281,11 +281,10 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
             # Normalize text for checking "NA" or missing indicators
             text_content_lower = clause_data["details"].strip().lower()
             if (
-                text_content_lower == "na"
+                re.match(r"^(na|n/a)\b", text_content_lower)
+                or text_content_lower == "na"
                 or text_content_lower == "n/a"
                 or text_content_lower == ""
-                # or "not addressed/missing" in text_content_lower
-                # or "no provision for this checklist clause found"
                 in text_content_lower
             ):
                 clause_data["clause_type"] = "StandardAZ"
