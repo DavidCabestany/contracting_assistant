@@ -20,7 +20,7 @@ from models import RiskAssessmentResponse
 from prompts import CLASSIFY_PROMPT, STYLE_PROMPT, TOPIC_CHECKER
 from pydantic import ValidationError
 
-from .constants import HAIKU, MODEL_ID, SONNET_V1
+from .constants import DOCS_DIR, HAIKU, MODEL_ID, SONNET_V1
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def is_refusal(answer: str) -> bool:
     return bool(REFUSAL_REGEX.search(answer))
 
 
-TOPICS_FILE = Path("docs/topics.json")
+TOPICS_FILE: Final[Path] = DOCS_DIR / "topics.json"
 with TOPICS_FILE.open(encoding="utf-8") as f:
     TOPICS_JSON = json.load(f)
 
