@@ -45,7 +45,7 @@ CATEGORY_PROMPT = """
     1.  **One or few Risk Assessment:** The query specifically asks about identifying one or more risks, liabilities, or potential problems within the contract.
     2.  **All Risk Assessment:** The query asks for a broad evaluation of all risks, liabilities, or potential problems in the contract.
     3.  **Risk Mitigation:** The query focuses on strategies to reduce, minimize, avoid, or manage risks associated with the contract.
-    4.  **General Contract Inquiry:** The query is a general question about the contract that does not focus on assessing risks or mitigation strategies.
+    4.  **General Contract Inquiry:** The query is a general question about the contract, or summarize of contract, that does not focus on assessing risks or mitigation strategies.
     5.  **User not asking any question:** The user has pasted a statement but did not ask a question.
 
     Given the following user query, determine which category it belongs to:
@@ -88,7 +88,7 @@ First, identify whether the user's query is a request for a summary or a direct 
    Scope of Work and Associated Costs: Provide a concise overview of the work to be performed and associated costs.
    When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
 
-2. **If the user's query is a direct question ("EXAMPLE(its just an example and not a actual query)", "What are the payment terms?"):**
+2. **If the user's query is a direct question (e.g., "What are the payment terms?"):**
    Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
 
 
