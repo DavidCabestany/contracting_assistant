@@ -155,6 +155,10 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
                 start_dt = start_dt.replace(tzinfo=timezone.utc)
             if end_dt.tzinfo is None:
                 end_dt = end_dt.replace(tzinfo=timezone.utc)
+            # Expand end_dt to include full ending day
+            end_dt = end_dt.replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
         except Exception as ex:
             raise HTTPException(400, f"Invalid custom date: {ex}")
     else:
@@ -183,7 +187,8 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             item.get("IsFeedbackPositive"),
         )
 
-    rows = []
+    # ----------- Order Change: capture rows with timestamps and sort -----------
+    rows_with_time = []
     for item in db_items:
         feedback_raw = item.get("IsFeedbackPositive")
         val = str(feedback_raw).strip().lower()
@@ -217,14 +222,28 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
         logger.info("User %s citations: %s", prid, citations)
         feedback_comment = item.get("FeedbackComment", "")
 
-        rows.append(
-            FeedbackDetailsRow(
-                prid=prid,
-                query=user_message,
-                retrievedCitations=citations,
-                feedbackComment=feedback_comment,
+        # Get timestamp for sorting; fallback to epoch if not present
+        timestamp_str = item.get("Timestamp")
+        try:
+            timestamp_val = (
+                datetime.fromisoformat(timestamp_str)
+                if timestamp_str
+                else datetime.min
             )
+        except Exception:
+            timestamp_val = datetime.min
+
+        row_obj = FeedbackDetailsRow(
+            prid=prid,
+            query=user_message,
+            retrievedCitations=citations,
+            feedbackComment=feedback_comment,
         )
+        rows_with_time.append((timestamp_val, row_obj))
+
+    # ----------- Sort: most recent first -----------
+    rows_with_time.sort(key=lambda tup: tup[0], reverse=True)
+    rows = [row for _, row in rows_with_time]
 
     filters = FeedbackDetailsFilters(
         feedbackType=request.feedbackType,
