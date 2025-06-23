@@ -5,6 +5,10 @@
             "description": "Master Services Agreements (routine and complex), SaaS addenda, AI Platform Agreements, R&D and clinical-trial modules (GXP, CT Conduct, Purchase Orders), SharePoint templates, “battle of the forms”, suite of contract documents, academic vs commercial distinctions"
         },
         {
+            "topic": "Contract Types & Selection",
+            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA; Data Processing Agreements (DPAs) whenever personal data is handled."
+        },
+        {
             "topic": "Scope, Deliverables & Service Levels",
             "description": "Definition of services and deliverables, service-level metrics and credits, project plans, performance expectations, supplier negotiation guidance"
         },
@@ -47,6 +51,10 @@
             "description": "EU, UK and Swiss Standard Contractual Clauses (SCCs), PRC cross-border contracts, UK International Data-Transfer Addendum, transfer safeguards, description of data transferred"
         },
         {
+            "topic": "Personal Data Handling",
+            "description": "Data Processing Agreements (DPAs) whenever personal data is handled."
+        },
+        {
             "topic": "Applicable Laws & Frameworks",
             "description": "GDPR, UK Data-Protection Act, Swiss Data-Protection Law, PRC PIPL, impact of local laws on contract performance"
         },
@@ -64,7 +72,7 @@
         },
         {
             "topic": "Sub-Processor Management",
-            "description": "Sub-processor approval requirements, flow-down obligations, supplier oversight and documentation"
+            "description": "Sub-processor approval requirements, flow-down obligations, supplier oversight and documentation, and standard DPA/SCC templates to be used with multiple suppliers"
         },
         {
             "topic": "Breach & Incident Response",
@@ -90,7 +98,7 @@
     "alexion": [
         {
             "topic": "Contract Types & Selection",
-            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) that outline deliverables and timelines under an MSA; Data Processing Agreements (DPAs) whenever personal data is handled."
+            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA; Data Processing Agreements (DPAs) whenever personal data is handled."
         },
         {
             "topic": "Procurement Process & Thresholds",

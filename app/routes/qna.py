@@ -366,13 +366,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     ),
                 ),
             )
-
-        if user_txt.lower() == "continue":
-            logger.info(
-                "User override: skipping tab check and continuing as requested."
+        prompt, history_txt, is_follow_up = (
+            _build_prompt_with_optional_history(
+                user_txt, tx_count, ui_session_id, files
             )
-            # Proceed directly to QnA/answer logic using the current tab.
-        else:
+        )
+        if not is_follow_up and user_txt.lower() != "continue":
             tab, topic = await db_tab_checker(user_txt)
             tab_names = {
                 "general": "General Queries",
@@ -419,6 +418,12 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         ),
                     ),
                 )
+
+        else:
+            logger.info(
+                "User override: skipping tab check and continuing as requested."
+            )
+            # Proceed directly to QnA/answer logic using the current tab.
 
         # # Step 3-b: TIA clarification and detection
         # logger.info("085 ▶ Checking for TIA clarification")

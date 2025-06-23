@@ -169,7 +169,7 @@ Classify the following legal or contract-related query using the valid tabs and 
 When two topics in different tabs appear equally likely consider:
 - "general": AstraZeneca-wide contract content, payment terms, procurement, and commercial topics.
 - "alexion": Alexion internal processes and policies only (not general AZ terms).
-- "privacy": Data privacy and personal data handling.
+- "privacy": Data privacy and personal data handling, multiple suppliers belongs here.
 
 
 The json to follow:
@@ -190,10 +190,10 @@ CLASSIFY_PROMPT = """
 You are a routing agent of AstraZeneca Policies.
 
     Return exactly one word:
-    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts, except GxP concepts, those are rellevant.
+    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts, except GxP concepts, those are relevant.
 
     QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons also what about this country? And what is GDP? all topics related to GxP are allowed to the user. Gross Domestic Product is allowed. GCP is allowed any question about GxP including GCP, GDP, GMP, etc is rellevant and allowed.
-    The word "continue" is allowed.
+    The word "continue" is allowed. Any type of question about Alexion is in scope.
     SUMMARY  - if they merely pasted text or explicitly ask "summarise".
 
     Now classify:
