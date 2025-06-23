@@ -119,7 +119,7 @@ def parse_all_citations(item) -> Optional[List[RetrievedCitationModel]]:
     "/getFeedbackDetails", response_model=FeedbackDetailsResponse
 )
 async def get_feedback_details(request: FeedbackDetailsRequest):
-    """Admin endpoint for feedback details.Filters by feedbackType, timeframe (including custom), queryType (KbType), and UserId (prid).Returns all document/page citations as a list."""
+    """Admin endpoint for feedback details. Filters by feedbackType, timeframe (including custom), queryType (KbType), and UserId (prid). Returns all document/page citations as a list."""
     ft = request.feedbackType.strip().lower()
     if ft == "positive feedback":
         is_positive = True
@@ -174,6 +174,54 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             )
 
     db_items = fetch_feedbackdetails_items_in_timewindow(start_dt, end_dt)
+
+    # --------- Apply W1–W4 week bucket filtering for last30days ---------
+    def week_bucket_ranges_for_30day_window(start_dt, end_dt):
+        import calendar
+        from datetime import datetime, timezone
+
+        if start_dt.tzinfo is None:
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+        if end_dt.tzinfo is None:
+            end_dt = end_dt.replace(tzinfo=timezone.utc)
+        buckets = []
+        months = []
+        m = start_dt.replace(day=1)
+        while m <= end_dt:
+            months.append((m.year, m.month))
+            if m.month == 12:
+                m = m.replace(year=m.year + 1, month=1)
+            else:
+                m = m.replace(month=m.month + 1)
+        for year, month in months:
+            days_in_month = calendar.monthrange(year, month)[1]
+            for widx, (low, high) in enumerate(
+                [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
+            ):
+                wk_start = datetime(year, month, low, tzinfo=timezone.utc)
+                wk_end = datetime(year, month, high, tzinfo=timezone.utc)
+                if wk_end < start_dt or wk_start > end_dt:
+                    continue
+                buckets.append((wk_start, wk_end))
+        return buckets
+
+    if request.timeframe.strip().lower() == "last30days":
+        # filter to only items whose timestamp is within a relevant W1–W4 "bucket"
+        week_buckets = week_bucket_ranges_for_30day_window(start_dt, end_dt)
+        filtered_items = []
+        for item in db_items:
+            try:
+                dt = datetime.fromisoformat(item.get("Timestamp"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+            for wk_start, wk_end in week_buckets:
+                if wk_start <= dt <= wk_end:
+                    filtered_items.append(item)
+                    break
+        db_items = filtered_items
+    # ----------------------------------------------------------------
 
     logger.info(
         "=== Records in requested timeframe (%s to %s) ===", start_dt, end_dt
@@ -230,6 +278,8 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
                 if timestamp_str
                 else datetime.min
             )
+            if timestamp_val.tzinfo is None:
+                timestamp_val = timestamp_val.replace(tzinfo=timezone.utc)
         except Exception:
             timestamp_val = datetime.min
 

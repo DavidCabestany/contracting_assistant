@@ -3,7 +3,7 @@
 import calendar
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
 from models import (
@@ -108,21 +108,108 @@ def aggregate_stats(items):
     return pos, neg, nofb
 
 
+def week_bucket_ranges_for_30day_window(start_dt, end_dt):
+    """Returns a list of (label, bucket_start, bucket_end) for each W1–W4 bucketthat overlaps the window start_dt to end_dt.All datetimes are UTC and offset-aware."""
+    # Ensure our window is offset-aware
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=timezone.utc)
+    buckets = []
+    months = []
+    m = start_dt.replace(day=1)
+    while m <= end_dt:
+        months.append((m.year, m.month))
+        if m.month == 12:
+            m = m.replace(year=m.year + 1, month=1)
+        else:
+            m = m.replace(month=m.month + 1)
+    for year, month in months:
+        days_in_month = calendar.monthrange(year, month)[1]
+        for widx, (low, high) in enumerate(
+            [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
+        ):
+            wk_start = datetime(year, month, low, tzinfo=timezone.utc)
+            wk_end = datetime(year, month, high, tzinfo=timezone.utc)
+            if wk_end < start_dt or wk_start > end_dt:
+                continue
+            label = f"W{widx} {calendar.month_abbr[month]}"
+            buckets.append((label, wk_start, wk_end))
+    return buckets
+
+
+def filter_items_to_weeks_window(items, start_dt, end_dt):
+    """Filters feedback items to only include those that fall into W1–W4 week-in-month buckets that overlap the window."""
+    # Make sure window datetimes are tz-aware
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=timezone.utc)
+
+    # Get week bucket date ranges
+    week_buckets = week_bucket_ranges_for_30day_window(start_dt, end_dt)
+    filtered = []
+    for item in items:
+        dt = parse_date_flexible(item["Timestamp"])
+        if not dt:
+            continue
+        for _, wk_start, wk_end in week_buckets:
+            if wk_start <= dt <= wk_end:
+                filtered.append(item)
+                break
+    return filtered
+
+
 def aggregate_trend(items, timeframe, start_dt, end_dt):
     """Aggregate feedback items into appropriate time buckets, both positive and negative.Fills all buckets in the range, even if zero."""
     # 1. Group
+    # ----7days: date
+    # ----30days: W1–W4 per calendar month (like usage graph)
+    # ----90days: month
+    # ----365days: quarter
+
+    if timeframe == "last30days":
+        bucket_ranges = week_bucket_ranges_for_30day_window(start_dt, end_dt)
+        label_to_counts = {
+            label: {"positive": 0, "negative": 0}
+            for label, _, _ in bucket_ranges
+        }
+
+        for item in items:
+            dt = parse_date_flexible(item["Timestamp"])
+            val = item.get("IsFeedbackPositive")
+            label = feedback_class(val)
+            if not dt or label not in ("positive", "negative"):
+                continue
+            # assign item to the week bucket it falls into
+            for bucket_label, wk_start, wk_end in bucket_ranges:
+                if wk_start <= dt <= wk_end:
+                    label_to_counts[bucket_label][label] += 1
+                    break
+
+        out = []
+        for bucket_label, _, _ in bucket_ranges:
+            data = label_to_counts[bucket_label]
+            out.append(
+                {
+                    "label": bucket_label,
+                    "value": bucket_label,
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                }
+            )
+        return out
+
+    # Retain your previous logic for all other timeframes:
     buckets = defaultdict(lambda: {"positive": 0, "negative": 0})
     for item in items:
         dt = parse_date_flexible(item["Timestamp"])
         val = item.get("IsFeedbackPositive")
         label = feedback_class(val)
-        # Per-timeframe key
+        if not dt or label not in ("positive", "negative"):
+            continue
         if timeframe == "last7days":
             bucket = dt.date()
-        elif timeframe == "last30days":
-            # Bucket by *Monday* of each week by day, make key a date
-            week_start = (dt - timedelta(days=dt.weekday())).date()
-            bucket = week_start
         elif timeframe == "last90days":
             # Bucket by month
             bucket = datetime(dt.year, dt.month, 1)
@@ -132,13 +219,8 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
             bucket = datetime(dt.year, q_start_month, 1)
         else:
             bucket = dt.date()
-        if label == "positive":
-            buckets[bucket]["positive"] += 1
-        elif label == "negative":
-            buckets[bucket]["negative"] += 1
-        # 'no_feedback' is not counted in trend
+        buckets[bucket][label] += 1
 
-    # 2. Fill missing buckets for full period
     out = []
     if timeframe == "last7days":
         cur = start_dt.date()
@@ -157,31 +239,11 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
             cur += timedelta(days=1)
         return out
 
-    elif timeframe == "last30days":
-        # Fill by Monday date for each week in window
-        cur = (start_dt - timedelta(days=start_dt.weekday())).date()
-        endw = (end_dt - timedelta(days=end_dt.weekday())).date()
-        while cur <= endw:
-            label, *_ = get_week_label_and_year(
-                datetime.combine(cur, datetime.min.time())
-            )
-            data = buckets.get(cur, {"positive": 0, "negative": 0})
-            out.append(
-                {
-                    "label": label,
-                    "value": label,
-                    "positive": data["positive"],
-                    "negative": data["negative"],
-                }
-            )
-            cur += timedelta(days=7)
-        return out
-
     elif timeframe == "last90days":
         cur = datetime(start_dt.year, start_dt.month, 1)
         end_month = datetime(end_dt.year, end_dt.month, 1)
         while cur <= end_month:
-            label = get_month_label(cur)
+            label = cur.strftime("%b %Y")
             data = buckets.get(cur, {"positive": 0, "negative": 0})
             out.append(
                 {
@@ -207,7 +269,7 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
         cur = quarter_start(start_dt)
         endq = quarter_start(end_dt)
         while cur <= endq:
-            label = get_quarter_label(cur)
+            label = f"Q{((cur.month - 1) // 3) + 1} {cur.year}"
             data = buckets.get(cur, {"positive": 0, "negative": 0})
             out.append(
                 {
@@ -223,7 +285,6 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
             else:
                 cur = cur.replace(month=cur.month + 3)
         return out
-
     else:
         # fallback: daily
         cur = start_dt.date()
@@ -287,8 +348,17 @@ async def get_feedback_data(request: FeedbackDataRequest):
         )
 
         items = fetch_feedback_items_in_timewindow(start_time, end_time)
-        pos, neg, nofb = aggregate_stats(items)
         prev_items = fetch_feedback_items_in_timewindow(prev_start, prev_end)
+
+        # -------- PATCH: For last30days, include only items that fall in any valid W1–W4 week bucket --------
+        if request.timeframe == "last30days":
+            items = filter_items_to_weeks_window(items, start_time, end_time)
+            prev_items = filter_items_to_weeks_window(
+                prev_items, prev_start, prev_end
+            )
+        # -----------------------------------------------------------------------------------------------
+
+        pos, neg, nofb = aggregate_stats(items)
         ppos, pneg, pnofb = aggregate_stats(prev_items)
         logger.info(
             f"Aggregated stats: positive={pos}, negative={neg}, no_feedback={nofb}; previous window: pos={ppos}, neg={pneg}, nofb={pnofb}"
