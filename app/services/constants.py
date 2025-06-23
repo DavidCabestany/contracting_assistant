@@ -117,6 +117,14 @@ DOCUMENT_TOPICS = [
         ],
         "keywords": ["anonymised"],
     },
+    {
+        "file": [
+            "SCCs_Module_1_C2C+_Exhibit_Y_+_Addendums.pdf",
+            "SCCs_Module_2_C2P+_Exhibit_Y_+_Addendums.pdf",
+            "SCCs_Module_4_P2C+_Exhibit_Y_+_Addendums.pdf",
+        ],
+        "keywords": ["addendum", "uk", "swiss"],
+    },
 ]
 
 # TIA Clarification Constants

@@ -562,6 +562,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 .strip()
             )
             selected_doc = detect_prior_doc_from_query(user_txt)
+            logger.info(
+                f"TEST CHECK 999 ▶ this is the actual selected doc for the query on {user_txt}, the file is {selected_doc}"
+            )
             if selected_doc != PRIOR_DOC:
                 files = selected_doc
                 logger.info(
