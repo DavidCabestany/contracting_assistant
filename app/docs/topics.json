@@ -6,7 +6,7 @@
         },
         {
             "topic": "Contract Types & Selection",
-            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA; Data Processing Agreements (DPAs) whenever personal data is handled."
+            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA."
         },
         {
             "topic": "Scope, Deliverables & Service Levels",
@@ -98,7 +98,7 @@
     "alexion": [
         {
             "topic": "Contract Types & Selection",
-            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA; Data Processing Agreements (DPAs) whenever personal data is handled."
+            "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA"
         },
         {
             "topic": "Procurement Process & Thresholds",
@@ -122,7 +122,7 @@
         },
         {
             "topic": "Compliance & Regulatory Requirements",
-            "description": "DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
+            "description": "Alexion DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
         }
     ]
 }
