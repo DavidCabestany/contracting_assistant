@@ -125,6 +125,12 @@ DOCUMENT_TOPICS = [
         ],
         "keywords": ["addendum", "uk", "swiss"],
     },
+    {
+        "file": [
+            "California Consumer Privacy Act Addendum to DPA.pdf",
+        ],
+        "keywords": ["california", "ccpa"],
+    },
 ]
 
 # TIA Clarification Constants
