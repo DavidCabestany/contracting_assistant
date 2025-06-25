@@ -81,7 +81,15 @@ DOCUMENT_TOPICS = [
     },
     {
         "file": [
-            "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
+            "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+            "Data Protection Terms Decision Tree.pdf",
+        ],
+        "keywords": ["dpa", "anonymized"],
+    },
+    {
+        "file": [
+            "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
         ],
         "keywords": ["dpa"],
     },
