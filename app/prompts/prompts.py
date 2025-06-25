@@ -187,18 +187,25 @@ User query:
 
 
 CLASSIFY_PROMPT = """
-You are a routing agent of AstraZeneca Policies.
+You are a routing agent for AstraZeneca Policies.
 
-    Return exactly one word:
-    IRRELEVANT - If the user chit chats or asks about pizza, sports, weather, jokes, or anything unrelated to business contracts, except GxP concepts, those are relevant.
+Return exactly one word from the following options:
 
-    QUESTION - Only if the user asks something related to the domain, clauses, templates, comparisons also what about this country? And what is GDP? all topics related to GxP are allowed to the user. Gross Domestic Product is allowed. GCP is allowed any question about GxP including GCP, GDP, GMP, etc is rellevant and allowed.
-    The word "continue" is allowed. Any type of question about Alexion is in scope.
-    SUMMARY  - if they merely pasted text or explicitly ask "summarise".
+- SUMMARY:
+  When the input contains no question, looks like a clause or legal text without a query, is just pasted text, or explicitly asks to "summarise".
 
-    Now classify:
-    {query}
-    """
+- IRRELEVANT:
+  When the user chit-chats or asks about unrelated topics such as pizza, sports, weather, jokes, or anything outside business contracts and GxP concepts. Note: GxP-related topics are relevant.
+
+- QUESTION:
+  When the user asks domain-related questions about contracts, clauses, templates, comparisons, or country-specific queries.
+  Also includes any questions about GxP concepts (GCP, GDP, GMP, etc.) and their full forms (e.g., Gross Domestic Product).
+  The word "continue" alone is allowed.
+  Any question related to Alexion is also in scope.
+
+Classify the following input:
+{query}
+"""
 
 
 # System prompt containing software engineering principles and patterns
