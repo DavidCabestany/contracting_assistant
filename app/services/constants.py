@@ -87,15 +87,17 @@ DOCUMENT_TOPICS = [
     },
     {
         "file": [
+            "Data Protection Terms Decision Tree.pdf",
             "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-            "Data Protection Appendix – Receiving Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
         ],
         "keywords": ["data protection appendix", "anonymised"],
     },
     {
         "file": [
+            "Data Protection Terms Decision Tree.pdf",
             "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
-            "Data Protection Appendix – Receiving Anonymised Data.pdf",
+            "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
         ],
         "keywords": ["data protection appendix", "anonymized"],
     },

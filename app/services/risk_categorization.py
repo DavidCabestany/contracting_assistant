@@ -284,8 +284,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
                 re.match(r"^(na|n/a)\b", text_content_lower)
                 or text_content_lower == "na"
                 or text_content_lower == "n/a"
-                or text_content_lower == ""
-                in text_content_lower
+                or text_content_lower == "" in text_content_lower
             ):
                 clause_data["clause_type"] = "StandardAZ"
                 clause_data["details"] = clause_data["reason"]
