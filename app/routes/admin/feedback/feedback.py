@@ -313,6 +313,12 @@ async def get_feedback_trend(request: FeedbackTrendRequest):
         start_time, end_time, _, _ = calculate_timeframe(
             request.timeframe, current_time, include_previous=False
         )
+        start_time = start_time.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        end_time = end_time.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
         # Unified fetch!
         items = fetch_feedback_items_in_timewindow(start_time, end_time)
         # logger.info(
@@ -346,7 +352,12 @@ async def get_feedback_data(request: FeedbackDataRequest):
         start_time, end_time, prev_start, prev_end = calculate_timeframe(
             request.timeframe, current_time, include_previous=True
         )
-
+        start_time = start_time.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        end_time = end_time.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
         items = fetch_feedback_items_in_timewindow(start_time, end_time)
         prev_items = fetch_feedback_items_in_timewindow(prev_start, prev_end)
 

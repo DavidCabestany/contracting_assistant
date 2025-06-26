@@ -172,6 +172,13 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             start_dt, end_dt, *_ = calculate_timeframe(
                 request.timeframe, current_time
             )
+            # Fix: adjust boundaries to full days
+            start_dt = start_dt.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            end_dt = end_dt.replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
         except Exception:
             raise HTTPException(
                 400,

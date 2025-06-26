@@ -87,9 +87,9 @@ def calculate_timeframe(
     for var in [start_time, end_time, prev_start_time, prev_end_time]:
         if var is not None and var.tzinfo is None:
             var = var.replace(tzinfo=timezone.utc)
-    logger.info(
-        f"Calculated timeframe for {timeframe}: start={start_time}, end={end_time}"
-    )
+    # logger.info(
+    #     f"Calculated timeframe for {timeframe}: start={start_time}, end={end_time}"
+    # )
     return start_time, end_time, prev_start_time, prev_end_time
 
 
@@ -117,9 +117,9 @@ def fetch_feedback_items_in_timewindow(start_time, end_time) -> List[dict]:
                 "IsFeedbackPositive": item.get("IsFeedbackPositive"),
             }
         )
-    logger.info(
-        f"Filtered DB items for [{start_time} - {end_time}]: {filtered}"
-    )
+    # logger.info(
+    #     f"Filtered DB items for [{start_time} - {end_time}]: {filtered}"
+    # )
     return filtered
 
 
@@ -161,9 +161,9 @@ def fetch_feedback_trends_data(
         Dict mapping datetime (bucket) to {"positive": int, "negative": int}
     """
     items = fetch_feedback_items_in_timewindow(start_time, end_time)
-    logger.info(
-        f"Items returned for trend aggregation in [{start_time} - {end_time}]: {items}"
-    )
+    # logger.info(
+    #     f"Items returned for trend aggregation in [{start_time} - {end_time}]: {items}"
+    # )
     trend_data = {}
 
     for item in items:
@@ -199,7 +199,7 @@ def fetch_feedback_trends_data(
         elif fb_type == "negative":
             trend_data[key]["negative"] += 1
 
-    logger.info(f"Feedback trend aggregation result / buckets: {trend_data}")
+    # logger.info(f"Feedback trend aggregation result / buckets: {trend_data}")
     return trend_data
 
 
@@ -222,7 +222,7 @@ def fetch_feedbackdetails_items_in_timewindow(
         if not (start_time <= dt <= end_time):
             continue
         filtered.append(item)  # Append full record!
-    logger.info(
-        f"Filtered DB items for [{start_time} - {end_time}]: {filtered}"
-    )
+    # logger.info(
+    #     f"Filtered DB items for [{start_time} - {end_time}]: {filtered}"
+    # )
     return filtered
