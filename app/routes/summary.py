@@ -228,10 +228,26 @@ async def generate_summary(
                 answer = _wrap_plain(raw_answer)
 
             if category == "1" or category == "2":
-                payload_json2 = get_contract_risk_from_s3(
-                    userId, session_id, BUCKET_CONTAINER
-                )
-                if payload_json2:
+                payload_json2 = get_contract_risk_from_s3(userId, session_id, BUCKET_CONTAINER)
+                if payload_json2=="NoFile":
+                    ans,response_data_intermediate = risk_categorization_fn(
+                        content, queryText, msg_id, userId, session_id)
+                    answer = ans
+                    raw_answer = json.dumps(answer)
+                    if category == "1":
+                        risk_rules = get_risk_matrix_details()
+                        clauses_lst = extract_clause_names_from_risk_rules(
+                            risk_rules
+                        )
+                        clause_prompt = get_clauses(queryText, clauses_lst)
+                        llm_resp = ChatBedrock(
+                            model_id=MODEL_ID, max_tokens=4000
+                        ).invoke(clause_prompt)
+                        clauses_identified = llm_resp.content.strip()  ##list
+                        answer = get_risks_from_query(
+                            clauses_identified, response_data_intermediate)
+                        raw_answer = json.dumps(answer)
+                else:
                     if category == "2":
                         answer = get_all_clauses_froms3(payload_json2)
                         raw_answer = json.dumps(answer)
@@ -249,27 +265,6 @@ async def generate_summary(
                             clauses_identified, payload_json2
                         )
                         raw_answer = json.dumps(answer)
-                else:
-                    ans,response_data_intermediate = risk_categorization_fn(
-                        content, queryText, msg_id, userId, session_id
-                    )
-                    answer = ans
-                    raw_answer = json.dumps(answer)
-                    if category == "1":
-                        risk_rules = get_risk_matrix_details()
-                        clauses_lst = extract_clause_names_from_risk_rules(
-                            risk_rules
-                        )
-                        clause_prompt = get_clauses(queryText, clauses_lst)
-                        llm_resp = ChatBedrock(
-                            model_id=MODEL_ID, max_tokens=4000
-                        ).invoke(clause_prompt)
-                        clauses_identified = llm_resp.content.strip()  ##list
-                        #payload_json2 = get_contract_risk_from_s3(userId, session_id, BUCKET_CONTAINER)
-                        answer = get_risks_from_query(
-                            clauses_identified, response_data_intermediate)
-                        raw_answer = json.dumps(answer)
-
             elif category == "3":
                 body_prompt = generate_prompt(
                     content, queryText, RISK_MITIGATION_PROMPT

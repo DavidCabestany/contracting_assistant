@@ -149,11 +149,13 @@ def get_contract_risk_from_s3(userId, session_id, bucket):
     folder_path = f"contract_risks/{userId}/{session_id}/risk_data.json"
     try:
         response = s3_client.get_object(Bucket=bucket, Key=folder_path)
-        content_encoding = response["ResponseMetadata"]["HTTPHeaders"].get(
-            "content-encoding"
-        )
+    except s3_client.exceptions.NoSuchKey as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            logger.info(f"File not found in S3: {folder_path}") 
+            return "NoFile"
+    try:
+        content_encoding = response["ResponseMetadata"]["HTTPHeaders"].get("content-encoding")
         body = response["Body"].read()
-
         if content_encoding == "gzip":
             with gzip.GzipFile(fileobj=io.BytesIO(body), mode="rb") as gz:
                 json_data = gz.read().decode("utf-8")
@@ -162,12 +164,12 @@ def get_contract_risk_from_s3(userId, session_id, bucket):
 
         data = json.loads(json_data)
         return data
-    except s3_client.exceptions.NoSuchKey as e:
-        print(f"File not found in S3: {e}")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decoding error: {e}")
         return None
     except Exception as e:
-        print(f"Error loading data from S3: {e}")
-        return None
+        logger.info(f"Error loading data from S3: {e}")
+        return e
 
 
 def store_contract_risk_to_s3(userId, session_id, data, bucket, compress=True):
