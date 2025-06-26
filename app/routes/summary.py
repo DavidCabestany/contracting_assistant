@@ -250,11 +250,8 @@ async def generate_summary(
                         )
                         raw_answer = json.dumps(answer)
                 else:
-                    ans = risk_categorization_fn(
+                    ans,response_data_intermediate = risk_categorization_fn(
                         content, queryText, msg_id, userId, session_id
-                    )
-                    payload_json2 = get_contract_risk_from_s3(
-                        userId, session_id, BUCKET_CONTAINER
                     )
                     answer = ans
                     raw_answer = json.dumps(answer)
@@ -268,9 +265,9 @@ async def generate_summary(
                             model_id=MODEL_ID, max_tokens=4000
                         ).invoke(clause_prompt)
                         clauses_identified = llm_resp.content.strip()  ##list
+                        #payload_json2 = get_contract_risk_from_s3(userId, session_id, BUCKET_CONTAINER)
                         answer = get_risks_from_query(
-                            clauses_identified, payload_json2
-                        )
+                            clauses_identified, response_data_intermediate)
                         raw_answer = json.dumps(answer)
 
             elif category == "3":

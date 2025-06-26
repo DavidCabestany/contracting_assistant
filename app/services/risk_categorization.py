@@ -397,11 +397,10 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
                 f"Warning: Unknown clause type '{details['clause_type']}' for clause '{clause_name}'"
             )
 
-    response_data = assessment_answer.model_dump()
+    response_data_intermediate = assessment_answer.model_dump()
     ##Step 8 Storing the risk file on S3
     store_contract_risk_to_s3(
-        userId, session_id, response_data, BUCKET_CONTAINER, compress=True
-    )
+        userId, session_id, response_data_intermediate, BUCKET_CONTAINER, compress=True)
 
     ##Step 9 Final output creation
     response_data = {
@@ -421,7 +420,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         "differences": assessment_answer.differences,
     }
 
-    return response_data
+    return response_data,response_data_intermediate
 
 
 def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:

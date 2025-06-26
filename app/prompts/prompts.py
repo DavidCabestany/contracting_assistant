@@ -89,13 +89,13 @@ First, identify whether the user's query is a request for a summary or a direct 
    When providing the summary, do not include the terms "Start of Summary" and "End of Summary" in the response.
 
 2. **If the user's query is a direct question (e.g., "What are the payment terms?"):**
-   Extract the relevant information from the document and chat history to provide a direct and accurate answer. Cite the source of the information (document or conversation history).
+   Extract the relevant information from the document and chat history to provide a direct and accurate answer.
 
 
 If the document and chat history do not contain the answer to the user's question, state that you cannot provide an answer based on the available information.
 
 **PLEASE PAY CLOSE ATTENTION**: Validate if the USER_QUERY is not relevant to the document content (including previous chat interactions) using cosine similarity. If the cosine similarity is below the relevance threshold **OR if you have responded with "I cannot answer this question based on the available information.", then append the keyword 'IRRELEVANT_TOPIC' to the end of your answer.** Do not add any extra words or phrases. Do not frame generalized mitigation steps.
-**Do not add any closing statements like 'Thank you' or similar.**
+**Do not add any closing statements like 'Thank you' or "USER_QUERY" or similar.**
 
 Document Content:
 {content}
