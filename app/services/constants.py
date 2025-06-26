@@ -75,6 +75,12 @@ HIGH_PRIORITY_QUERIES = {
 DOCUMENT_TOPICS = [
     {
         "file": [
+            "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
+        ],
+        "keywords": ["data protection appendix", "controller", "processor"],
+    },
+    {
+        "file": [
             "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
         ],
         "keywords": ["supplier", "controller", "processor"],
@@ -126,6 +132,13 @@ DOCUMENT_TOPICS = [
             "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
         ],
         "keywords": ["anonymised"],
+    },
+    {
+        "file": [
+            "Playbook_Data Protection Appendix – Controller to Controller - sharing Personal Data .pdf",
+            "Playbook_Data Protection Appendix – Controller to Controller - receiving Personal Data .pdf",
+        ],
+        "keywords": ["data protection appendix", "personal", "personal data"],
     },
     {
         "file": [
