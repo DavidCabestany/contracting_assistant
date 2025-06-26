@@ -284,8 +284,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
                 re.match(r"^(na|n/a)\b", text_content_lower)
                 or text_content_lower == "na"
                 or text_content_lower == "n/a"
-                or text_content_lower == "" 
-                in text_content_lower
+                or text_content_lower == "" in text_content_lower
             ):
                 clause_data["clause_type"] = "StandardAZ"
                 clause_data["details"] = clause_data["reason"]
@@ -400,7 +399,12 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
     response_data_intermediate = assessment_answer.model_dump()
     ##Step 8 Storing the risk file on S3
     store_contract_risk_to_s3(
-        userId, session_id, response_data_intermediate, BUCKET_CONTAINER, compress=True)
+        userId,
+        session_id,
+        response_data_intermediate,
+        BUCKET_CONTAINER,
+        compress=True,
+    )
 
     ##Step 9 Final output creation
     response_data = {
@@ -420,7 +424,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         "differences": assessment_answer.differences,
     }
 
-    return response_data,response_data_intermediate
+    return response_data, response_data_intermediate
 
 
 def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:

@@ -228,10 +228,13 @@ async def generate_summary(
                 answer = _wrap_plain(raw_answer)
 
             if category == "1" or category == "2":
-                payload_json2 = get_contract_risk_from_s3(userId, session_id, BUCKET_CONTAINER)
-                if payload_json2=="NoFile":
-                    ans,response_data_intermediate = risk_categorization_fn(
-                        content, queryText, msg_id, userId, session_id)
+                payload_json2 = get_contract_risk_from_s3(
+                    userId, session_id, BUCKET_CONTAINER
+                )
+                if payload_json2 == "NoFile":
+                    ans, response_data_intermediate = risk_categorization_fn(
+                        content, queryText, msg_id, userId, session_id
+                    )
                     answer = ans
                     raw_answer = json.dumps(answer)
                     if category == "1":
@@ -245,7 +248,8 @@ async def generate_summary(
                         ).invoke(clause_prompt)
                         clauses_identified = llm_resp.content.strip()  ##list
                         answer = get_risks_from_query(
-                            clauses_identified, response_data_intermediate)
+                            clauses_identified, response_data_intermediate
+                        )
                         raw_answer = json.dumps(answer)
                 else:
                     if category == "2":

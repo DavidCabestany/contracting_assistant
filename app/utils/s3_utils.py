@@ -151,10 +151,12 @@ def get_contract_risk_from_s3(userId, session_id, bucket):
         response = s3_client.get_object(Bucket=bucket, Key=folder_path)
     except s3_client.exceptions.NoSuchKey as e:
         if e.response["Error"]["Code"] == "NoSuchKey":
-            logger.info(f"File not found in S3: {folder_path}") 
+            logger.info(f"File not found in S3: {folder_path}")
             return "NoFile"
     try:
-        content_encoding = response["ResponseMetadata"]["HTTPHeaders"].get("content-encoding")
+        content_encoding = response["ResponseMetadata"]["HTTPHeaders"].get(
+            "content-encoding"
+        )
         body = response["Body"].read()
         if content_encoding == "gzip":
             with gzip.GzipFile(fileobj=io.BytesIO(body), mode="rb") as gz:
