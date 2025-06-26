@@ -120,15 +120,20 @@ def parse_all_citations(item) -> Optional[List[RetrievedCitationModel]]:
 )
 async def get_feedback_details(request: FeedbackDetailsRequest):
     """Admin endpoint for feedback details. Filters by feedbackType, timeframe (including custom), queryType (KbType), and UserId (prid). Returns all document/page citations as a list."""
+    # === CHANGED LOGIC: ADD "ALL" FILTER OPTION ===
     ft = request.feedbackType.strip().lower()
     if ft == "positive feedback":
         is_positive = True
+        filter_on_feedback = True
     elif ft == "negative feedback":
         is_positive = False
+        filter_on_feedback = True
+    elif ft == "all":
+        filter_on_feedback = False
     else:
         raise HTTPException(
             400,
-            "Invalid feedbackType. Use 'Positive Feedback' or 'Negative Feedback'.",
+            "Invalid feedbackType. Use 'Positive Feedback', 'Negative Feedback', or 'All'.",
         )
 
     query_type_filter = (request.queryType or "").strip().lower()
@@ -206,7 +211,6 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
         return buckets
 
     if request.timeframe.strip().lower() == "last30days":
-        # filter to only items whose timestamp is within a relevant W1–W4 "bucket"
         week_buckets = week_bucket_ranges_for_30day_window(start_dt, end_dt)
         filtered_items = []
         for item in db_items:
@@ -221,7 +225,6 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
                     filtered_items.append(item)
                     break
         db_items = filtered_items
-    # ----------------------------------------------------------------
 
     logger.info(
         "=== Records in requested timeframe (%s to %s) ===", start_dt, end_dt
@@ -246,7 +249,9 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             item_positive = False
         else:
             continue
-        if item_positive != is_positive:
+
+        # === CHANGED LOGIC: Only filter if not "All" ===
+        if filter_on_feedback and (item_positive != is_positive):
             continue
 
         # ---- Filter by queryType/KbType
@@ -270,6 +275,9 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
         logger.info("User %s citations: %s", prid, citations)
         feedback_comment = item.get("FeedbackComment", "")
 
+        # === ADD FEEDBACK RESPONSE after query ===
+        feedback_response = item.get("BotResponse", "")
+
         # Get timestamp for sorting; fallback to epoch if not present
         timestamp_str = item.get("Timestamp")
         try:
@@ -286,6 +294,7 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
         row_obj = FeedbackDetailsRow(
             prid=prid,
             query=user_message,
+            feedbackResponse=feedback_response,  # <-- added field!
             retrievedCitations=citations,
             feedbackComment=feedback_comment,
         )

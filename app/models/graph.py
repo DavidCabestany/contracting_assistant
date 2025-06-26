@@ -255,6 +255,7 @@ class FeedbackDetailsRow(BaseModel):
 
     prid: str
     query: str
+    feedbackResponse: Optional[str] = None
     retrievedCitations: Optional[List[RetrievedCitationModel]] = None
     feedbackComment: str
 
