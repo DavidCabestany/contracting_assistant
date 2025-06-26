@@ -30,16 +30,16 @@ async def get_average_response_time(payload: TimeframePayload):
         )
 
     start_date, end_date = ResponseTimeLogic.calculate_date_range(timeframe)
-    logger.info(
-        f"Fetching records between {start_date} and {end_date} for {timeframe}"
-    )
+    # logger.info(
+    #     f"Fetching records between {start_date} and {end_date} for {timeframe}"
+    # )
 
     records = AggregatedResponse.get_instance().get_by_date_range(
         start_date, end_date
     )
     result = ResponseTimeLogic.filter_and_calculate(records, timeframe)
 
-    logger.info(f"Response result for {timeframe}: {result}")
+    # logger.info(f"Response result for {timeframe}: {result}")
 
     # Always return data as a list, never null
     return {"data": result if result is not None else []}
@@ -53,7 +53,7 @@ async def get_current_response_time():
         logger.info("No recent non-zero records found")
         return {"data": []}
 
-    logger.info(f"Latest records: {df}")
+    # logger.info(f"Latest records: {df}")
 
     avg_response_time = df["duration_s"].mean()
 
@@ -70,5 +70,5 @@ async def get_current_response_time():
         ]
     }
 
-    logger.info(f"Current response: {response}")
+    # logger.info(f"Current response: {response}")
     return response

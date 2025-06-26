@@ -315,22 +315,22 @@ async def get_feedback_trend(request: FeedbackTrendRequest):
         )
         # Unified fetch!
         items = fetch_feedback_items_in_timewindow(start_time, end_time)
-        logger.info(
-            f"Fetched feedback items for trend ({request.timeframe}): {items}"
-        )
+        # logger.info(
+        #    f"Fetched feedback items for trend ({request.timeframe}): {items}"
+        # )
         trend_data = aggregate_trend(
             items, request.timeframe, start_time, end_time
         )
-        logger.info(
-            f"Feedback trend data fetched for {request.timeframe}: {len(trend_data)} items "
-            f"(sum positive={sum(x['positive'] for x in trend_data)}, "
-            f"sum negative={sum(x['negative'] for x in trend_data)})"
-        )
+        # logger.info(
+        #    f"Feedback trend data fetched for {request.timeframe}: {len(trend_data)} items "
+        #    f"(sum positive={sum(x['positive'] for x in trend_data)}, "
+        #    f"sum negative={sum(x['negative'] for x in trend_data)})"
+        # )
         return FeedbackTrendResponse(
             data=[TrendData(**item) for item in trend_data]
         )
     except Exception as e:
-        logger.error(f"Error fetching feedback trend: {str(e)}")
+        # logger.error(f"Error fetching feedback trend: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch feedback trend: {str(e)}"
         )
@@ -360,9 +360,9 @@ async def get_feedback_data(request: FeedbackDataRequest):
 
         pos, neg, nofb = aggregate_stats(items)
         ppos, pneg, pnofb = aggregate_stats(prev_items)
-        logger.info(
-            f"Aggregated stats: positive={pos}, negative={neg}, no_feedback={nofb}; previous window: pos={ppos}, neg={pneg}, nofb={pnofb}"
-        )
+        # logger.info(
+        #     f"Aggregated stats: positive={pos}, negative={neg}, no_feedback={nofb}; previous window: pos={ppos}, neg={pneg}, nofb={pnofb}"
+        # )
 
         total = pos + neg + nofb
 

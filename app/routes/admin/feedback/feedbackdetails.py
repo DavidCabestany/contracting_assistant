@@ -111,7 +111,7 @@ def parse_all_citations(item) -> Optional[List[RetrievedCitationModel]]:
                         )
                     except Exception:
                         continue
-    logger.info(f"parse_all_citations: citations={citations}")
+    # logger.info(f"parse_all_citations: citations={citations}")
     return citations or None
 
 
@@ -226,20 +226,17 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
                     break
         db_items = filtered_items
 
-    logger.info(
-        "=== Records in requested timeframe (%s to %s) ===", start_dt, end_dt
-    )
     for idx, item in enumerate(db_items):
-        logger.info(
-            "Record [%d]: UserId(PRID)=%r | Timestamp=%r | IsFeedbackPositive=%r",
-            idx + 1,
-            item.get("UserId"),
-            item.get("Timestamp"),
-            item.get("IsFeedbackPositive"),
-        )
+        # logger.info(
+        #    "Record [%d]: UserId(PRID)=%r | Timestamp=%r | IsFeedbackPositive=%r",
+        #    idx + 1,
+        #    item.get("UserId"),
+        #    item.get("Timestamp"),
+        #    item.get("IsFeedbackPositive"),
+        # )
 
-    # ----------- Order Change: capture rows with timestamps and sort -----------
-    rows_with_time = []
+        # ----------- Order Change: capture rows with timestamps and sort -----------
+        rows_with_time = []
     for item in db_items:
         feedback_raw = item.get("IsFeedbackPositive")
         val = str(feedback_raw).strip().lower()
@@ -272,7 +269,7 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             "UserMessageSearch", ""
         )
         citations = parse_all_citations(item)
-        logger.info("User %s citations: %s", prid, citations)
+        # logger.info("User %s citations: %s", prid, citations)
         feedback_comment = item.get("FeedbackComment", "")
 
         # === ADD FEEDBACK RESPONSE after query ===
