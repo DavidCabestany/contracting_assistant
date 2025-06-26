@@ -691,7 +691,7 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
         "HighRisksClauses": [
             {
                 "title": risk_detail.title
-                + "("
+                + " ("
                 + risk_detail.risk_importance
                 + " Importance)",
                 "description": risk_detail.description,
@@ -701,7 +701,7 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
         "MediumRisksClauses": [
             {
                 "title": risk_detail.title
-                + "("
+                + " ("
                 + risk_detail.risk_importance
                 + " Importance)",
                 "description": risk_detail.description,
@@ -711,7 +711,7 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
         "LowRisksClauses": [
             {
                 "title": risk_detail.title
-                + "("
+                + " ("
                 + risk_detail.risk_importance
                 + " Importance)",
                 "description": risk_detail.description,
