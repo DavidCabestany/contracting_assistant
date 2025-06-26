@@ -693,7 +693,7 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
                 "title": risk_detail.title
                 + "("
                 + risk_detail.risk_importance
-                + ")",
+                + " Importance)",
                 "description": risk_detail.description,
             }
             for risk_detail in risk_category.HighRisksClauses
@@ -703,7 +703,7 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
                 "title": risk_detail.title
                 + "("
                 + risk_detail.risk_importance
-                + ")",
+                + " Importance)",
                 "description": risk_detail.description,
             }
             for risk_detail in risk_category.MediumRisksClauses
@@ -713,7 +713,7 @@ def build_clean_risk_category_dict(risk_category: RiskCategory) -> dict:
                 "title": risk_detail.title
                 + "("
                 + risk_detail.risk_importance
-                + ")",
+                + " Importance)",
                 "description": risk_detail.description,
             }
             for risk_detail in risk_category.LowRisksClauses

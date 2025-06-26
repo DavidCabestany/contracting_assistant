@@ -30,7 +30,7 @@ Do not mention risk_ID.
 Output Json :
 ```json
 {{
-  "Termination Clause" {{"details": "details in contract", "risk_score": "risk_score_value","reason":"reason why you chose this score"}},
+  "Termination Clause" {{"details": "relevant text for this clause", "risk_score": "risk_score_value","reason":"reason why you chose this score"}},
   // ... more clauses
 }}```
 """
