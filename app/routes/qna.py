@@ -561,6 +561,38 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 .removeprefix("User: ")
                 .strip()
             )
+            # After is_follow_up == True, kb_path == "privacy", and files == [], files needs to be repeated
+            repeat_keywords = ["consent", "warrant", "clause"]
+            user_txt_lower = user_txt.lower()
+
+            if (
+                is_follow_up
+                and kb_path == "privacy"
+                and not files
+                and any(kw in user_txt_lower for kw in repeat_keywords)
+            ):
+                history = session_history(ui_session_id)
+                session_items = history.get(ui_session_id, [])
+                for item in reversed(session_items):
+                    file_info = item.get("ChatMetadata", {}).get(
+                        "FileName", []
+                    )
+                    if isinstance(file_info, dict):
+                        file_info = [file_info]
+                    prev_files = [
+                        c.get("fileName")
+                        for c in file_info
+                        if c.get("fileName")
+                    ]
+                    if prev_files:
+                        files = [prev_files[-1]]  # only most recent file!
+                        logger.info(
+                            "Keyword-triggered: Auto-attached previous citation file for privacy follow-up: %s",
+                            files,
+                        )
+                        break
+                    # If not found, allow selected_doc block to handle fallback
+                ## Usual flow
             selected_doc = detect_prior_doc_from_query(user_txt)
             logger.info(
                 f"TEST CHECK 999 ▶ this is the actual selected doc for the query on {user_txt}, the file is {selected_doc}"
