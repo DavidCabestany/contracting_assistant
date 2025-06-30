@@ -564,15 +564,28 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             # After is_follow_up == True, kb_path == "privacy", and files == [], files needs to be repeated
             repeat_keywords = ["consent", "warrant", "clause"]
             user_txt_lower = user_txt.lower()
-
-            if (
+            present_keywords = [
+                kw for kw in repeat_keywords if kw in user_txt_lower
+            ]
+            logger.info(
+                "101 ▶ Detected repeat keywords in follow-up: %s",
+                present_keywords,
+            )
+            use_privacy_followup_reset = (
                 is_follow_up
                 and kb_path == "privacy"
                 and not files
-                and any(kw in user_txt_lower for kw in repeat_keywords)
-            ):
+                and len(present_keywords) >= 2
+            )
+
+            if use_privacy_followup_reset:
+                logger.info(
+                    "102 ▶ Activating privacy follow-up reset logic (2+ keywords, no files, is_follow_up)."
+                )
+                # Find last cited doc
                 history = session_history(ui_session_id)
                 session_items = history.get(ui_session_id, [])
+                last_doc = None
                 for item in reversed(session_items):
                     file_info = item.get("ChatMetadata", {}).get(
                         "FileName", []
@@ -582,17 +595,42 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     prev_files = [
                         c.get("fileName")
                         for c in file_info
-                        if c.get("fileName")
+                        if isinstance(c, dict) and c.get("fileName")
                     ]
                     if prev_files:
-                        files = [prev_files[-1]]  # only most recent file!
+                        last_doc = prev_files[-1]
                         logger.info(
-                            "Keyword-triggered: Auto-attached previous citation file for privacy follow-up: %s",
-                            files,
+                            "103 ▶ Using last cited doc as current file for follow-up context: %s",
+                            last_doc,
                         )
                         break
-                    # If not found, allow selected_doc block to handle fallback
-                ## Usual flow
+                if last_doc:
+                    files = [last_doc]
+                else:
+                    logger.info(
+                        "104 ▶ No previous cited doc found for follow-up, no files set."
+                    )
+                # Override prompt/history for this turn
+                prompt, history_txt = (
+                    user_txt,
+                    "",
+                )  # only current question
+                logger.info(
+                    "105 ▶ Forcing clean prompt (new Q only, no prior Q&A context): %s",
+                    prompt,
+                )
+                is_follow_up = False  # To avoid more follow-up processing in re-entrant logic
+                # Continue as with a non-follow-up, downstream code will handle with just this file and prompt.
+            else:
+                logger.info(
+                    "106 ▶ Specialized followup NOT activated, use default history logic."
+                )
+                prompt, history_txt, _ = _build_prompt_with_optional_history(
+                    user_txt, tx_count, ui_session_id, files
+                )
+
+            # Usual followup logic
+
             selected_doc = detect_prior_doc_from_query(user_txt)
             logger.info(
                 f"TEST CHECK 999 ▶ this is the actual selected doc for the query on {user_txt}, the file is {selected_doc}"
