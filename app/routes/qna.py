@@ -636,8 +636,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             )
             if selected_doc != PRIOR_DOC:
                 files = selected_doc
-                prompt = user_txt
-                is_follow_up = False
                 logger.info(
                     "101 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
                 )
