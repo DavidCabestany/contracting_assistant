@@ -101,17 +101,17 @@ DOCUMENT_TOPICS = [
     },
     {
         "file": [
-            "Data Protection Terms Decision Tree.pdf",
             "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
             "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+            "Data Protection Terms Decision Tree.pdf",
         ],
         "keywords": ["data protection appendix", "anonymised"],
     },
     {
         "file": [
-            "Data Protection Terms Decision Tree.pdf",
             "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
             "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+            "Data Protection Terms Decision Tree.pdf",
         ],
         "keywords": ["data protection appendix", "anonymized"],
     },
@@ -139,6 +139,13 @@ DOCUMENT_TOPICS = [
             "Playbook_Data Protection Appendix – Controller to Controller - receiving Personal Data .pdf",
         ],
         "keywords": ["data protection appendix", "personal", "personal data"],
+    },
+    {
+        "file": [
+            "Playbook_Data Protection Appendix – Controller to Controller - sharing Personal Data .pdf",
+            "Playbook_Data Protection Appendix – Controller to Controller - receiving Personal Data .pdf",
+        ],
+        "keywords": ["liability"],
     },
     {
         "file": [
