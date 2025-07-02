@@ -629,11 +629,14 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
 
             # Usual followup logic
+            if kb_path == "privacy":
+                selected_doc = detect_prior_doc_from_query(user_txt)
+                logger.info(
+                    f"TEST CHECK 999 ▶ this is the actual selected doc for the query on {user_txt}, the file is {selected_doc}"
+                )
+            else:
+                selected_doc = PRIOR_DOC
 
-            selected_doc = detect_prior_doc_from_query(user_txt)
-            logger.info(
-                f"TEST CHECK 999 ▶ this is the actual selected doc for the query on {user_txt}, the file is {selected_doc}"
-            )
             if selected_doc != PRIOR_DOC:
                 files = selected_doc
                 prompt = "USER: " + user_txt
