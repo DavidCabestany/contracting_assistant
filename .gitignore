@@ -1,1 +1,72 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files and backups
+*.tmp
+*.bak
+*.swp
+*.swo
+*.~*
+
+# Compiled code and binary files
+*.class
+*.pyc
+*.pyo
+*.o
+*.so
+*.out
+*.exe
+*.dll
+
+# Python virtual environments and tools
+venv/
+*.venv
+.venv/
+.venv.*
+
+__pycache__/
+# Node.js dependencies
+node_modules/
+
+# Git-specific
+.git/
+.env
+# IDEs and text editors
+.idea/
+.vscode/
+*.code-workspace
+
+# Custom ignore rules
+.test_*  # Ignore files that start with .test_
+.test*
+*_old.*  # Ignore files that end with _old. (e.g., _old.txt, _old.log)
 .ipynb_checkpoints/
+
+# Miscellaneous build and distribution files
+dist/
+build/
+*.egg-info/
+*.zip
+*.tar.gz
+
+# Other Python tools
+.mypy_cache/
+.pytest_cache/
+.tox/
+.coverage
+*.cover
+*.coverage.*
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Specific VSCode Python extension files
+.python-version
+*.pydevproject
+
+# Type hinting stubs
+*.pyi

@@ -1,0 +1,244 @@
+{
+  "clauses": [
+    {
+      "name": "Termination Clause",
+      "details": {
+        "description": "It sets out the conditions and procedures under which a contract may be ended before its agreed expiration. It outlines who can terminate, on what grounds (such as convenience or breach), the notice periods required, and what happens after termination, including handover, transition, and settlement of outstanding obligations. This ensures both parties understand their rights and responsibilities if the contract ends early.",
+        "clause_inherent_risk_level": "High",
+        "risk_scenarios": [
+          {
+            "scenario_description": "A termination clause would be considered high risk if it exposes AZ to significant operational, legal, or financial downsides versus AstraZeneca's standard terms, such as:\n1. No right for AstraZeneca to terminate for convenience\n2. Granting the supplier broad termination rights, especially:\n   • termination for convenience;\n   • possibility to terminate a framework agreement instead of a singular affected SOW in case of AZ’s non-payment (framework agreements usually involve no spend)\n   • no or ambiguous notice period for supplier termination rights\n3. Very long notice periods for termination, undermines AZ’s ability to react to supplier issues.\n4. Automatic renewals without AstraZeneca's ability to prevent them.\n5. Lack of clear consequences of termination or provisions that could disrupt business continuity. essential; must spell out handover, transition services, no further payments (except properly rendered services), treatment of confidential info, etc.\n6. \"Evergreen\" contracts without a set end date.",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_001"
+          },
+          {
+            "scenario_description": "A termination clause would be considered medium risk if some deviation from AstraZeneca's standard terms occurs, but impact can be managed or is less severe, such as:\n1. Longer notice periods for AZ termination for convenience (e.g. 30 days instead of 7).\n2. Granting the supplier limited termination rights, such as termination for AstraZeneca's material breach. permissible under guidance, especially where main AZ obligation is payment. Still, must have strict process (remedy period, double notice, and only for uncured, material breach)\n3. Requiring AstraZeneca to pay certain costs if terminating for convenience, especially if the supplier made significant investments generally discouraged but sometimes unavoidable; risk can be contained if costs are clearly limited (i.e., non-cancellable only, agreed calculation); business must approve\n4. Less comprehensive consequences of termination clauses if some handover/ data return/ transition measures are missing - higher risk of dispute, but not as severe as absence of any such terms\n5. Allowing recurring auto-renewal (not just one) with AZ opt-out via notice permitted for preferred suppliers, not standard; manageable only if opt-out maintained",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_002"
+          },
+          {
+            "scenario_description": "A termination clause would be considered low risk if it closely aligns with AstraZeneca's standard terms. This typically includes:\n1. AstraZeneca having the right to terminate for convenience at any time with short notice (e.g. 7 business days).\n2. AstraZeneca having the right to terminate immediately for cause, including material breach, insolvency, or unconsented change in control of the supplier.\n3. Termination for cause expressly includes supplier breaches of data, cyber security, EO3P, or other high-importance clauses.\n4. The supplier not having reciprocal termination rights, especially for convenience. Supplier’s only rights are for AZ’s material breach, after full remedial process and only for the affected SOW\n5. Clear consequences of termination that protect AstraZeneca's interests.",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_003"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Liability Clause",
+      "details": {
+        "description": "It defines the extent to which each party is responsible for losses, damages, or claims arising from the contract. It sets any financial limits (caps) on liability, details any exceptions (such as for personal injury or breaches of confidentiality), and outlines what types of losses are included or excluded. The clause clarifies the parties’ obligations in the event of a problem and helps allocate risks and responsibilities clearly under the contract.",
+        "clause_inherent_risk_level": "High",
+        "risk_scenarios": [
+          {
+            "scenario_description": "High-risk liability clauses are typically used for business-critical contracts. These clauses generally include:\n1. A supplier cap of 100% of the charges in a 12-month period. Cap should be set high enough to secure AZ’s possible losses; always use both an absolute and relative cap, if possible (greater of X or Y); link the cap to all SOWs, not only paid amounts.\n2. An AstraZeneca cap of 100% of the charges. AZ should not accept unlimited liability for its payment obligations, or lower cap solely as risk-sharing for lower price.\n3. Uncapped liability for specific breaches such as confidentiality, and intellectual property rights. AZ should not accept removal of exceptions for key uncapped liabilities: personal injury or death by negligence (ordinary or gross), fraud, fraudulent misrepresentation, wilful misconduct, gross negligence, indemnity obligations liability not excludable by law.\n4. Data protection and cyber security breaches are typically subject to a \"super cap,\" usually ten times the charges or a substantial absolute value. never below 3x for sensitive personal data\n5. Exclusion of indirect and consequential losses for both parties. AZ should not accept excluding types of damages/ losses in a way that shields the supplier from foreseeable, serious consequences.\n6. Specific recoverable losses for AstraZeneca – a detailed list replacement/ rectification/ extra costs for service failure, loss of data, migration/ replacement costs, etc.\n7. Keeping the language re: losses of affiliates.\nNot included in the Liability clause but closely associated:\n8. Extensive insurance requirements.\n9. Strong audit rights in an audit clause.",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_004"
+          },
+          {
+            "scenario_description": "Medium-risk liability clauses are used for contracts that are important to the business but not business-critical. These clauses may include:\n1. Similar caps on liability for both supplier and AstraZeneca (usually 100% of charges).\n2. Exclusions for certain types (indirect/ consequential) losses.\n3. Specific recoverable liabilities for AstraZeneca – a detailed list but tailored to certain needs, doesn’t have to include all the same examples as high-risk.\n4. A \"super cap\" for data protection and cyber security breaches, typically set at ten times the amount of the charges.\n5. Uncapped liability at minimum for red-line areas: personal injury or death by negligence, etc.; ideally also for certain breaches, such as confidentiality or IPR.\n6. Optional Affiliates language.\nNot included in the Liability clause but closely associated:\n7. Insurance: still required but may be less than high risk.",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_005"
+          },
+          {
+            "scenario_description": "It's worth noting that the provided information does not explicitly mention low-risk liability clauses. This suggests that AstraZeneca may treat most of its contracts (even low-value) as at least medium risk, given the nature of its business in the pharmaceutical industry (even \"routine\" services or products have at least a medium-risk approach) where data protection, intellectual property, and regulatory compliance are critical concerns, unless:\n1. they are entirely non-strategic AND\n2. do not touch product, data, IT, or compliance.\nIf allowed:\n1. caps may be below 100% of charges, but must retain a super cap for data/cyber (at least 3x charges if any personal data);\n2. usual red-line uncapped liability remains;\n3. exclusion of indirect/ consequential loss;\n4. short list of applicable recoverable liabilities is recommended\n5. insurance requirements minimal, should not be omitted",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_006"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Compliance Requirements",
+      "details": {
+        "description": "The Compliance Requirements clause addresses adherence to relevant laws, regulations, and industry standards as set out in the contract. It covers subjects such as liability for breaches (including data protection, intellectual property, and cybersecurity); requirements for sustainability commitments; obligations regarding audit rights and flow-down clauses; and compliance with anti-bribery, anti-corruption, modern slavery, data protection, and diversity-related obligations.",
+        "clause_inherent_risk_level": "High",
+        "risk_scenarios": [
+          {
+            "scenario_description": "Uncapped AZ liability for breaches (e.g., data protection, IP, cybersecurity)\n- Capped Supplier’s liability for reputational harm\n- High likelihood of non-compliance with critical regulations (audit – for example denial of subcontractor flow-down, IPR, etc)\n- Absence of sustainability commitments (e.g., no SBTi or CDP targets)\n- Business-critical contracts, possibly with data/ IP/ clinical exposure, or flagged regulatory risk\n- Non-compliance or delay on compliance with ABAC, modern slavery, data protection, or diversity obligations is a material breach\ntriggers termination, non-payment, and potentially blacklist",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_007"
+          },
+          {
+            "scenario_description": "1.Capped Supplier’s liability (typically 100% of charges)\n2.“Super cap” for sensitive areas like data protection (e.g., 10x charges)\n3.Moderate likelihood of non-compliance\n4.willingness to comply but slow on documentation or verification\n5.temporary or minor non-critical non-compliance with clear correction plan\n6.moderate data/ IP handling with strong controls\n7.Contracts important but not critical",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_008"
+          },
+          {
+            "scenario_description": "1.uncapped Supplier’s liability for all breaches, not only those resulting in reputational damages\n2.Minimal regulatory exposure\n3.Low likelihood of non-compliance\n4.Limited financial or reputational impact\n5.Often not explicitly defined in AstraZeneca’s framework, suggesting a conservative baseline of medium risk\ntruly low-risk scenarios are rare; contracts involving personal data, IP, or regulated services are medium/high by default",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_009"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Sustainability Terms",
+      "details": {
+        "description": "It relates to environmental, social, and governance (ESG) considerations. It covers requirements such as alignment with sustainability frameworks (e.g., CDP, SBTi), commitments to reduce environmental impact, verified greenhouse gas reduction targets, renewable energy sourcing, compliance with AstraZeneca’s Supplier Expectations or Code of Ethics, provision of ESG data, diversity measures, and acceptance of audits and traceability.",
+        "clause_inherent_risk_level": "High",
+        "risk_scenarios": [
+          {
+            "scenario_description": "any refusal of core obligations is high risk, potentially resulting in no contract\n1.Supplier lacks commitment to key sustainability frameworks (e.g., CDP, SBTi)\n2.No plan to reduce carbon footprint eliminate landfill waste, or adopt renewables\n3.no valid public GHG reduction targets (per SBTi or equivalent)\n4.No renewable energy sourcing or solvent recovery plans\n5.Non-compliance with AstraZeneca’s Supplier Expectations or Code of Ethics\n6.refusal to allow audits or restrictions on data access\nDifferent clause but associated:\n- seeking cap on liability for EO3P breach",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_010"
+          },
+          {
+            "scenario_description": "soft commitments without timeline is medium risk at best\n- Partial alignment with AstraZeneca’s sustainability goals\n- Commitments made but timelines are vague, delayed or only partial (beyond 2025/2030)\n- ESG reporting/ assessments I place but score below AZ minimum\n- Some sustainability measures in place (e.g., PMI reduction targets) but lacking full traceability or verification\n- commitments made but “subject to future review”\n- reluctance to provide KPIs or diversity procedures but open to conversation",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_011"
+          },
+          {
+            "scenario_description": "1.Supplier meets or exceeds AstraZeneca’s sustainability expectations\n2.Verified SBTi targets and CDP disclosures\n3.Supplier meets or exceeds AstraZeneca’s sustainability expectations\n4.Verified SBTi targets and CDP disclosures\n5.EcoVadis rating above minimum\n6.active inclusion and diversity policies\n7.Clear roadmap to carbon neutrality, zero landfill, and renewable energy use by 2025\n8.acepts and operationalizes all contractor and subcontractor obligations\n9.no resistance to audit/ data requests",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_012"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Payment Terms",
+      "details": {
+        "description": "The Payment Terms clause governs the methods, timing, and conditions for payments between the parties. It specifies AstraZeneca’s standard payment periods—75 days from receipt of a correct and undisputed invoice for most regions, 60 days within the United Kingdom and the European Union, and 45 days within France and for recurring invoices. The clause also addresses requirements such as payments being linked to receipt (not just the invoice date), adherence to the “No PO, No Pay” rule, proper documentation and approval of any deviations, controls over pass-through costs, and compliance with electronic transaction platforms. This ensures clear expectations and compliance with both AZ policies and regional regulations.",
+        "clause_inherent_risk_level": "Medium",
+        "risk_scenarios": [
+          {
+            "scenario_description": "1.Unfavorable payment terms to AstraZeneca, not legally compliant or not in line (longer or shorter, not justified or approved) with AZ standard for the region: 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France and for recurring invoices (based on AZ’s entity location), such as advance payments or long payment periods, especially without full approval and proper documentation.\n2. Payment term linked to invoice date rather than receipt.\n3. Acceptance of payment as compliance.\n4. Partial payment or cash to subcontractors.\n5. Poor pass-through cost controls (uncapped, unapproved, lacking documentation).\n6. No PO, No Pay violated (payment without a valid Purchase Order).",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_016"
+          },
+          {
+            "scenario_description": "1.Balanced payment terms strictly in line with AZ standard for the region: 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France and for recurring invoices (based on AZ’s entity location), or properly justified, documented and approved deviations.\n2. Deletion or change backed by SME (tax, finance) review.",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_017"
+          },
+          {
+            "scenario_description": "1. Payment terms in line or more favourable (if allowed) than AZ standard (from AZ perspective), such as prompt payments or in line with our standard of 75 days from the date of receipt of a correct and undisputed invoice for most regions; 60 days within the United Kingdom and the European Union; 45 days within France and for recurring invoices. (based on AZ’s entity location), deviations when legally viable and within business acceptance, or ideally: no exceptions\n2. No advance payments.\n3. All compliance, controls, and processes followed:\n- no deviation from No PO, NO Pay (invoice and PO correlation)\n- all pass-through cost controls in place\n- Coupa/ electronic transaction compliance",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_018"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Performance Metrics",
+      "details": {
+        "description": "It defines how the contract’s success will be measured and assessed. It sets out specific metrics, such as service levels, operational efficiency indicators, or compliance targets, and describes the consequences for meeting or missing those metrics. These may include informational or developmental measures, moderate metrics affecting efficiency and satisfaction, or strict, auditable metrics with remedies or penalties for non-compliance—especially when performance impacts regulatory, financial, or reputational matters for AstraZeneca. The clause ensures clear expectations for performance and accountability under the contract.",
+        "clause_inherent_risk_level": "Medium",
+        "risk_scenarios": [
+          {
+            "scenario_description": "Flexible performance metrics with minimal penalties Informational or developmental metrics,\nNo direct impact of metrics on contract continuance or fees\nonly “soft” metrics on regulated or material-value contracts\nno defined metrics in SOW (“reasonable endeavours” is not enough for critical services)\nmetrics that allow supplier to self-define pass/fail criteria\nExample:\n- Training completion rate\n- % of users adopting new tools\n- Number of improvement ideas submitted\ncould be applicable for low-value, non-critical, pilot, or proof-of-concept deals only; unacceptable for regulated, sustained, or high-value contracts (regulatory/ data/ financially exposed work)",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_019"
+          },
+          {
+            "scenario_description": "Moderate performance metrics with reasonable penalties,\nMetrics that affect operational efficiency or stakeholder satisfaction;\nExample:\n- Contract cycle time\n- % of SLAs met\n- % of sourcing events completed on time\nReasonable penalties or “service credits” for misses",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_020"
+          },
+          {
+            "scenario_description": "Strict performance metrics with severe penalties for non-compliance,\nMetrics tied to regulatory compliance, financial exposure, or reputational impact;\nclear, auditable metrics wherever supplier performance impacts AZ compliance, finances, or reputation\nExample:\n- % of contracts with overdue renewals\n- % of suppliers without ESG compliance\n- % of spend outside preferred suppliers\ntiered remedies/ penalties proportionate to metric severity and impact\nwhere metrics are critical, enforceability (cure periods, termination) is mandatory",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_021"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Confidentiality Clause",
+      "details": {
+        "description": "It protects sensitive information shared during the contract. It defines the obligations of each party to safeguard confidential data—such as clinical, patient, or proprietary research data—against unauthorized disclosure or use. The clause sets out restrictions on sharing information with subcontractors or third parties, specifies how breaches are handled, and may include conditions on liability, enforcement, and the duration of confidentiality commitments. This ensures confidential information is handled appropriately and in line with agreed contract terms.",
+        "clause_inherent_risk_level": "Medium",
+        "risk_scenarios": [
+          {
+            "scenario_description": "1.Uncapped liability can be high risk if it applies generally, but some jurisdictions/precedents may require uncapped liability for wilful or deliberate breaches, especially for trade secrets or sensitive health data\n2.Disclosure of sensitive data (e.g., clinical, patient, or proprietary R&D data)\nensure such obligation is protected with additional safeguards; losing or unauthorized sharing of clinical, patient, or proprietary R&D data could lead to significant regulatory and reputational damage\n3.No clear restrictions on subcontractor or third-party access\n4.ambiguous or non-enforceable remedies or indemnities for breach",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_022"
+          },
+          {
+            "scenario_description": "1.Capped liability (e.g., 100% of charges)\nacceptable for generic breaches, but not for wilful breaches or for trade secrets, which may require longer/higher protection in law; 100% charges may be insufficient for the most sensitive information\n2.Confidentiality obligations clearly defined but limited in duration or scope\n3.disclosure of some sensitive date\nacceptable only for non-trade secret, non-sensitive data\n4.Third-party access permitted under NDA or CDA terms; subcontractors & third parties are subject to obligations at least as stringent; responsibility for their breaches rests with supplier\n5.Some ambiguity in enforcement or data classification\nconfidentiality protections",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_023"
+          },
+          {
+            "scenario_description": "1.No sensitive data exchanged or only anonymized data involved\n2.Confidentiality terms are standard, mutual, and time-bound\n3.No subcontractors or external disclosures involved;\n4.Clause aligned with AstraZeneca’s CDA templates and guidance",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_024"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dispute Resolution",
+      "details": {
+        "description": "It outlines the procedures for resolving disagreements or conflicts arising under the contract. It defines the steps parties must follow, which may include structured escalation, good faith negotiation, optional mediation, and—if needed—arbitration or litigation. The clause may specify preferred jurisdictions, require ongoing contract performance during disputes, and ensure the process is fair, balanced, and clearly defined for both parties",
+        "clause_inherent_risk_level": "Low",
+        "risk_scenarios": [
+          {
+            "scenario_description": "Complex and costly dispute resolution mechanisms:\n1.No structured escalation process - parties can immediately commence litigation or arbitration without mandatory negotiation or mediation steps\n2.Immediate litigation or arbitration without prior negotiation lack of a “cooling-off” or good faith negotiation period increases costs and damages business relations\n3.Jurisdiction in a high-risk or unfamiliar legal environment, or in a “no go” zone (jurisdiction with instability or inefficiency)\n4.No obligation to continue performance during dispute\n5.Only supplier controls whether to arbitrate or litigate\n6.poorly drafted dual-resolution clause might create legal ambiguity or a conflict\n7.high cost arbitration for small value contracts",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_025"
+          },
+          {
+            "scenario_description": "Standard dispute resolution mechanisms:\n1.Basic escalation steps defined (e.g., Referral Notice, senior designee involvement) but clause may skip mediation or allow easy bypass of negotiation\n2.Jurisdiction agreed but not aligned with AstraZeneca’s preferred venues (not ideal but still reputable and experienced)\n3.Performance during dispute not explicitly required (agreement does not require continuing obligations)\n4.arbitration offered without strong justification",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_026"
+          },
+          {
+            "scenario_description": "1.structured, multi-tiered escalation (e.g., good faith negotiation -> Referral Notice → senior designees → optional mediation → litigation (in court) or arbitration, if justified)\n2.Jurisdiction in AstraZeneca-preferred locations (e.g., UK, Sweden)\n3.Explicit obligation to continue performance during dispute resolution\n4.optional mediation\n5.dispute resolution path is clear, fair, and balanced (no unilateral rights or dual-path)",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_027"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Force Majeure Clause",
+      "details": {
+        "description": "The Force Majeure Clause excuses parties from their contractual obligations when unforeseen events beyond their control occur. Key aspects may include requirements to notify and mitigate, clear definitions of qualifying events, exclusion of relief for events caused by a party’s own fault or foreseeable issues, continuation of unaffected services, no price increases due to force majeure, and the ability for parties to terminate or engage alternatives after prolonged disruption. Well-defined clauses ensure fairness and protect against misuse or supplier exploitation.",
+        "clause_inherent_risk_level": "Low",
+        "risk_scenarios": [
+          {
+            "scenario_description": "Limited or no force majeure protections:\n1.No obligation to notify or mitigate\n2.No time limit for suspension before termination, or no termination right at all\n3.No obligation to continue unaffected obligations\n4.No exclusion for supplier negligence or cybersecurity failures\n5.Supplier can increase charges due to force majeure\n6.the clause is vague or overbroad in defining force majeure scopes (for example, “supply chain disruption”), allowing easy exploitation by the supplier\n7.no post-force majeure remedies for AZ (termination mentioned above; replacement supplier)\n8.if force majeure relief is available for foreseeable events or events within supplier's reasonable planning (known strikes, ordinary cost increases, IT /utility problems)\n9.no services = no payment principle not specified",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_028"
+          },
+          {
+            "scenario_description": "Standard force majeure protections:\n1.Notification required within a defined period (e.g., 5 days); the longer the period, the higher the risk\n2.Obligation to mitigate and cooperate\n3.Termination allowed after prolonged disruption (e.g., 1 month); the longer the period, the higher the risk\nin case of long notice period: try negotiating to shorten it, or at least ensure right to engage alternative providers during prolonged force majeure\n4.Some exclusions for supplier fault, or exclusions are partial or vague\n5.continuing unaffected tasks using reasonable efforts only\n6.no services = no payment principle not fully enforced\n7.conditional possibility to engage a replacement supplier, or after a long grace period\n8.if the clause allows but does not require supplier to continue unaffected obligations, it’s medium risk - should be obligatory, not discretionary\n- if examples of force majeure events include foreseeable, but not strictly supplier-faulted, issues (for example, non-catastrophic IT issues), risk increases",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_029"
+          },
+          {
+            "scenario_description": "Comprehensive force majeure protections:\n1.Structured notification and mitigation obligations\n2.relatively short notification period\n3.“best/reasonable endeavours” - proactive cooperation\n4.Explicit continuation of unaffected services\n5.Clear exclusion of relief if caused by supplier’s wilful act or neglect, or has not taken reasonable steps\n6.Termination rights clearly defined and time-bound, with AZ retaining the right to find/re-engage alternatives as soon as disruption happens\n7.no price increases permitted due to force majeure\n8.no services = no payment principle\n9.Supplier must notify or lose right to relief\n10.Supplier cannot claim FM for foreseeable events or failures in areas under their control\n11.clause does not bar AZ’s other contractual rights",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_030"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Renewal Terms",
+      "details": {
+        "description": "It defines the conditions and procedures for extending a contract. It typically covers whether renewal is automatic or requires explicit written agreement, specifies notification periods for renewal, and ensures renewal terms are transparent and subject to review. Well-drafted clauses prevent unintended or perpetual renewals, prohibit automatic renewals without the right to opt out, require all renewals to be documented, and ensure no additional obligations or costs are imposed without clear approval. This promotes clarity, compliance, and control over contract continuations.",
+        "clause_inherent_risk_level": "Low",
+        "risk_scenarios": [
+          {
+            "scenario_description": "1.Automatic renewal without AstraZeneca’s ability to opt out\nrenewal should always require AZ’s explicit consent or allow AZ to prevent it with notice; all renewals should be documented in writing\n2.No defined end date (“evergreen” contracts)\nunacceptable except possibly in very rare, justified strategic cases and only with tight controls and opt-out rights\n3.Renewal triggers financial or operational obligations without explicit review\nrenewal must never impose new or hidden costs unless expressly approved and reviewed\n4.No notification requirement before renewal\nnotice is mandatory; standard: min. 3–6 months",
+            "scenario_severity_if_present": "High",
+            "risk_ID": "risk_031"
+          },
+          {
+            "scenario_description": "1.Renewal allowed but requires mutual agreement\nposes moderate risk if extension is operationally critical and AZ cannot unilaterally object; ensure mutual renewal is never the default for auto-renewal\n2.Notice period for renewal is long or ambiguous\nambiguity = risk of unintentional/ forced renewal\n3.Renewal terms differ materially from original terms\nall renewal terms must be reviewed and updated for compliance & business needs\n4.Some risk of unintentional continuation\n5.unclear process for notification/ failure to track renewal windows\n6.recurring auto-renewal with > 3-5 cycles\nadvised only for preferred suppliers, and with robust opt-out rights",
+            "scenario_severity_if_present": "Medium",
+            "risk_ID": "risk_032"
+          },
+          {
+            "scenario_description": "1.Renewal is optional and requires explicit written agreement\n2.auto-renewal term is short and easily opt-outable,low risk if monitored and opt-out is simple\n3.Clear notice period (e.g., 30–60 days)\n4.Renewal terms are identical to original and subject to review\n5.System-tracked fields for renewal length and number of renewals",
+            "scenario_severity_if_present": "Low",
+            "risk_ID": "risk_033"
+          }
+        ]
+      }
+    }
+  ]
+}
