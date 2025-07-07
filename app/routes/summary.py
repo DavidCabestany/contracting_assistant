@@ -226,49 +226,58 @@ async def generate_summary(
             if category == "5":
                 raw_answer = "Your question doesn't seem related to the contract you uploaded. Please ask something relevant to the document."
                 answer = _wrap_plain(raw_answer)
+                logger.info(f"[{msg_id}] Response: {answer}")
 
             if category == "1" or category == "2":
+                logger.info(f"[{msg_id}] Checking contract risk file on s3 ")
                 payload_json2 = get_contract_risk_from_s3(
                     userId, session_id, BUCKET_CONTAINER
                 )
                 if payload_json2 == "NoFile":
+                    logger.info(f"Entering risk_categorization.py to generate contract risk file")
                     ans, response_data_intermediate = risk_categorization_fn(
                         content, queryText, msg_id, userId, session_id
                     )
                     answer = ans
                     raw_answer = json.dumps(answer)
                     if category == "1":
+                        logger.info(f"Loading risk matrix file")
                         risk_rules = get_risk_matrix_details()
-                        clauses_lst = extract_clause_names_from_risk_rules(
-                            risk_rules
-                        )
+                        clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
                         clause_prompt = get_clauses(queryText, clauses_lst)
-                        llm_resp = ChatBedrock(
-                            model_id=MODEL_ID, max_tokens=4000
-                        ).invoke(clause_prompt)
-                        clauses_identified = llm_resp.content.strip()  ##list
-                        answer = get_risks_from_query(
-                            clauses_identified, response_data_intermediate
-                        )
+                        try:
+                            llm_resp = ChatBedrock(
+                                model_id=MODEL_ID, max_tokens=4000
+                            ).invoke(clause_prompt)
+                            clauses_identified = llm_resp.content.strip()  ##list
+                            logger.info(f"Clauses asked by user: {clauses_identified}")
+                        except Exception as exc:
+                            logger.exception(f"[{msg_id}] LLM call failed for returning the relevant clauses")
+                            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
+                        answer = get_risks_from_query(clauses_identified, response_data_intermediate)
                         raw_answer = json.dumps(answer)
+
                 else:
                     if category == "2":
                         answer = get_all_clauses_froms3(payload_json2)
                         raw_answer = json.dumps(answer)
                     else:
+                        logger.info(f"Loading risk matrix file")
                         risk_rules = get_risk_matrix_details()
                         clauses_lst = extract_clause_names_from_risk_rules(
                             risk_rules
                         )
                         clause_prompt = get_clauses(queryText, clauses_lst)
-                        llm_resp = ChatBedrock(
-                            model_id=MODEL_ID, max_tokens=4000
-                        ).invoke(clause_prompt)
-                        clauses_identified = llm_resp.content.strip()  ##list
-                        answer = get_risks_from_query(
-                            clauses_identified, payload_json2
-                        )
-                        raw_answer = json.dumps(answer)
+                        try:
+                            llm_resp = ChatBedrock(
+                            model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
+                            clauses_identified = llm_resp.content.strip()  ##list
+                            answer = get_risks_from_query(
+                            clauses_identified, payload_json2)
+                            raw_answer = json.dumps(answer)
+                        except Exception as exc:
+                            logger.exception(f"[{msg_id}] LLM call failed for returning the relevant clauses")
+                            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc 
             elif category == "3":
                 body_prompt = generate_prompt(
                     content, queryText, RISK_MITIGATION_PROMPT
@@ -455,7 +464,7 @@ def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
         print(
             "Warning: 'clauses' key not found in risk_rules or it's not a list."
         )
-
+    logger.info(f"Clauses in risk matrix: {clause_names}")
     return clause_names
 
 
