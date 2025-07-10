@@ -365,6 +365,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     ),
                 ),
             )
+        # CBU Lookup Commented
         # prompt, history_txt, is_follow_up = (
         #     _build_prompt_with_optional_history(
         #         user_txt, tx_count, ui_session_id, files
