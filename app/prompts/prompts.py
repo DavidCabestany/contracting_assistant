@@ -196,6 +196,7 @@ Return exactly one word from the following options:
 
 - IRRELEVANT:
   When the user chit-chats or asks about unrelated topics such as pizza, sports, weather, jokes, or anything outside business contracts and GxP concepts. Note: GxP-related topics are relevant.
+  When the user asks a question about lawyers, it is irrelevant.
 
 - QUESTION:
   When the user asks domain-related questions about contracts, clauses, templates, comparisons, or country-specific queries.
