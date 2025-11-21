@@ -41,11 +41,11 @@ jsonpatch==1.33
 jsonpointer==3.0.0
 jsonschema==4.23.0
 jsonschema-specifications==2025.4.1
-langchain==0.3.25
-langchain-aws==0.2.22
-langchain-community==0.3.23
-langchain-core==0.3.59
-langchain-text-splitters==0.3.8
+langchain
+langchain-aws
+langchain-community
+langchain-core
+langchain-text-splitters
 langgraph==0.4.3
 langgraph-checkpoint==2.0.25
 langgraph-prebuilt==0.1.8
@@ -116,4 +116,3 @@ virtualenv==20.31.2
 xxhash==3.5.0
 yarl==1.20.0
 zstandard==0.23.0
- 
