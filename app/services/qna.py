@@ -109,21 +109,24 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     gcp_keywords = [
         "clinical trial",
         "clinical trials",
-        "CRO",
-        "CROS",
+        "cro",
+        "cros",
         "contract research organization",
         "service provider",
         "service providers",
         "gcp",
     ]
     gcp_file = "Good Clinical Practice Module - Playbook.pdf"
-    for keyword in gcp_keywords:
-        if keyword in query_lc:
-            print(f"Detected GCP keyword: {keyword}")
+    # Only match whole words for short keywords like 'cro', 'cros', 'gcp'
+    def keyword_in_text(keyword, text):
+        if keyword in {"cro", "cros", "gcp"}:
+            return re.search(rf"\b{re.escape(keyword)}\b", text)
+        return keyword in text
 
-            if gcp_file in known_files and known_files[gcp_file] == kb_path:
-                if gcp_file not in matched_files:
-                    matched_files.append(gcp_file)
+    if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):
+        if gcp_file in known_files and known_files[gcp_file] == kb_path:
+            if gcp_file not in matched_files:
+                matched_files.append(gcp_file)
 
     # FORCE-INJECT GDP if distribution keywords are detected
     gdp_keywords = [
