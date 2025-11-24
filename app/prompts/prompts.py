@@ -196,7 +196,7 @@ Return exactly one word from the following options:
 
 - IRRELEVANT:
   When the user chit-chats or asks about unrelated topics such as pizza, sports, weather, jokes, or anything outside business contracts and GxP concepts. Note: GxP-related topics are relevant.
-  When the user asks a question about lawyers, it is irrelevant.
+  When the user asks a question about lawyers, it is irrelevant. example: "who is the AZ lawyer in AZ Italy?" "Who is the lawyer for CAMCAR" etc.
 
 - QUESTION:
   When the user asks domain-related questions about contracts, clauses, templates, comparisons, or country-specific queries.
@@ -223,3 +223,4 @@ If in the answer you see information about lawyers and is not related to Astraze
 
 Leave the factual content and explanations exactly as-is. the lists and details as-is. Do not rephrase it, do not add anything, and do not return any JSON—just output the cleaned answer text.
 """
+ 

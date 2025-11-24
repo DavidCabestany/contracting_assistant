@@ -117,11 +117,11 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         "gcp",
     ]
     gcp_file = "Good Clinical Practice Module - Playbook.pdf"
-    # Only match whole words for short keywords like 'cro', 'cros', 'gcp'
+
     def keyword_in_text(keyword, text):
-        if keyword in {"cro", "cros", "gcp"}:
-            return re.search(rf"\b{re.escape(keyword)}\b", text)
-        return keyword in text
+        # Enforce whole word matching with case-insensitive regex search
+        pattern = rf"\b{re.escape(keyword)}\b"
+        return bool(re.search(pattern, text, re.IGNORECASE))
 
     if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):
         if gcp_file in known_files and known_files[gcp_file] == kb_path:
