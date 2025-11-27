@@ -20,7 +20,7 @@ from models import RiskAssessmentResponse
 from prompts import CLASSIFY_PROMPT, STYLE_PROMPT, TOPIC_CHECKER
 from pydantic import ValidationError
 
-from .constants import DOCS_DIR, HAIKU, MODEL_ID, SONNET_V1
+from .constants import DOCS_DIR, HAIKU, MODEL_ID, SONNET_V1, SONNET_45
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ with TOPICS_FILE.open(encoding="utf-8") as f:
 # Prompt to classify the user query intent
 
 cleaner_llm = ChatBedrock(
-    model_id=SONNET_V1,
+    model_id=SONNET_45,
     model_kwargs={"temperature": 0},
 )
 

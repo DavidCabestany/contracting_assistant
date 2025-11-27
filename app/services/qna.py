@@ -107,6 +107,8 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
 
     # FORCE-INJECT GCP if clinical trial keywords are detected
     gcp_keywords = [
+        "publication terms",
+        "standard publication",
         "clinical trial",
         "clinical trials",
         "CRO",
@@ -115,6 +117,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         "service provider",
         "service providers",
         "gcp",
+        
     ]
     gcp_file = "Good Clinical Practice Module - Playbook.pdf"
 
@@ -159,7 +162,7 @@ def is_invalid_response(text: str) -> bool:
         or "no information available" in lowered
         or "i'm not sure" in lowered
         or IRRELEVANT in lowered
-        or refusal_regex.search(lowered)  # <- add this!
+        or refusal_regex.search(lowered)
     )
 
 
@@ -309,7 +312,7 @@ def _build_gen_cfg() -> dict:
             "textInferenceConfig": {
                 "maxTokens": QNA_MAX_TOKENS_VALUE,
                 "temperature": 0,
-                "topP": 1.0,
+                # "topP": 1.0,
             },
         },
     }
