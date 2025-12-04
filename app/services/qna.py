@@ -37,7 +37,7 @@ from .templates import retrieve_template
 
 logger = logging.getLogger(__name__)
 
-QNA_MAX_RESULTS = 3
+QNA_MAX_RESULTS = 14
 
 
 def load_known_files_from_s3() -> dict[str, str]:
