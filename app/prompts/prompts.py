@@ -33,7 +33,7 @@ BUSINESS_UNIT_PROMPT = """ "You are a procurement process agent who will classif
  the User Query based on its content into one of the following business unit categories:
     - 'General Queries': If the query relates to the Procurement Team within AZ.
     - 'Privacy': If the query concerns legal aspects, privacy policies, or related contracts/information for AZ.
-    - 'R&D': If the query is about the acquired R&D group, its specific policies, or integration within AZ.
+    - 'Alexion': If the query is about the acquired Alexion group, its specific policies, or integration within AZ.
     User Query:{Query}
     Provide only classified Business Unit in response:
     """
@@ -168,7 +168,7 @@ Classify the following legal or contract-related query using the valid tabs and 
 
 When two topics in different tabs appear equally likely consider:
 - "general": AstraZeneca-wide contract content, payment terms, procurement, and commercial topics.
-- "rnd": R&D internal processes and policies only (not general AZ terms).
+- "alexion": Alexion internal processes and policies only (not general AZ terms).
 - "privacy": Data privacy and personal data handling, multiple suppliers belongs here.
 
 

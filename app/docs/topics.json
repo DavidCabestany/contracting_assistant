@@ -2,7 +2,7 @@
     "general": [
         {
             "topic": "Contract Frameworks & Variants",
-            "description": "Master Services Agreements (routine and complex), SaaS addenda, AI Platform Agreements, R&D and clinical-trial modules (GXP, CT Conduct, Purchase Orders), SharePoint templates, “battle of the forms”, suite of contract documents, academic vs commercial distinctions"
+            "description": "Master Services Agreements (routine and complex), SaaS addenda, AI Platform Agreements, Alexion and clinical-trial modules (GXP, CT Conduct, Purchase Orders), SharePoint templates, “battle of the forms”, suite of contract documents, academic vs commercial distinctions"
         },
         {
             "topic": "Contract Types & Selection",
@@ -22,7 +22,7 @@
         },
         {
             "topic": "Intellectual Property & Ownership",
-            "description": "Intellectual-property rights and ownership across MSA, SaaS, AI, and R&D arrangements; publication and records clauses"
+            "description": "Intellectual-property rights and ownership across MSA, SaaS, AI, and Alexion arrangements; publication and records clauses"
         },
         {
             "topic": "Confidentiality & Data Privacy",
@@ -95,14 +95,14 @@
             "description": "Roles and obligations of controllers, processors, and sub-processors including data-handling duties, mutual responsibilities, and regulatory alignment"
         }
     ],
-    "rnd": [
+    "alexion": [
         {
             "topic": "Contract Types & Selection",
             "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA"
         },
         {
             "topic": "Procurement Process & Thresholds",
-            "description": "Purchase Orders (POs) with standard T&Cs for spends below $10 k; R&D contract templates and legal review required above $10 k; additional thresholds for healthcare-professional or high-value services; Request-for-Proposal (RFP) workflow for complex projects."
+            "description": "Purchase Orders (POs) with standard T&Cs for spends below $10 k; Alexion contract templates and legal review required above $10 k; additional thresholds for healthcare-professional or high-value services; Request-for-Proposal (RFP) workflow for complex projects."
         },
         {
             "topic": "Contract Management (iCertis)",
@@ -118,11 +118,11 @@
         },
         {
             "topic": "Procurement Categories & Key Contacts",
-            "description": "Category structure covering Global Operations, IT & Telecom, Marketing & Market Access, Medical Affairs, Professional Services, and R&D; with named category leads and regional sourcing contacts."
+            "description": "Category structure covering Global Operations, IT & Telecom, Marketing & Market Access, Medical Affairs, Professional Services, and Alexion; with named category leads and regional sourcing contacts."
         },
         {
             "topic": "Compliance & Regulatory Requirements",
-            "description": "R&D DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
+            "description": "Alexion DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
         }
     ]
 }
