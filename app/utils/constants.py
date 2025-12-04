@@ -30,7 +30,8 @@ REGION_ID = get_secret("REGION_ID")
 CHAT_TABLE = get_secret("CHAT_TABLE")
 BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
 PRIVACY_KB_ID = get_secret("PRIVACY_KB_ID")
-ALEXION_ID = get_secret("ALEXION_ID")
+# ALEXION_ID = get_secret("ALEXION_ID")
+RND_KB_ID = get_secret("RND_KB_ID")
 GEN_ENQ_KB_ID = get_secret("GEN_ENQ_KB_ID")
 
 # TODO(@kvcn639): Raise errors or log warnings if any of these are None or misconfigured

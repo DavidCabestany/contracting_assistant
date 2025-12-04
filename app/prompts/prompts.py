@@ -202,7 +202,7 @@ Return exactly one word from the following options:
   When the user asks domain-related questions about contracts, clauses, templates, comparisons, or country-specific queries.
   Also includes any questions about GxP concepts (GCP, GDP, GMP, etc.) and their full forms (e.g., Gross Domestic Product).
   The word "continue" alone is allowed.
-  Any question related to Alexion is also in scope.
+  Any question related to R&D is also in scope.
 
 Classify the following input:
 {query}
@@ -223,4 +223,3 @@ If in the answer you see information about lawyers and is not related to Astraze
 
 Leave the factual content and explanations exactly as-is. the lists and details as-is. Do not rephrase it, do not add anything, and do not return any JSON—just output the cleaned answer text.
 """
- 
