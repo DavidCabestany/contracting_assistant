@@ -63,11 +63,17 @@ HIGH_PRIORITY_QUERIES = {
         "What to do in case of an cyber security incident?",
         "Im in procurement, can I decide on the liability cap?",
     },
-    "Alexion": {
-        "what are the thresholds for legal review of contracts at alexion?",
-        "what is the process for creating and approving a contract in icertis at alexion?",
-        "who are the local legal contacts for different countries in alexion's procurement process?",
-        "what is the role of 3prm (third-party risk management) in alexion's vendor onboarding process?",
+    # "Alexion": {
+    #     "what are the thresholds for legal review of contracts at alexion?",
+    #     "what is the process for creating and approving a contract in icertis at alexion?",
+    #     "who are the local legal contacts for different countries in alexion's procurement process?",
+    #     "what is the role of 3prm (third-party risk management) in alexion's vendor onboarding process?",
+    # },
+    "R&D": {
+        "what are the mandatory incident reporting timeframes depending on jurisdiction?",
+        "when should i add swiss or uk addendum to privacy terms?",
+        "i have technological measures listed already in data privacy appendix. can i refer to them in sccs or i should copy them explicitly?",
+        "i do not see list of affiliates covered by data privacy terms and sccs in the documents. where should relevant controllers (affiliates) be listed?",
     },
 }
 

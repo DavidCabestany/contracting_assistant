@@ -95,14 +95,14 @@
             "description": "Roles and obligations of controllers, processors, and sub-processors including data-handling duties, mutual responsibilities, and regulatory alignment"
         }
     ],
-    "alexion": [
+    "rnd": [
         {
             "topic": "Contract Types & Selection",
             "description": "Service Agreements for single, defined engagements; Master Service Agreements (MSAs) when repeat work with the same vendor is likely; Statements of Work (SOWs) and deliverables sections and timelines under an MSA"
         },
         {
             "topic": "Procurement Process & Thresholds",
-            "description": "Purchase Orders (POs) with standard T&Cs for spends below $10 k; Alexion contract templates and legal review required above $10 k; additional thresholds for healthcare-professional or high-value services; Request-for-Proposal (RFP) workflow for complex projects."
+            "description": "Purchase Orders (POs) with standard T&Cs for spends below $10 k; R&D contract templates and legal review required above $10 k; additional thresholds for healthcare-professional or high-value services; Request-for-Proposal (RFP) workflow for complex projects."
         },
         {
             "topic": "Contract Management (iCertis)",
@@ -122,7 +122,7 @@
         },
         {
             "topic": "Compliance & Regulatory Requirements",
-            "description": "Alexion DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
+            "description": "R&D DPAs for data protection, Pharmacovigilance language when patient or HCP data is involved, Confidentiality Disclosure Agreements (CDAs) for early discussions, and adherence to GMP/GCP, GDPR and other local legal standards."
         }
     ]
 }

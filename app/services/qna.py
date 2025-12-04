@@ -43,7 +43,7 @@ QNA_MAX_RESULTS = 3
 def load_known_files_from_s3() -> dict[str, str]:
     """Build a filename-to-kb_path mapping from S3 buckets."""
     bucket = "azcdi-us-ops-procure-ds-dev"
-    kb_paths = ["general", "privacy", "alexion"]
+    kb_paths = ["general", "privacy", "rnd"]  # add "alexion" if needed
     known_files = {}
 
     for kb_path in kb_paths:
@@ -117,14 +117,15 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         "service provider",
         "service providers",
         "gcp",
-        
     ]
     gcp_file = "Good Clinical Practice Module - Playbook.pdf"
 
     def keyword_in_text(keyword: str, text: str) -> bool:
         if keyword.lower() in {"cro", "cros", "gcp"}:
             pattern = rf"\b{re.escape(keyword)}\b"
-            return bool(re.search(pattern, text, flags=re.IGNORECASE | re.ASCII))
+            return bool(
+                re.search(pattern, text, flags=re.IGNORECASE | re.ASCII)
+            )
         return keyword.lower() in text.lower()
 
     if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):

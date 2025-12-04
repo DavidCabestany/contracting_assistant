@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from .constants import (
-    ALEXION_ID,
+from .constants import (  # ALEXION_ID,
     API_KEY,
     BUCKET_CONTAINER,
     CHAT_TABLE,
@@ -12,6 +11,7 @@ from .constants import (
     MODEL_ID,
     PRIVACY_KB_ID,
     REGION_ID,
+    RND_KB_ID,
     ROOT_DIR,
 )
 from .file_utils import (
@@ -62,6 +62,7 @@ __all__ = [
     "PRIVACY_KB_ID",
     "ALEXION_ID",
     "GEN_ENQ_KB_ID",
+    "RND_KB_ID",
     "API_KEY",
     "MODEL_ID",
     # llm_utils

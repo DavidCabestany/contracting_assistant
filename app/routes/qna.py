@@ -377,6 +377,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         #         "general": "General Queries",
         #         "alexion": "Alexion",
         #         "privacy": "Privacy",
+        #         "rnd": "R&D",
         #     }
         #     selected_tab = kb_path
         #     if tab != selected_tab:
