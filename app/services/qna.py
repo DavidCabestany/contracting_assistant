@@ -118,7 +118,10 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         "service providers",
         "gcp",
     ]
-    gcp_file = "Good Clinical Practice Module - Playbook.pdf"
+    gcp_files = [
+        "Good Clinical Practice Module - Playbook.pdf",
+        "CRO-Clinical Study Agreement AZ Contractual Principles.pdf",
+    ]
 
     def keyword_in_text(keyword: str, text: str) -> bool:
         if keyword.lower() in {"cro", "cros", "gcp"}:
@@ -129,9 +132,10 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
         return keyword.lower() in text.lower()
 
     if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):
-        if gcp_file in known_files and known_files[gcp_file] == kb_path:
-            if gcp_file not in matched_files:
-                matched_files.append(gcp_file)
+        for gcp_file in gcp_files:
+            if gcp_file in known_files and known_files[gcp_file] == kb_path:
+                if gcp_file not in matched_files:
+                    matched_files.append(gcp_file)
 
     # FORCE-INJECT GDP if distribution keywords are detected
     gdp_keywords = [
@@ -370,14 +374,23 @@ def retrieve_file_chunks(
         }
         try:
             response = bedrock_agent_runtime.retrieve_and_generate(
-                **request_body
+            **request_body
             )
             chunks = response.get("citations", [])
+            # Sort by relevanceScore if present, descending
+            logger.info("Retrieved %d chunks for %s", len(chunks), doc, "the chunks are", chunks)
+            sorted_chunks = sorted(
+            chunks,
+            key=lambda c: c.get("relevanceScore", 0),
+            reverse=True,
+            )
+            # Limit to top 3 relevant chunks
+            top_chunks = sorted_chunks[:3]
             file_text = "\n\n".join(
-                c["generatedResponsePart"]["textResponsePart"]["text"]
-                for c in chunks
-                if "generatedResponsePart" in c
-                and "textResponsePart" in c["generatedResponsePart"]
+            c["generatedResponsePart"]["textResponsePart"]["text"]
+            for c in top_chunks
+            if "generatedResponsePart" in c
+            and "textResponsePart" in c["generatedResponsePart"]
             )
             file_contents[doc] = file_text.strip()
             logger.info("✅ File contents: %s", file_contents)
@@ -386,7 +399,7 @@ def retrieve_file_chunks(
             logger.warning("❌ Failed to retrieve %s: %s", doc, e)
             file_contents[doc] = f"[Error: {e}]"
 
-    return file_contents
+        return file_contents
 
 
 def retrieve_and_generate(
