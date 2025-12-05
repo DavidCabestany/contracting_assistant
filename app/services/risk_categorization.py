@@ -77,6 +77,7 @@ def get_all_clauses_froms3(payload_json2: dict):
             "similarities": assessment_answer.similarities,
             "differences": assessment_answer.differences,
         }
+        logger.info(f"Returning all clauses from S3")
         return answer
     except Exception as e:
         logger.info(
@@ -145,6 +146,7 @@ def get_risks_from_query(clauses_identified: str, payload_json2: str):
             "similarities": filtered_assessment.similarities,
             "differences": filtered_assessment.differences,
         }
+        logger.info(f"Returning the risks asked by user")
         return response_data
     except Exception as exc:
         print(exc)
@@ -222,6 +224,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
     Raises:
         HTTPException: If LLM invocation fails for any required prompt.
     """
+    logger.info(f"Loading risk matrix file")
     risk_rules = get_risk_matrix_details()
     ##Step 1 Fetch 10 risks details
     body_prompt2 = generate_prompt_risk(content, RISK_MATRIX_ALL_RISKS_PROMPT2)
@@ -231,12 +234,12 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
             body_prompt2
         )
         clauses = llm_resp.content.strip()
-        logger.info(f"[{msg_id}] LLM responded successfully")
+        logger.info(f"[{msg_id}]LLM responded successfully for fetching 10 risks from risk matrix")
         logger.debug(
             f"[{msg_id}] Raw LLM response (truncated): {clauses[:1000]}"
         )
     except Exception as exc:
-        logger.exception(f"[{msg_id}] LLM call failed")
+        logger.exception(f"[{msg_id}] LLM call failed for fetching 10 risks from risk matrix")
         raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
 
     # payload_json = _extract_json(clauses)
@@ -250,15 +253,16 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
             body_prompt3
         )
         raw_answer = llm_resp.content.strip()
-        logger.info(f"[{msg_id}] LLM responded successfully")
+        logger.info(f"[{msg_id}] LLM responded successfully for marking the risk level of each risk")
         logger.debug(
             f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
         )
     except Exception as exc:
-        logger.exception(f"[{msg_id}] LLM call failed")
+        logger.exception(f"[{msg_id}] LLM call failed for marking the risk level of each risk")
         raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
 
     payload_json2 = _extract_json(raw_answer)
+
 
     ##Step 3 Mark High/medium/low and contractual,standard risk
     for clause_title, clause_data in payload_json2.items():
@@ -305,6 +309,8 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         clause["name"]: clause["details"]["clause_inherent_risk_level"]
         for clause in risk_rules["clauses"]
     }
+    
+    logger.info(f"[{msg_id}] categorized the risks under contractual , standardAZ and added their importance")
 
     # Iterate through the payload and add the clause_inherent_risk_level
     for clause_name, clause_data in payload_json2.items():
@@ -324,12 +330,21 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
 
     ##Step 5 Get additional risks if any and add to the final structure
     body_prompt3 = get_additional_risk(content, clauses)
+    try:
+        llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(
+            body_prompt3
+        )
+        add_clauses = llm_resp.content.strip()
+        add_clauses_v1 = _extract_json_list(add_clauses)
+        logger.info(f"[{msg_id}] LLM responded successfully for additional risks")
+        logger.debug(
+            f"[{msg_id}] Raw LLM response (truncated): {raw_answer[:1000]}"
+        )
+    except Exception as exc:
+        logger.exception(f"[{msg_id}] LLM call failed for additional risks")
+        raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
+    
 
-    llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(
-        body_prompt3
-    )
-    add_clauses = llm_resp.content.strip()
-    add_clauses_v1 = _extract_json_list(add_clauses)
 
     assessment_answer = RiskAssessmentAnswer(ans="")
     if isinstance(add_clauses_v1, list):
@@ -359,7 +374,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         logger.warning(
             f"[{msg_id}] Expected a list for additional risks, but got {type(add_clauses_v1)}. Data: {add_clauses_v1}"
         )
-
+    logger.info("Appended additional risks in the RiskAssessmentAnswer")
     ##Step 6 Generating short summary
     risk_summary = generate_prompt_summary(clauses, add_clauses_v1)
     try:
@@ -369,7 +384,7 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         summary_text = llm_resp_summary.content.strip()
         assessment_answer.ans = summary_text
         logger.info(
-            f"[{msg_id}] LLM (overall summary) responded successfully."
+            f"[{msg_id}] LLM (overall summary) responded successfully for overall summary of the risks"
         )
         logger.debug(f"[{msg_id}] Generated summary: {summary_text[:200]}")
     except Exception:
@@ -423,6 +438,9 @@ def risk_categorization_fn(content, queryText, msg_id, userId, session_id):
         "similarities": assessment_answer.similarities,
         "differences": assessment_answer.differences,
     }
+    logger.info(
+            f"[{msg_id}] Returning Contratual risk data"
+        )
 
     return response_data, response_data_intermediate
 

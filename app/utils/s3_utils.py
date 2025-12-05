@@ -165,6 +165,7 @@ def get_contract_risk_from_s3(userId, session_id, bucket):
             json_data = body.decode("utf-8")
 
         data = json.loads(json_data)
+        logger.info(f"File found in S3: {folder_path}")
         return data
     except json.JSONDecodeError as e:
         logger.error(f"JSON decoding error: {e}")

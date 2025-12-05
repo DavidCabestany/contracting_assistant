@@ -54,7 +54,6 @@ cleaner_llm = ChatBedrock(
     model_kwargs={"temperature": 0},
 )
 
-
 def get_claude_response(query: str) -> str:
     """Sanitize LLM-style answer using Claude to remove filler and irrelevant content."""
     prompt = f"""<system>\n{STYLE_PROMPT}\n</system>\n\nAnswer: {query}"""

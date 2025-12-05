@@ -109,15 +109,22 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     gcp_keywords = [
         "clinical trial",
         "clinical trials",
-        "cro",
-        "cros",
+        "CRO",
+        "CROS",
         "contract research organization",
         "service provider",
         "service providers",
         "gcp",
     ]
     gcp_file = "Good Clinical Practice Module - Playbook.pdf"
-    if any(keyword in query_lc for keyword in gcp_keywords):
+
+    def keyword_in_text(keyword: str, text: str) -> bool:
+        if keyword.lower() in {"cro", "cros", "gcp"}:
+            pattern = rf"\b{re.escape(keyword)}\b"
+            return bool(re.search(pattern, text, flags=re.IGNORECASE | re.ASCII))
+        return keyword.lower() in text.lower()
+
+    if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):
         if gcp_file in known_files and known_files[gcp_file] == kb_path:
             if gcp_file not in matched_files:
                 matched_files.append(gcp_file)
