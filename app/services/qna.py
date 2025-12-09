@@ -150,6 +150,43 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
                 matched_files.append(gdp_file)
     return list(matched_files)
 
+    # dpa_keywords = [
+    #     "data processing agreement",
+    #     "data processing agreements",
+    #     "dpa",
+    #     "dpas",
+    #     "DPA template"
+    # ]
+    # dpa_files = [
+    #     "Data Protection Appendix - Definitions.pdf",
+    #     "Data Protection Appendix - General Rules.pdf",
+    #     "Data Protection Appendix - Sharing Anonymised Data.pdf",
+    #     "Data Protection Appendix – AZ Controller to Dual Role Supplier _with  Chinese requirements.pdf",
+    #     "Data Protection Appendix – AZ Controller to Dual Role Supplier_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – AZ Controller to Supplier Processor _no Chinese requirements.pdf",
+    #     "Data Protection Appendix – AZ Controller to Supplier Processor _with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Receiving Personal Data _ with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Receiving Personal Data_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Sharing Personal Data _with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Sharing Personal Data_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – Customer Controller to AZ Processor _with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Customer Controller to AZ Processor_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – Receiving Anonymised Data.pdf",
+    #     "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
+    #     "Playbook_Data Protection Appendix – Controller to Controller - receiving Personal Data .pdf",
+    #     "Playbook_Data Protection Appendix – Controller to Controller - sharing Personal Data .pdf",
+    #     "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+    #     "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+    #     "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+    #     "Playbook_Data Protection Appendix – Supplier Controller to AZ Processor.pdf",
+    # ]
+    # if any(keyword in query_lc for keyword in dpa_keywords):
+    #     for dpa_file in dpa_files:
+    #         if dpa_file in known_files and known_files[dpa_file] == kb_path:
+    #             if dpa_file not in matched_files:
+    #                 matched_files.append(dpa_file)
+    # return list(matched_files)
+
 
 def is_invalid_response(text: str) -> bool:
     """Check whether the response text is considered invalid or irrelevant."""

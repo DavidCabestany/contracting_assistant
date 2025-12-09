@@ -639,8 +639,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             else:
                 selected_doc = PRIOR_DOC
 
+            # If selected_doc is not the specific Dual Role file, set files to selected_doc
             if selected_doc != PRIOR_DOC:
-                files = selected_doc
+                if selected_doc != ["Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"]:
+                    files = selected_doc
                 prompt = "USER: " + user_txt
                 is_follow_up = False
                 logger.info(
