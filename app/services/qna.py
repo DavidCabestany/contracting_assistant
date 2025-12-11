@@ -137,6 +137,16 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
                 if gcp_file not in matched_files:
                     matched_files.append(gcp_file)
 
+    addendum_keywords = [
+        "addendum"
+    ]
+    addendum_files = ["California Consumer Privacy Act Addendum to DPA.pdf", "SCCs_Module_1_C2C+_Exhibit_Y_+_Addendums.pdf","SCCs_Module_2_C2P_+_Exibit_Y_+_Addendums.pdf","SCCs_Module_4_P2C_+_Exhibit_Y_+_Addendums.pdf"]
+    if any(keyword in query_lc for keyword in addendum_keywords):
+        for addendum_file in addendum_files:
+            if addendum_file in known_files and known_files[addendum_file] == kb_path:
+                if addendum_file not in matched_files:
+                    matched_files.append(addendum_file)
+
     # FORCE-INJECT GDP if distribution keywords are detected
     gdp_keywords = [
         "good distribution practice",
