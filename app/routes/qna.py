@@ -377,6 +377,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         #         "general": "General Queries",
         #         "alexion": "Alexion",
         #         "privacy": "Privacy",
+        #         "rnd": "R&D",
         #     }
         #     selected_tab = kb_path
         #     if tab != selected_tab:
@@ -638,13 +639,32 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             else:
                 selected_doc = PRIOR_DOC
 
+            # If selected_doc is not the specific Dual Role file, set files to selected_doc
+            dual_role_files = [
+                "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+                "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
+            ]
+            # Only override files if selected_doc is not PRIOR_DOC and not a dual role file
             if selected_doc != PRIOR_DOC:
-                files = selected_doc
-                prompt = "USER: " + user_txt
-                is_follow_up = False
-                logger.info(
-                    "101 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
-                )
+                if isinstance(selected_doc, list):
+                    # If selected_doc is a list, check if any are dual role files
+                    non_dual_role_files = [f for f in selected_doc if f not in dual_role_files]
+                    if non_dual_role_files:
+                        files = non_dual_role_files
+                        prompt = "USER: " + user_txt
+                        is_follow_up = False
+                        logger.info(
+                            "101 ▶ auto-selected PRIOR_DOC override = %s", non_dual_role_files
+                        )
+                else:
+                    if selected_doc not in dual_role_files:
+                        files = [selected_doc]
+                        prompt = "USER: " + user_txt
+                        is_follow_up = False
+                        logger.info(
+                            "101 ▶ auto-selected PRIOR_DOC override = %s", selected_doc
+                        )
+            # If selected_doc is a dual role file, do not override files
 
             answer = ""
             resp = None

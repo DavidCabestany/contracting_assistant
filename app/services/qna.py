@@ -37,13 +37,13 @@ from .templates import retrieve_template
 
 logger = logging.getLogger(__name__)
 
-QNA_MAX_RESULTS = 3
+QNA_MAX_RESULTS = 14
 
 
 def load_known_files_from_s3() -> dict[str, str]:
     """Build a filename-to-kb_path mapping from S3 buckets."""
     bucket = "azcdi-us-ops-procure-ds-dev"
-    kb_paths = ["general", "privacy", "alexion"]
+    kb_paths = ["general", "privacy", "rnd"]  # add "alexion" if needed
     known_files = {}
 
     for kb_path in kb_paths:
@@ -107,27 +107,45 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
 
     # FORCE-INJECT GCP if clinical trial keywords are detected
     gcp_keywords = [
+        "publication terms",
+        "standard publication",
         "clinical trial",
         "clinical trials",
-        "CRO",
-        "CROS",
+        "cro",
+        "cros",
         "contract research organization",
         "service provider",
         "service providers",
         "gcp",
     ]
-    gcp_file = "Good Clinical Practice Module - Playbook.pdf"
+    gcp_files = [
+        "Good Clinical Practice Module - Playbook.pdf",
+        "CRO-Clinical Study Agreement AZ Contractual Principles.pdf",
+    ]
 
     def keyword_in_text(keyword: str, text: str) -> bool:
         if keyword.lower() in {"cro", "cros", "gcp"}:
             pattern = rf"\b{re.escape(keyword)}\b"
-            return bool(re.search(pattern, text, flags=re.IGNORECASE | re.ASCII))
+            return bool(
+                re.search(pattern, text, flags=re.IGNORECASE | re.ASCII)
+            )
         return keyword.lower() in text.lower()
 
     if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):
-        if gcp_file in known_files and known_files[gcp_file] == kb_path:
-            if gcp_file not in matched_files:
-                matched_files.append(gcp_file)
+        for gcp_file in gcp_files:
+            if gcp_file in known_files and known_files[gcp_file] == kb_path:
+                if gcp_file not in matched_files:
+                    matched_files.append(gcp_file)
+
+    addendum_keywords = [
+        "addendum"
+    ]
+    addendum_files = ["California Consumer Privacy Act Addendum to DPA.pdf", "SCCs_Module_1_C2C+_Exhibit_Y_+_Addendums.pdf","SCCs_Module_2_C2P_+_Exibit_Y_+_Addendums.pdf","SCCs_Module_4_P2C_+_Exhibit_Y_+_Addendums.pdf"]
+    if any(keyword in query_lc for keyword in addendum_keywords):
+        for addendum_file in addendum_files:
+            if addendum_file in known_files and known_files[addendum_file] == kb_path:
+                if addendum_file not in matched_files:
+                    matched_files.append(addendum_file)
 
     # FORCE-INJECT GDP if distribution keywords are detected
     gdp_keywords = [
@@ -141,6 +159,43 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
             if gdp_file not in matched_files:
                 matched_files.append(gdp_file)
     return list(matched_files)
+
+    # dpa_keywords = [
+    #     "data processing agreement",
+    #     "data processing agreements",
+    #     "dpa",
+    #     "dpas",
+    #     "DPA template"
+    # ]
+    # dpa_files = [
+    #     "Data Protection Appendix - Definitions.pdf",
+    #     "Data Protection Appendix - General Rules.pdf",
+    #     "Data Protection Appendix - Sharing Anonymised Data.pdf",
+    #     "Data Protection Appendix – AZ Controller to Dual Role Supplier _with  Chinese requirements.pdf",
+    #     "Data Protection Appendix – AZ Controller to Dual Role Supplier_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – AZ Controller to Supplier Processor _no Chinese requirements.pdf",
+    #     "Data Protection Appendix – AZ Controller to Supplier Processor _with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Receiving Personal Data _ with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Receiving Personal Data_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Sharing Personal Data _with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Controller to Controller - Sharing Personal Data_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – Customer Controller to AZ Processor _with Chinese requirements.pdf",
+    #     "Data Protection Appendix – Customer Controller to AZ Processor_no Chinese requirements.pdf",
+    #     "Data Protection Appendix – Receiving Anonymised Data.pdf",
+    #     "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf",
+    #     "Playbook_Data Protection Appendix – Controller to Controller - receiving Personal Data .pdf",
+    #     "Playbook_Data Protection Appendix – Controller to Controller - sharing Personal Data .pdf",
+    #     "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf",
+    #     "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
+    #     "Playbook_Data Protection Appendix – sharing Anonymised Data.pdf",
+    #     "Playbook_Data Protection Appendix – Supplier Controller to AZ Processor.pdf",
+    # ]
+    # if any(keyword in query_lc for keyword in dpa_keywords):
+    #     for dpa_file in dpa_files:
+    #         if dpa_file in known_files and known_files[dpa_file] == kb_path:
+    #             if dpa_file not in matched_files:
+    #                 matched_files.append(dpa_file)
+    # return list(matched_files)
 
 
 def is_invalid_response(text: str) -> bool:
@@ -159,7 +214,7 @@ def is_invalid_response(text: str) -> bool:
         or "no information available" in lowered
         or "i'm not sure" in lowered
         or IRRELEVANT in lowered
-        or refusal_regex.search(lowered)  # <- add this!
+        or refusal_regex.search(lowered)
     )
 
 
@@ -309,7 +364,7 @@ def _build_gen_cfg() -> dict:
             "textInferenceConfig": {
                 "maxTokens": QNA_MAX_TOKENS_VALUE,
                 "temperature": 0,
-                "topP": 1.0,
+                # "topP": 1.0,
             },
         },
     }
@@ -366,14 +421,23 @@ def retrieve_file_chunks(
         }
         try:
             response = bedrock_agent_runtime.retrieve_and_generate(
-                **request_body
+            **request_body
             )
             chunks = response.get("citations", [])
+            # Sort by relevanceScore if present, descending
+            logger.info("Retrieved %d chunks for %s", len(chunks), doc, "the chunks are", chunks)
+            sorted_chunks = sorted(
+            chunks,
+            key=lambda c: c.get("relevanceScore", 0),
+            reverse=True,
+            )
+            # Limit to top 3 relevant chunks
+            top_chunks = sorted_chunks[:3]
             file_text = "\n\n".join(
-                c["generatedResponsePart"]["textResponsePart"]["text"]
-                for c in chunks
-                if "generatedResponsePart" in c
-                and "textResponsePart" in c["generatedResponsePart"]
+            c["generatedResponsePart"]["textResponsePart"]["text"]
+            for c in top_chunks
+            if "generatedResponsePart" in c
+            and "textResponsePart" in c["generatedResponsePart"]
             )
             file_contents[doc] = file_text.strip()
             logger.info("✅ File contents: %s", file_contents)
@@ -382,7 +446,7 @@ def retrieve_file_chunks(
             logger.warning("❌ Failed to retrieve %s: %s", doc, e)
             file_contents[doc] = f"[Error: {e}]"
 
-    return file_contents
+        return file_contents
 
 
 def retrieve_and_generate(

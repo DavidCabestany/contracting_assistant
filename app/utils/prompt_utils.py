@@ -22,7 +22,12 @@ from prompts import (
     USER_QUERY_RISKS,
 )
 
-from .constants import ALEXION_ID, DOCS_DIR, GEN_ENQ_KB_ID, PRIVACY_KB_ID
+from .constants import (  # add ALEXION_ID if needed
+    DOCS_DIR,
+    GEN_ENQ_KB_ID,
+    PRIVACY_KB_ID,
+    RND_KB_ID,
+)
 
 logger = logging.getLogger(__name__)
 _RISK_RULES_PATH: Final[Path] = DOCS_DIR / "risk_rules.json"
@@ -32,7 +37,7 @@ def get_knowledge_base_id(name: str) -> str:
     """Return the KB ID for a given friendly name.
 
     Args:
-        name (str): A friendly name such as 'privacy', 'alexion', etc.
+        name (str): A friendly name such as 'privacy', 'alexion', 'rnd', etc.
 
     Returns:
         str: The corresponding knowledge base ID.
@@ -40,8 +45,10 @@ def get_knowledge_base_id(name: str) -> str:
     lowered = name.lower()
     if lowered == "privacy":
         return PRIVACY_KB_ID
-    if lowered == "alexion":
-        return ALEXION_ID
+    if lowered == "rnd":
+        return RND_KB_ID
+    # if lowered == "alexion":
+    #     return ALEXION_ID
     return GEN_ENQ_KB_ID
 
 
@@ -49,13 +56,15 @@ def get_knowledge_base_folder(name: str) -> str:
     """Map a friendly name to an S3 folder name.
 
     Args:
-        name (str): A knowledge base name like 'privacy' or 'alexion'.
+        name (str): A knowledge base name like 'privacy' or 'alexion' or 'rnd'.
 
     Returns:
         str: The folder name used in S3.
     """
     lowered = name.lower()
-    return lowered if lowered in {"privacy", "alexion"} else "general"
+    return (
+        lowered if lowered in {"privacy", "rnd"} else "general"
+    )  # add "alexion" if needed
 
 
 def business_unit_prompt(query: str) -> str:

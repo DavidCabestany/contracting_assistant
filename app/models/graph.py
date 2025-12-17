@@ -222,7 +222,7 @@ class FeedbackDetailsRequest(BaseModel):
 
     Attributes:
         feedbackType: Filter for feedback type ('Negative Feedback' or 'Positive Feedback').
-        queryType: Filter for knowledge base type, e.g. 'Privacy', 'General Queries', 'Alexion', or 'All'.
+        queryType: Filter for knowledge base type, e.g. 'Privacy', 'General Queries', 'R&D', or 'All'.
         prid: Optional filter for a specific PRID (user id). Can be None or 'All'.
         timeframe: Time filter for submission window ('last7days', 'last30days', 'last90days', 'last365days', or 'custom').
         start_date: Required ISO-format start date when timeframe is 'custom'.

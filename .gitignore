@@ -44,6 +44,7 @@ node_modules/
 .test_*  # Ignore files that start with .test_
 .test*
 *_old.*  # Ignore files that end with _old. (e.g., _old.txt, _old.log)
+.old_*/  # Ignore directories that start with old_ (e.g., old_data/, old_files/)
 .ipynb_checkpoints/
 
 # Miscellaneous build and distribution files
