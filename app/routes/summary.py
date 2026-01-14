@@ -33,6 +33,7 @@ from prompts import (  # RISK_MATRIX_ALL_RISKS_PROMPT,; RISK_MATRIX_SPC_RISK_PRO
 from routes.qna import (
     retrieve_and_generate,
 )
+from services.llm_interaction import log_llm_interaction
 from services.chat_history_service import store_interaction
 from services.memory import ChatMessageHistory
 from services.memory_helpers import load_history, save_history
