@@ -27,6 +27,7 @@ from .qna import (  # tia_followup_user_query,; tia_trigger_initial_clarificatio
     retrieve_file_chunks,
 )
 from .templates import retrieve_template
+from .llm_interaction import log_llm_interaction
 
 __all__ = [
     # clients
@@ -68,4 +69,6 @@ __all__ = [
     "retrieve_template",
     "get_embeddings",
     "similarity",
+    # llm_interaction
+    "log_llm_interaction",
 ]
