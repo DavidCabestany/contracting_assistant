@@ -143,9 +143,7 @@ async def generate_summary(
         try:
             file_bytes_to_process = await file.read()
             file_name_to_process = file.filename
-            logger.info(
-                f"[{msg_id}] File received: name={file_name_to_process}, size={len(file_bytes_to_process)}"
-            )
+            logger.info(f"[{msg_id}] File received: name={file_name_to_process}, size={len(file_bytes_to_process)}")
 
             folder_path = f"contracts/{userId}/{session_id}"
             s3_key = f"{folder_path}/{file_name_to_process}"
@@ -166,22 +164,14 @@ async def generate_summary(
             raise HTTPException(400, f"Error reading file: {exc}") from exc
 
     elif transactionCount != "0":
-        logger.info(
-            f"[{msg_id}] No new file uploaded. Checking S3 for existing session file."
-        )
-        file_bytes_to_process, file_name_to_process = (
-            _get_session_file_from_s3(
-                s3, BUCKET_CONTAINER, userId, session_id, msg_id
-            )
+        logger.info(f"[{msg_id}] No new file uploaded. Checking S3 for existing session file.")
+        file_bytes_to_process, file_name_to_process = _get_session_file_from_s3(
+            s3, BUCKET_CONTAINER, userId, session_id, msg_id
         )
 
     if file_bytes_to_process and file_name_to_process:
-        content = _extract_content_from_bytes(
-            file_bytes_to_process, file_name_to_process, msg_id
-        )
-        logger.debug(
-            f"[{msg_id}] Successfully extracted content from {file_name_to_process}"
-        )
+        content = _extract_content_from_bytes(file_bytes_to_process, file_name_to_process, msg_id)
+        logger.debug(f"[{msg_id}] Successfully extracted content from {file_name_to_process}")
     else:
         logger.info(f"[{msg_id}] No file provided or found for this session.")
         raw_answer = "Please upload your contract first, then ask a specific question related to it."
@@ -192,15 +182,10 @@ async def generate_summary(
     if raw_answer is None:
         # Step 2: Load chat memory
         chat_mem: ChatMessageHistory = load_history(session_id)
-        logger.debug(
-            f"[{msg_id}] Loaded chat history with {len(chat_mem.messages)} messages"
-        )
+        logger.debug(f"[{msg_id}] Loaded chat history with {len(chat_mem.messages)} messages")
 
         history_block = "".join(
-            ("User: " if isinstance(m, HumanMessage) else "Assistant: ")
-            + m.content
-            + "\n"
-            for m in chat_mem.messages
+            ("User: " if isinstance(m, HumanMessage) else "Assistant: ") + m.content + "\n" for m in chat_mem.messages
         )
         body_prompt = ""
 
@@ -211,15 +196,11 @@ async def generate_summary(
         # Step 4: Classify query
         try:
             cat_prompt = prompt_query_cat(queryText.lower())
-            category = (
-                ChatBedrock(model_id=MODEL_ID).invoke(cat_prompt).content
-            )
+            category = ChatBedrock(model_id=MODEL_ID).invoke(cat_prompt).content
             logger.info(f"[{msg_id}] Query category determined: {category}")
         except Exception as exc:
             logger.exception(f"[{msg_id}] Failed to classify query prompt")
-            raise HTTPException(
-                500, f"Error classifying prompt: {exc}"
-            ) from exc
+            raise HTTPException(500, f"Error classifying prompt: {exc}") from exc
 
         # Step 5: Generate prompt based on category
         try:
@@ -230,9 +211,7 @@ async def generate_summary(
 
             if category == "1" or category == "2":
                 logger.info(f"[{msg_id}] Checking contract risk file on s3 ")
-                payload_json2 = get_contract_risk_from_s3(
-                    userId, session_id, BUCKET_CONTAINER
-                )
+                payload_json2 = get_contract_risk_from_s3(userId, session_id, BUCKET_CONTAINER)
                 if payload_json2 == "NoFile":
                     logger.info(f"Entering risk_categorization.py to generate contract risk file")
                     ans, response_data_intermediate = risk_categorization_fn(
@@ -246,9 +225,7 @@ async def generate_summary(
                         clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
                         clause_prompt = get_clauses(queryText, clauses_lst)
                         try:
-                            llm_resp = ChatBedrock(
-                                model_id=MODEL_ID, max_tokens=4000
-                            ).invoke(clause_prompt)
+                            llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
                             clauses_identified = llm_resp.content.strip()  ##list
                             logger.info(f"Clauses asked by user: {clauses_identified}")
                         except Exception as exc:
@@ -264,24 +241,18 @@ async def generate_summary(
                     else:
                         logger.info(f"Loading risk matrix file")
                         risk_rules = get_risk_matrix_details()
-                        clauses_lst = extract_clause_names_from_risk_rules(
-                            risk_rules
-                        )
+                        clauses_lst = extract_clause_names_from_risk_rules(risk_rules)
                         clause_prompt = get_clauses(queryText, clauses_lst)
                         try:
-                            llm_resp = ChatBedrock(
-                            model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
+                            llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
                             clauses_identified = llm_resp.content.strip()  ##list
-                            answer = get_risks_from_query(
-                            clauses_identified, payload_json2)
+                            answer = get_risks_from_query(clauses_identified, payload_json2)
                             raw_answer = json.dumps(answer)
                         except Exception as exc:
                             logger.exception(f"[{msg_id}] LLM call failed for returning the relevant clauses")
-                            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc 
+                            raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
             elif category == "3":
-                body_prompt = generate_prompt(
-                    content, queryText, RISK_MITIGATION_PROMPT
-                )
+                body_prompt = generate_prompt(content, queryText, RISK_MITIGATION_PROMPT)
             # elif category == "4":
             #     body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
             else:
@@ -289,13 +260,9 @@ async def generate_summary(
             logger.debug(f"[{msg_id}] Prompt built for LLM.")
         except Exception as exc:
             logger.exception(f"[{msg_id}] Failed to generate body prompt")
-            raise HTTPException(
-                500, f"Prompt generation failed: {exc}"
-            ) from exc
+            raise HTTPException(500, f"Prompt generation failed: {exc}") from exc
         full_prompt = f"{history_block}{body_prompt}"
-        logger.debug(
-            f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}"
-        )
+        logger.debug(f"[{msg_id}] Final prompt constructed (truncated):\n{full_prompt[:1000]}")
         if category in ("4"):
             raw_answer, payload = get_category4(msg_id, full_prompt)
             if payload is None:
@@ -323,22 +290,14 @@ async def generate_summary(
                 # answer.setdefault("differences", [])
                 logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
         else:
-            if not isinstance(
-                answer, (RiskAssessmentAnswer, RiskAssessmentResponse)
-            ) and not isinstance(answer, dict):
-                current_ans_text = (
-                    raw_answer
-                    if raw_answer
-                    else "Response for this category is being processed."
-                )
+            if not isinstance(answer, (RiskAssessmentAnswer, RiskAssessmentResponse)) and not isinstance(answer, dict):
+                current_ans_text = raw_answer if raw_answer else "Response for this category is being processed."
                 answer = _wrap_plain(current_ans_text)
 
             # logger.info("User requires Risk mitigation strategies")
         # Step 8: Fallback if response is irrelevant
         if IRRELEVANT in answer.get("ans") or "3" in category:
-            logger.warning(
-                f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback"
-            )
+            logger.warning(f"[{msg_id}] Detected IRRELEVANT content or risk mitigation, trying KB fallback")
             ##TODO:kgnp684 change the limit.
             if len(full_prompt) > 18000:
                 llm_resp = ChatBedrock(model_id=MODEL_ID).invoke(
@@ -355,9 +314,7 @@ async def generate_summary(
                 answer = (
                     _wrap_plain(payload["response"])
                     if payload and "response" in payload
-                    else (
-                        _wrap_plain(raw_answer) if payload is None else payload
-                    )
+                    else (_wrap_plain(raw_answer) if payload is None else payload)
                 )
                 if isinstance(answer, dict):
                     answer.setdefault("similarities", [])
@@ -372,11 +329,7 @@ async def generate_summary(
     logger.debug(f"[{msg_id}] Updated and saved chat history")
 
     # Step 10: Build API response
-    feedback = Feedback(
-        feedbackDisplayOptions=FeedbackDisplayOptions(
-            thumbsUp="N", thumbsDown="N", feedbackText="N"
-        )
-    )
+    feedback = Feedback(feedbackDisplayOptions=FeedbackDisplayOptions(thumbsUp="N", thumbsDown="N", feedbackText="N"))
     result = Result(
         messageId=msg_id,
         answer=answer,
@@ -394,9 +347,7 @@ async def generate_summary(
     # Step 11: Store interaction
     if userId:
         now = datetime.datetime.now().isoformat()
-        file_loc = (
-            f"{BUCKET_CONTAINER}{folder_path}{file_name}" if file_name else ""
-        )
+        file_loc = f"{BUCKET_CONTAINER}{folder_path}{file_name}" if file_name else ""
         store_interaction(
             ChatInteraction(
                 UserId=userId,
@@ -424,6 +375,21 @@ async def generate_summary(
             )
         )
         logger.info(f"[{msg_id}] Interaction stored for userId={userId}")
+
+    # Log LLM interaction
+    log_llm_interaction(
+        message_id=msg_id,
+        user_id=request.user.id,
+        session_id=ui_session_id,
+        model_name=MODEL_ID,
+        input_token_count=input_tokens,
+        output_token_count=output_tokens,
+        price_per_token=price_per_token,
+        user_message=user_txt,
+        bot_response=answer,
+        start_time=start_time,
+        end_time=now,
+    )
 
     return api_resp
 
@@ -461,9 +427,7 @@ def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
                     f"Warning: Found an item in 'clauses' list that is not a dict or lacks a 'name' key: {clause_item}"
                 )
     else:
-        print(
-            "Warning: 'clauses' key not found in risk_rules or it's not a list."
-        )
+        print("Warning: 'clauses' key not found in risk_rules or it's not a list.")
     logger.info(f"Clauses in risk matrix: {clause_names}")
     return clause_names
 
@@ -472,23 +436,15 @@ def _get_session_file_from_s3(s3_client, bucket, user_id, session_id, msg_id):
     """Retrieves the latest file for a given session from S3."""
     prefix = f"contracts/{user_id}/{session_id}/"
     try:
-        response = s3_client.list_objects_v2(
-            Bucket=bucket, Prefix=prefix, MaxKeys=2
-        )
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=2)
         # Find the first actual file object, ignoring the "folder" placeholder
         file_object = next(
-            (
-                obj
-                for obj in response.get("Contents", [])
-                if obj["Key"] != prefix and obj["Size"] > 0
-            ),
+            (obj for obj in response.get("Contents", []) if obj["Key"] != prefix and obj["Size"] > 0),
             None,
         )
 
         if not file_object:
-            logger.info(
-                f"[{msg_id}] No existing file found in S3 at prefix: {prefix}"
-            )
+            logger.info(f"[{msg_id}] No existing file found in S3 at prefix: {prefix}")
             return None, None
 
         key = file_object["Key"]
@@ -497,20 +453,14 @@ def _get_session_file_from_s3(s3_client, bucket, user_id, session_id, msg_id):
 
         obj_response = s3_client.get_object(Bucket=bucket, Key=key)
         file_bytes = obj_response["Body"].read()
-        logger.info(
-            f"[{msg_id}] Successfully read {len(file_bytes)} bytes from S3 object: {key}"
-        )
+        logger.info(f"[{msg_id}] Successfully read {len(file_bytes)} bytes from S3 object: {key}")
         return file_bytes, file_name
 
     except ClientError as e:
-        logger.exception(
-            f"[{msg_id}] S3 ClientError retrieving session file from {prefix}"
-        )
+        logger.exception(f"[{msg_id}] S3 ClientError retrieving session file from {prefix}")
         raise HTTPException(500, "S3 error retrieving session file.") from e
     except Exception as e:
-        logger.exception(
-            f"[{msg_id}] Unexpected error retrieving session file from {prefix}"
-        )
+        logger.exception(f"[{msg_id}] Unexpected error retrieving session file from {prefix}")
         raise HTTPException(500, "Error retrieving session file.") from e
 
 
@@ -518,9 +468,7 @@ def _extract_content_from_bytes(file_bytes, file_name, msg_id):
     """Extracts text content from file bytes based on file type."""
     try:
         ftype = get_file_type(file_name)
-        logger.info(
-            f"[{msg_id}] Extracting content from: {file_name} (type: {ftype})"
-        )
+        logger.info(f"[{msg_id}] Extracting content from: {file_name} (type: {ftype})")
 
         if ftype == ".pdf":
             return extract_pdf_contents(file_bytes)
@@ -528,15 +476,9 @@ def _extract_content_from_bytes(file_bytes, file_name, msg_id):
             return extract_text_from_word(file_bytes)
 
         # Fallback for other file types (e.g., .txt) or unknown types
-        logger.warning(
-            f"[{msg_id}] Unsupported file type '{ftype}'. Attempting to decode as plain text."
-        )
+        logger.warning(f"[{msg_id}] Unsupported file type '{ftype}'. Attempting to decode as plain text.")
         return file_bytes.decode("utf-8", errors="replace")
 
     except Exception as exc:
-        logger.exception(
-            f"[{msg_id}] Failed to extract content from file: {file_name}"
-        )
-        raise HTTPException(
-            400, f"Failed to extract content from {file_name}: {exc}"
-        ) from exc
+        logger.exception(f"[{msg_id}] Failed to extract content from file: {file_name}")
+        raise HTTPException(400, f"Failed to extract content from {file_name}: {exc}") from exc
