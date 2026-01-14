@@ -35,8 +35,8 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
     retrieve_file_chunks,
     session_history,
     store_interaction,
-    log_llm_interaction,
 )
+from services.llm_interaction import log_llm_interaction
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
     extract_keywords_from_query,
