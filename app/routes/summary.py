@@ -56,6 +56,7 @@ from utils import (
     get_risk_matrix_details,
     prompt_query_cat,
 )
+from services.llm_metrics import put_llm_metrics
 
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
@@ -334,7 +335,7 @@ async def generate_summary(
     result = Result(
         messageId=msg_id,
         answer=answer,
-        transactionCount=transactionCount,
+        transactionCount=int(transactionCount) if transactionCount is not None else 0,
         feedback=feedback,
     )
     api_resp = QueryResponse(
@@ -393,6 +394,28 @@ async def generate_summary(
     )
 
     return api_resp
+
+
+@router.post("/test-metrics/")
+async def test_metrics():
+    put_llm_metrics(
+        message_id="api-test-message-001",
+        call_type="test",
+        payload={"test_field": "api_test_value"},
+        user_id="api-test-user",
+        session_id="api-test-session",
+        model_id="api-test-model",
+        kb_id="api-test-kb",
+        kb_path="/api/test/path",
+        latency_ms=456,
+        input_tokens=20,
+        output_tokens=8,
+        price_per_input_token=0.00001,
+        price_per_output_token=0.00002,
+        status="success",
+        error_message=None,
+    )
+    return {"status": "ok", "message": "Metric written to DynamoDB"}
 
 
 def extract_clause_names_from_risk_rules(risk_rules_input) -> list[str]:
