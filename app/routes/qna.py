@@ -53,6 +53,8 @@ from .constants import (
     SESSION_STATUS,
 )
 
+from services.llm_metrics import put_llm_metrics
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["QnA"], dependencies=[Depends(verify_token)])
 
@@ -223,6 +225,42 @@ def _get_session_chat_history(session_id: str) -> str:
         history_txt.replace("\n", " "),
     )
     return history_txt
+
+
+def log_test_metrics(
+    message_id,
+    user_id,
+    session_id,
+    model_id,
+    kb_id,
+    kb_path,
+    latency_ms,
+    input_tokens,
+    output_tokens,
+    price_per_input_token,
+    price_per_output_token,
+    status,
+    error_message,
+    payload=None,
+):
+    put_llm_metrics(
+        message_id=message_id,
+        call_type="qna-llm",
+        payload=payload or {},
+        user_id=user_id,
+        session_id=session_id,
+        model_id=model_id,
+        kb_id=kb_id,
+        kb_path=kb_path,
+        latency_ms=latency_ms,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        price_per_input_token=price_per_input_token,
+        price_per_output_token=price_per_output_token,
+        status=status,
+        error_message=error_message,
+    )
+    print(f"Logged LLM metric for message_id={message_id}")
 
 
 @router.post("/getqnaanswer/")
@@ -488,6 +526,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     end_time,
                     citations,
                 )
+                log_test_metrics(
+                    message_id=msg_id,
+                    user_id=request.user.id,
+                    session_id=ui_session_id,
+                    model_id="SONNET_45",
+                    kb_id=kb_id,
+                    kb_path=kb_path,
+                    latency_ms=0,
+                    input_tokens=0,
+                    output_tokens=0,
+                    price_per_input_token=0.00001,
+                    price_per_output_token=0.00002,
+                    status="success",
+                    error_message=None,
+                )
                 return QueryResponse(
                     status="success",
                     sessionId=ui_session_id,
@@ -681,6 +734,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 end_time,
                                 citations,
                             )
+                            log_test_metrics(
+                                message_id=msg_id,
+                                user_id=request.user.id,
+                                session_id=ui_session_id,
+                                model_id="SONNET_45",
+                                kb_id=kb_id,
+                                kb_path=kb_path,
+                                latency_ms=0,
+                                input_tokens=0,
+                                output_tokens=0,
+                                price_per_input_token=0.00001,
+                                price_per_output_token=0.00002,
+                                status="success",
+                                error_message=None,
+                            )
                             return QueryResponse(
                                 status="success",
                                 sessionId=ui_session_id,
@@ -735,6 +803,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             start_time,
                             end_time,
                             citations,
+                        )
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=0,
+                            input_tokens=0,
+                            output_tokens=0,
+                            price_per_input_token=0.00001,
+                            price_per_output_token=0.00002,
+                            status="success",
+                            error_message=None,
                         )
                         return QueryResponse(
                             status="success",
@@ -842,6 +925,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                         end_time,
                                         citations,
                                     )
+                                    log_test_metrics(
+                                        message_id=msg_id,
+                                        user_id=request.user.id,
+                                        session_id=ui_session_id,
+                                        model_id="SONNET_45",
+                                        kb_id=kb_id,
+                                        kb_path=kb_path,
+                                        latency_ms=0,
+                                        input_tokens=0,
+                                        output_tokens=0,
+                                        price_per_input_token=0.00001,
+                                        price_per_output_token=0.00002,
+                                        status="success",
+                                        error_message=None,
+                                    )
                                     return QueryResponse(
                                         status="success",
                                         sessionId=ui_session_id,
@@ -899,6 +997,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                     end_time,
                                     citations,
                                 )
+                                log_test_metrics(
+                                    message_id=msg_id,
+                                    user_id=request.user.id,
+                                    session_id=ui_session_id,
+                                    model_id="SONNET_45",
+                                    kb_id=kb_id,
+                                    kb_path=kb_path,
+                                    latency_ms=0,
+                                    input_tokens=0,
+                                    output_tokens=0,
+                                    price_per_input_token=0.00001,
+                                    price_per_output_token=0.00002,
+                                    status="success",
+                                    error_message=None,
+                                )
                                 return QueryResponse(
                                     status="success",
                                     sessionId=ui_session_id,
@@ -948,6 +1061,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 start_time,
                                 end_time,
                                 citations,
+                            )
+                            log_test_metrics(
+                                message_id=msg_id,
+                                user_id=request.user.id,
+                                session_id=ui_session_id,
+                                model_id="SONNET_45",
+                                kb_id=kb_id,
+                                kb_path=kb_path,
+                                latency_ms=0,
+                                input_tokens=0,
+                                output_tokens=0,
+                                price_per_input_token=0.00001,
+                                price_per_output_token=0.00002,
+                                status="success",
+                                error_message=None,
                             )
                             return QueryResponse(
                                 status="success",
@@ -999,6 +1127,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             end_time,
                             citations,
                         )
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=0,
+                            input_tokens=0,
+                            output_tokens=0,
+                            price_per_input_token=0.00001,
+                            price_per_output_token=0.00002,
+                            status="success",
+                            error_message=None,
+                        )
 
                         logger.info("520 ◀ exit ask_question SUCCESS")
 
@@ -1048,6 +1191,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             start_time,
                             end_time,
                             citations,
+                        )
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=0,
+                            input_tokens=0,
+                            output_tokens=0,
+                            price_per_input_token=0.00001,
+                            price_per_output_token=0.00002,
+                            status="success",
+                            error_message=None,
                         )
 
                         logger.info("520 ◀ exit ask_question SUCCESS")
