@@ -6,7 +6,6 @@ import os
 import threading
 import time
 import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Mapping
@@ -14,10 +13,10 @@ from typing import Any, Mapping
 import boto3
 from botocore.exceptions import ClientError
 
-# TODO(@kvnc639): Consider making the table name required in prod and failing fast if missing.
+# Table name for storing LLM metrics; defaults to a specific table if not set in env.
 METRICS_TABLE = os.getenv("LLM_METRICS_TABLE", "azcdi-us-ops-procure-llm-metrics-env")
 
-# TODO(@kvnc639) Keep these reserved so user payload can't clobber your schema.
+# Reserved keys to prevent user payload from overwriting schema fields.
 _RESERVED_KEYS = {
     "MessageId",
     "Timestamp",
@@ -56,30 +55,27 @@ def _get_table():
 
 
 def _utc_iso_now() -> str:
-    """UTC ISO-8601 timestamp (human-friendly)."""
+    """Return current UTC time as ISO-8601 string."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _make_sort_key(timestamp_iso: str) -> str:
-    """
-    Composite sort key: timestamp + random suffix.
-    Avoids PK/SK collisions across threads/processes without relying on monotonic clocks.
-    """
+    """Create a composite sort key using timestamp and a random suffix to avoid collisions."""
     return f"{timestamp_iso}#{uuid.uuid4().hex}"
 
 
 def _truncate(s: str | None, limit: int) -> str | None:
+    """Truncate a string to a given limit, or return None if input is None or empty."""
     if not s:
         return None
     return s if len(s) <= limit else s[:limit]
 
 
 def _to_dynamo(value: Any) -> Any:
-    """Convert values to DynamoDB-safe types recursively (floats -> Decimal)."""
+    """Recursively convert values to DynamoDB-safe types (floats -> Decimal)."""
     if value is None:
         return None
 
-    # DynamoDB uses Decimal for non-integer numbers
     if isinstance(value, float):
         return Decimal(str(value))
 
@@ -98,7 +94,7 @@ def _to_dynamo(value: Any) -> Any:
 
 
 def _clean_extra(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Remove reserved keys so payload can't overwrite the top-level schema."""
+    """Remove reserved keys from payload to prevent schema overwrite."""
     extra: dict[str, Any] = {}
     for k, v in payload.items():
         if k in _RESERVED_KEYS:
@@ -115,6 +111,7 @@ def _compute_total_cost(
     price_per_input_token: float | None,
     price_per_output_token: float | None,
 ) -> float | None:
+    """Compute total cost based on token counts and per-token prices."""
     if price_per_input_token is None and price_per_output_token is None:
         return None
     pit = float(price_per_input_token or 0.0)
@@ -143,23 +140,24 @@ def put_llm_metrics(
     """Write one LLM metrics record to DynamoDB."""
     table = _get_table()
 
+    # Use provided SpanId or generate a new one.
     span_id = payload.get("SpanId") or str(uuid.uuid4())
 
     in_tok = int(input_tokens or 0)
     out_tok = int(output_tokens or 0)
     tokens_available = (input_tokens is not None) or (output_tokens is not None)
 
-    total_cost = _compute_total_cost(in_tok, out_tok, price_per_input_token, price_per_output_token)
+    total_cost = _compute_total_cost(
+        in_tok, out_tok, price_per_input_token, price_per_output_token
+    )
 
     ts_iso = _utc_iso_now()
-    sk = _make_sort_key(ts_iso)
 
     item: dict[str, Any] = {
-        "MessageId": message_id,
-        "Timestamp": sk,  # sort key: timestamp#random
-        "TimestampIso": ts_iso,  # optional: easy to read / filter
+        "MessageId": message_id, # partition key
+        "Timestamp": ts_iso,  # sort key: timestamp
         "CallType": call_type,
-        "SpanId": span_id,
+        "SpanId": span_id, # Value to identify specific call span
         "UserId": user_id,
         "SessionId": session_id,
         "ModelId": model_id,
@@ -178,10 +176,10 @@ def put_llm_metrics(
         "Extra": _clean_extra(payload),
     }
 
+    # Remove None values and convert to DynamoDB-safe types.
     cleaned = _to_dynamo({k: v for k, v in item.items() if v is not None})
 
     # Retry transient AWS issues (throttling/network). No need to retry conditionals now.
-    # FIXME(@kvnc639): If you have a standard retry helper in the project, use it instead.
     for attempt in range(3):
         try:
             table.put_item(
@@ -193,14 +191,18 @@ def put_llm_metrics(
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "")
             if code == "ConditionalCheckFailedException":
-                # Should be extremely rare now; generate a new SK and try once more quickly.
+                # If collision, generate a new SK and try again quickly.
                 ts_iso = _utc_iso_now()
                 cleaned["Timestamp"] = _make_sort_key(ts_iso)
                 cleaned["TimestampIso"] = ts_iso
                 continue
 
-            # Common transient codes
-            if code in {"ProvisionedThroughputExceededException", "ThrottlingException", "RequestLimitExceeded"}:
+            # Handle common transient errors with exponential backoff.
+            if code in {
+                "ProvisionedThroughputExceededException",
+                "ThrottlingException",
+                "RequestLimitExceeded",
+            }:
                 time.sleep(0.05 * (2**attempt))
                 continue
 
