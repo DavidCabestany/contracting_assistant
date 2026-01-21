@@ -36,7 +36,6 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
     session_history,
     store_interaction,
 )
-from services.llm_interaction import log_llm_interaction
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
     extract_keywords_from_query,
@@ -241,12 +240,19 @@ def log_test_metrics(
     price_per_output_token,
     status,
     error_message,
+    span_id=None,  # <-- Optional, for convenience
     payload=None,
 ):
+    # Ensure span_id is in payload
+    payload = payload or {}
+    if span_id:
+        payload = dict(payload)  # copy to avoid mutating caller's dict
+        payload["SpanId"] = span_id
+
     put_llm_metrics(
         message_id=message_id,
         call_type="qna-llm",
-        payload=payload or {},
+        payload=payload,
         user_id=user_id,
         session_id=session_id,
         model_id=model_id,
@@ -260,7 +266,6 @@ def log_test_metrics(
         status=status,
         error_message=error_message,
     )
-    print(f"Logged LLM metric for message_id={message_id}")
 
 
 @router.post("/getqnaanswer/")
@@ -378,122 +383,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     ),
                 ),
             )
-        # CBU Lookup Commented
-        # prompt, history_txt, is_follow_up = (
-        #     _build_prompt_with_optional_history(
-        #         user_txt, tx_count, ui_session_id, files
-        #     )
-        # )
-        # if not is_follow_up and user_txt.lower() != "continue":
-        #     tab, topic = await db_tab_checker(user_txt)
-        #     tab_names = {
-        #         "general": "General Queries",
-        #         "alexion": "Alexion",
-        #         "privacy": "Privacy",
-        #         "rnd": "R&D",
-        #     }
-        #     selected_tab = kb_path
-        #     if tab != selected_tab:
-        #         logger.info(
-        #             "Tab mismatch: user in %s, LLM suggests %s (topic: %s) for query: %r",
-        #             tab_names.get(selected_tab, selected_tab),
-        #             tab_names.get(tab, tab),
-        #             topic,
-        #             user_txt,
-        #         )
-        #         confirmation_msg = (
-        #             f"The question you’re asking looks like it belongs to the {tab_names[tab]} tab "
-        #             f"(topic: {topic}), but you’re currently in {tab_names[selected_tab]}.\n"
-        #             "Please consider switching tabs and ask again.\n"
-        #         )
-        #         end_time = datetime.datetime.now().isoformat()
-        #         _store_chat_log(
-        #             request,
-        #             confirmation_msg,
-        #             msg_id,
-        #             ui_session_id,
-        #             start_time,
-        #             end_time,
-        #             citations=[],
-        #         )
-        #         return QueryResponse(
-        #             status="success",
-        #             sessionId=ui_session_id,
-        #             userQuery=user_txt,
-        #             result=Result(
-        #                 messageId=msg_id,
-        #                 answer=QnAAnswer(ans=confirmation_msg),
-        #                 transactionCount=tx_count,
-        #                 citations=[],
-        #                 feedback=Feedback(
-        #                     feedbackDisplayOptions=FeedbackDisplayOptions(
-        #                         thumbsUp="N", thumbsDown="N", feedbackText="N"
-        #                     )
-        #                 ),
-        #             ),
-        #         )
-
-        # else:
-        #     logger.info(
-        #         "User override: skipping tab check and continuing as requested."
-        #     )
-        # Proceed directly to QnA/answer logic using the current tab.
-
-        # # Step 3-b: TIA clarification and detection
-        # logger.info("085 ▶ Checking for TIA clarification")
-        # chat_history_list = [
-        #     msg["UserMessage"]
-        #     for msg in session_history(ui_session_id).get(ui_session_id, [])
-        #     if msg.get("UserMessage")
-        # ]
-        # # Only proceed with TIA logic if query is TIA-relevant
-        # if tia_trigger_initial_clarification(user_txt):
-        #     tia_clarification_text = tia_followup_user_query(
-        #         user_txt, int(tx_count), chat_history_list, ui_session_id
-        #     )
-
-        #     try:
-        #         if (
-        #             tia_clarification_text
-        #             and tia_clarification_text != "FINAL_RESPONSE_REQUIRED"
-        #         ):
-        #             logger.info(
-        #                 "[Clarification Needed] Skipping KB and responding with follow-up questions."
-        #             )
-        #             end_time = datetime.datetime.now().isoformat()
-        #             _store_chat_log(
-        #                 request,
-        #                 tia_clarification_text,
-        #                 msg_id,
-        #                 ui_session_id,
-        #                 start_time,
-        #                 end_time,
-        #                 citations=[],
-        #             )
-        #             return QueryResponse(
-        #                 status="success",
-        #                 sessionId=ui_session_id,
-        #                 userQuery=user_txt,
-        #                 result=Result(
-        #                     messageId=msg_id,
-        #                     answer=QnAAnswer(ans=tia_clarification_text),
-        #                     transactionCount=tx_count,
-        #                     citations=[],
-        #                     feedback=Feedback(
-        #                         feedbackDisplayOptions=FeedbackDisplayOptions(
-        #                             thumbsUp="N",
-        #                             thumbsDown="N",
-        #                             feedbackText="N",
-        #                         )
-        #                     ),
-        #                 ),
-        #             )
-        #     except Exception as e:
-        #         logger.warning(
-        #             "Clarification for TIA failed: %s",
-        #             e,
-        #         )
-        #     pass
 
         # Step 4: Prompt construction and follow-up detection
 
@@ -511,6 +400,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     session_id=bedrock_session_id,
                 )
                 answer = resp["output"]["text"]
+
+                # --- Extract token counts from Bedrock response ---
+                input_tokens = resp.get("usage", {}).get("input_tokens", 0)
+                output_tokens = resp.get("usage", {}).get("output_tokens", 0)
+                if input_tokens == 0 and "input_token_count" in resp:
+                    input_tokens = resp.get("input_token_count", 0)
+                if output_tokens == 0 and "output_token_count" in resp:
+                    output_tokens = resp.get("output_token_count", 0)
+                # --------------------------------------------------
 
                 citations = extract_file_locations(resp, allowed_files=files if files else None)
                 _bedrock_sessions[ui_session_id] = resp["sessionId"]
@@ -531,13 +429,14 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     user_id=request.user.id,
                     session_id=ui_session_id,
                     model_id="SONNET_45",
+                    span_id="Prioritized Doc Answer",
                     kb_id=kb_id,
                     kb_path=kb_path,
                     latency_ms=0,
-                    input_tokens=0,
-                    output_tokens=0,
-                    price_per_input_token=0.00001,
-                    price_per_output_token=0.00002,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    price_per_input_token=1,
+                    price_per_output_token=2,
                     status="success",
                     error_message=None,
                 )
@@ -659,578 +558,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             resp = None
             excluded = ["database", "standard", "standards", "backend"]
 
-            # Step 5: Main flow – If it's a follow-up
-            if is_follow_up:
-                logger.info("110 ▶ is_follow_up detected")
-                if files:
-                    try:
-                        logger.info("111 ▶ Follow-up with files: Retrieving KB content")
-
-                        kb_path = get_knowledge_base_folder(detected_unit)
-                        kb_id = get_knowledge_base_id(detected_unit)
-
-                        all_chunks = []
-
-                        limited_files = files[:3]
-                        logger.info(
-                            "112 ▶ Retrieving file contents for: %s",
-                            limited_files,
-                        )
-
-                        file_chunks_map = retrieve_file_chunks(
-                            kb_id=kb_id,
-                            documents=limited_files,
-                            kb_path=kb_path,
-                            query=first_user_msg,
-                        )
-
-                        for doc_name, file_text in file_chunks_map.items():
-                            if file_text:
-                                all_chunks.append(f"--- Content from {doc_name} ---\n{file_text}")
-                                print(
-                                    "✅ file text from",
-                                    doc_name,
-                                    ":",
-                                    file_text[:300],
-                                )
-
-                        kb_text = "\n\n".join(all_chunks).strip()
-
-                        if not kb_text:
-                            logger.warning("113 ⚠ No content extracted from files – will fallback.")
-                            augmented_prompt = AUGMENTED_PROMPT.format(
-                                history_txt=history_txt,
-                                user_txt=user_txt,
-                                kb_text=kb_text,
-                            )
-
-                            logger.info("114 ▶ Calling LLM with KB-augmented prompt")
-                            direct_resp = generate_answer_with_context(augmented_prompt)
-                            logger.debug("115 ▶ LLM raw response: %s", direct_resp)
-
-                            raw_content = direct_resp.get("content", [])
-                            if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
-                                answer = raw_content[0].get("text", "").strip()
-                                logger.info("116 ▶ Direct LLM answer retrieved with files")
-
-                            logger.info("117 ▶ Returning success response for follow-up with files")
-                            answer = re.split(r"\nUser:\s", answer)[0].strip()
-                            if is_invalid_response(answer):
-                                citations = []
-                            else:
-                                citations = retrieve_citations_from_query(
-                                    query=answer,
-                                    kb_id=kb_id,
-                                    kb_path=kb_path,
-                                    files=files,
-                                )
-                            end_time = datetime.datetime.now().isoformat()
-                            _store_chat_log(
-                                request,
-                                answer,
-                                msg_id,
-                                ui_session_id,
-                                start_time,
-                                end_time,
-                                citations,
-                            )
-                            log_test_metrics(
-                                message_id=msg_id,
-                                user_id=request.user.id,
-                                session_id=ui_session_id,
-                                model_id="SONNET_45",
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                latency_ms=0,
-                                input_tokens=0,
-                                output_tokens=0,
-                                price_per_input_token=0.00001,
-                                price_per_output_token=0.00002,
-                                status="success",
-                                error_message=None,
-                            )
-                            return QueryResponse(
-                                status="success",
-                                sessionId=ui_session_id,
-                                userQuery=user_txt,
-                                result=Result(
-                                    messageId=msg_id,
-                                    answer=QnAAnswer(ans=answer),
-                                    transactionCount=tx_count,
-                                    citations=citations,
-                                    feedback=Feedback(
-                                        feedbackDisplayOptions=FeedbackDisplayOptions(
-                                            thumbsUp="N",
-                                            thumbsDown="N",
-                                            feedbackText="N",
-                                        )
-                                    ),
-                                ),
-                            )
-
-                        augmented_prompt = AUGMENTED_PROMPT.format(
-                            history_txt=history_txt,
-                            user_txt=user_txt,
-                            kb_text=kb_text,
-                        )
-
-                        logger.info("114 ▶ Calling LLM with KB-augmented prompt")
-                        direct_resp = generate_answer_with_context(augmented_prompt)
-                        logger.debug("115 ▶ LLM raw response: %s", direct_resp)
-
-                        raw_content = direct_resp.get("content", [])
-                        if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
-                            answer = raw_content[0].get("text", "").strip()
-                            logger.info("116 ▶ Direct LLM answer retrieved with files")
-
-                        logger.info("117 ▶ Returning success response for follow-up with files")
-                        answer = re.split(r"\nUser:\s", answer)[0].strip()
-                        if is_invalid_response(answer):
-                            citations = []
-                        else:
-                            citations = retrieve_citations_from_query(
-                                query=answer,
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                files=files,
-                            )
-                        end_time = datetime.datetime.now().isoformat()
-                        _store_chat_log(
-                            request,
-                            answer,
-                            msg_id,
-                            ui_session_id,
-                            start_time,
-                            end_time,
-                            citations,
-                        )
-                        log_test_metrics(
-                            message_id=msg_id,
-                            user_id=request.user.id,
-                            session_id=ui_session_id,
-                            model_id="SONNET_45",
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            latency_ms=0,
-                            input_tokens=0,
-                            output_tokens=0,
-                            price_per_input_token=0.00001,
-                            price_per_output_token=0.00002,
-                            status="success",
-                            error_message=None,
-                        )
-                        return QueryResponse(
-                            status="success",
-                            sessionId=ui_session_id,
-                            userQuery=user_txt,
-                            result=Result(
-                                messageId=msg_id,
-                                answer=QnAAnswer(ans=answer),
-                                transactionCount=tx_count,
-                                citations=citations,
-                                feedback=Feedback(
-                                    feedbackDisplayOptions=FeedbackDisplayOptions(
-                                        thumbsUp="N",
-                                        thumbsDown="N",
-                                        feedbackText="N",
-                                    )
-                                ),
-                            ),
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "130 EXCEPTION: Direct LLM with KB context failed: %s",
-                            e,
-                        )
-                elif not files:
-                    logger.info("120 ▶ Follow-up with no files")
-                    check = (user_txt[:50] + user_txt[-50:]).lower()
-                    comparing = r"(compare( the (second )?clause)? (with|to) )"
-
-                    if re.search(comparing, check):
-                        if not any(term in check for term in excluded):
-                            logger.info(
-                                "121 ▶ User query is a comparison and no excluded terms found – fallback to PRIOR_DOC"
-                            )
-                            try:
-                                kb_path = get_knowledge_base_folder(detected_unit)
-                                kb_id = get_knowledge_base_id(detected_unit)
-
-                                all_chunks = []
-
-                                # Try retrieving the PRIOR_DOC fallback
-                                selected_doc = detect_prior_doc_from_query(user_txt)
-                                fallback_files = [selected_doc] if selected_doc != PRIOR_DOC else [PRIOR_DOC]
-                                logger.info(
-                                    "122 ▶ Fallback to file(s): %s",
-                                    fallback_files,
-                                )
-
-                                file_chunks_map = retrieve_file_chunks(
-                                    kb_id=kb_id,
-                                    documents=fallback_files,
-                                    kb_path=kb_path,
-                                    query=first_user_msg,
-                                )
-
-                                for (
-                                    doc_name,
-                                    file_text,
-                                ) in file_chunks_map.items():
-                                    if file_text:
-                                        all_chunks.append(f"--- Content from {doc_name} ---\n{file_text}")
-                                        print(
-                                            "✅ file text from",
-                                            doc_name,
-                                            ":",
-                                            file_text[:300],
-                                        )
-
-                                kb_text = "\n\n".join(all_chunks).strip()
-
-                                if not kb_text:
-                                    logger.warning("123 ⚠ No fallback KB content - will use unavailable template")
-                                    augmented_prompt = AUGMENTED_PROMPT.format(
-                                        history_txt=history_txt,
-                                        user_txt=user_txt,
-                                        kb_text=kb_text,
-                                    )
-
-                                    direct_resp = generate_answer_with_context(augmented_prompt)
-                                    raw_content = direct_resp.get("content", [])
-                                    if (
-                                        isinstance(raw_content, list)
-                                        and raw_content
-                                        and isinstance(raw_content[0], dict)
-                                    ):
-                                        answer = raw_content[0].get("text", "").strip()
-                                        logger.info("124 ▶ No KB content for compare – returning fallback LLM response")
-                                    answer = re.split(r"\nUser:\s", answer)[0].strip()
-                                    if is_invalid_response(answer):
-                                        citations = []
-                                    else:
-                                        citations = retrieve_citations_from_query(
-                                            query=answer,
-                                            kb_id=kb_id,
-                                            kb_path=kb_path,
-                                            files=files,
-                                        )
-                                    end_time = datetime.datetime.now().isoformat()
-                                    _store_chat_log(
-                                        request,
-                                        answer,
-                                        msg_id,
-                                        ui_session_id,
-                                        start_time,
-                                        end_time,
-                                        citations,
-                                    )
-                                    log_test_metrics(
-                                        message_id=msg_id,
-                                        user_id=request.user.id,
-                                        session_id=ui_session_id,
-                                        model_id="SONNET_45",
-                                        kb_id=kb_id,
-                                        kb_path=kb_path,
-                                        latency_ms=0,
-                                        input_tokens=0,
-                                        output_tokens=0,
-                                        price_per_input_token=0.00001,
-                                        price_per_output_token=0.00002,
-                                        status="success",
-                                        error_message=None,
-                                    )
-                                    return QueryResponse(
-                                        status="success",
-                                        sessionId=ui_session_id,
-                                        userQuery=user_txt,
-                                        result=Result(
-                                            messageId=msg_id,
-                                            answer=QnAAnswer(ans=answer),
-                                            transactionCount=tx_count,
-                                            citations=citations,
-                                            feedback=Feedback(
-                                                feedbackDisplayOptions=FeedbackDisplayOptions(
-                                                    thumbsUp="N",
-                                                    thumbsDown="N",
-                                                    feedbackText="N",
-                                                )
-                                            ),
-                                        ),
-                                    )
-
-                                augmented_prompt = AUGMENTED_PROMPT.format(
-                                    history_txt=history_txt,
-                                    user_txt=user_txt,
-                                    kb_text=kb_text,
-                                )
-
-                                logger.info("125 ▶ Calling LLM for compare fallback")
-                                direct_resp = generate_answer_with_context(augmented_prompt)
-                                logger.debug(
-                                    "126 ▶ Fallback LLM response: %s",
-                                    direct_resp,
-                                )
-
-                                raw_content = direct_resp.get("content", [])
-                                if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
-                                    answer = raw_content[0].get("text", "").strip()
-                                    logger.info("127 ▶ Fallback LLM answer retrieved")
-
-                                answer = re.split(r"\nUser:\s", answer)[0].strip()
-                                if is_invalid_response(answer):
-                                    citations = []
-                                else:
-                                    citations = retrieve_citations_from_query(
-                                        query=answer,
-                                        kb_id=kb_id,
-                                        kb_path=kb_path,
-                                        files=files,
-                                    )
-                                end_time = datetime.datetime.now().isoformat()
-                                _store_chat_log(
-                                    request,
-                                    answer,
-                                    msg_id,
-                                    ui_session_id,
-                                    start_time,
-                                    end_time,
-                                    citations,
-                                )
-                                log_test_metrics(
-                                    message_id=msg_id,
-                                    user_id=request.user.id,
-                                    session_id=ui_session_id,
-                                    model_id="SONNET_45",
-                                    kb_id=kb_id,
-                                    kb_path=kb_path,
-                                    latency_ms=0,
-                                    input_tokens=0,
-                                    output_tokens=0,
-                                    price_per_input_token=0.00001,
-                                    price_per_output_token=0.00002,
-                                    status="success",
-                                    error_message=None,
-                                )
-                                return QueryResponse(
-                                    status="success",
-                                    sessionId=ui_session_id,
-                                    userQuery=user_txt,
-                                    result=Result(
-                                        messageId=msg_id,
-                                        answer=QnAAnswer(ans=answer),
-                                        transactionCount=tx_count,
-                                        citations=citations,
-                                        feedback=Feedback(
-                                            feedbackDisplayOptions=FeedbackDisplayOptions(
-                                                thumbsUp="N",
-                                                thumbsDown="N",
-                                                feedbackText="N",
-                                            )
-                                        ),
-                                    ),
-                                )
-                            except Exception as e:
-                                logger.warning(
-                                    "128 ❌ Exception in fallback compare path: %s",
-                                    e,
-                                )
-                    elif any(term in check for term in excluded):
-                        try:
-                            logger.info("129 ▶ ELIF ANY - No files, excluded term found – using KB")
-                            resp = retrieve_and_generate(
-                                prompt,
-                                get_knowledge_base_id(detected_unit),
-                                session_id=bedrock_session_id,
-                                kb_path=kb_path,
-                            )
-                            answer = resp["output"]["text"]
-                            if is_invalid_response(answer):
-                                citations = []
-                            else:
-                                citations = extract_file_locations(
-                                    resp,
-                                    allowed_files=files if files else None,
-                                )
-                            end_time = datetime.datetime.now().isoformat()
-                            _store_chat_log(
-                                request,
-                                answer,
-                                msg_id,
-                                ui_session_id,
-                                start_time,
-                                end_time,
-                                citations,
-                            )
-                            log_test_metrics(
-                                message_id=msg_id,
-                                user_id=request.user.id,
-                                session_id=ui_session_id,
-                                model_id="SONNET_45",
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                latency_ms=0,
-                                input_tokens=0,
-                                output_tokens=0,
-                                price_per_input_token=0.00001,
-                                price_per_output_token=0.00002,
-                                status="success",
-                                error_message=None,
-                            )
-                            return QueryResponse(
-                                status="success",
-                                sessionId=ui_session_id,
-                                userQuery=user_txt,
-                                result=Result(
-                                    messageId=msg_id,
-                                    answer=QnAAnswer(ans=answer),
-                                    transactionCount=tx_count,
-                                    citations=citations,
-                                    feedback=Feedback(
-                                        feedbackDisplayOptions=FeedbackDisplayOptions(
-                                            thumbsUp="N",
-                                            thumbsDown="N",
-                                            feedbackText="N",
-                                        )
-                                    ),
-                                ),
-                            )
-
-                        except Exception as e:
-                            logger.warning("132 EXCEPTION:  Direct LLM failed: %s", e)
-                    elif "compare" in check:
-                        logger.info("129 ▶ ELIF COMPARE - No files, excluded term found – using direct LLM")
-                        direct_resp = generate_answer_with_context(prompt)
-                        logger.debug("130 ▶ LLM raw response: %s", direct_resp)
-                        raw_content = direct_resp.get("content", [])
-                        if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
-                            answer = raw_content[0].get("text", "").strip()
-                            logger.info("131 ▶ Direct LLM answer retrieved with excluded term")
-                        answer = re.split(r"\nUser:\s", answer)[0].strip()
-
-                        if is_invalid_response(answer):
-                            citations = []
-                        else:
-                            citations = retrieve_citations_from_query(
-                                query=answer,
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                files=files,
-                            )
-                        end_time = datetime.datetime.now().isoformat()
-                        _store_chat_log(
-                            request,
-                            answer,
-                            msg_id,
-                            ui_session_id,
-                            start_time,
-                            end_time,
-                            citations,
-                        )
-                        log_test_metrics(
-                            message_id=msg_id,
-                            user_id=request.user.id,
-                            session_id=ui_session_id,
-                            model_id="SONNET_45",
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            latency_ms=0,
-                            input_tokens=0,
-                            output_tokens=0,
-                            price_per_input_token=0.00001,
-                            price_per_output_token=0.00002,
-                            status="success",
-                            error_message=None,
-                        )
-
-                        logger.info("520 ◀ exit ask_question SUCCESS")
-
-                        return QueryResponse(
-                            status="success",
-                            sessionId=ui_session_id,
-                            userQuery=user_txt,
-                            result=Result(
-                                messageId=msg_id,
-                                answer=QnAAnswer(ans=answer),
-                                transactionCount=tx_count,
-                                citations=citations,
-                                feedback=Feedback(
-                                    feedbackDisplayOptions=FeedbackDisplayOptions(
-                                        thumbsUp="N",
-                                        thumbsDown="N",
-                                        feedbackText="N",
-                                    )
-                                ),
-                            ),
-                        )
-                    else:
-                        logger.info("Else, excluded term found – using direct LLM")
-                        direct_resp = generate_answer_with_context(prompt)
-                        logger.debug("130 ▶ LLM raw response: %s", direct_resp)
-                        raw_content = direct_resp.get("content", [])
-                        if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
-                            answer = raw_content[0].get("text", "").strip()
-                            logger.info("131 ▶ Direct LLM answer retrieved with excluded term")
-
-                        answer = re.split(r"\nUser:\s", answer)[0].strip()
-                        if is_invalid_response(answer):
-                            citations = []
-                        else:
-                            citations = retrieve_citations_from_query(
-                                query=answer,
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                files=files,
-                            )
-                        end_time = datetime.datetime.now().isoformat()
-                        _store_chat_log(
-                            request,
-                            answer,
-                            msg_id,
-                            ui_session_id,
-                            start_time,
-                            end_time,
-                            citations,
-                        )
-                        log_test_metrics(
-                            message_id=msg_id,
-                            user_id=request.user.id,
-                            session_id=ui_session_id,
-                            model_id="SONNET_45",
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            latency_ms=0,
-                            input_tokens=0,
-                            output_tokens=0,
-                            price_per_input_token=0.00001,
-                            price_per_output_token=0.00002,
-                            status="success",
-                            error_message=None,
-                        )
-
-                        logger.info("520 ◀ exit ask_question SUCCESS")
-
-                        return QueryResponse(
-                            status="success",
-                            sessionId=ui_session_id,
-                            userQuery=user_txt,
-                            result=Result(
-                                messageId=msg_id,
-                                answer=QnAAnswer(ans=answer),
-                                transactionCount=tx_count,
-                                citations=citations,
-                                feedback=Feedback(
-                                    feedbackDisplayOptions=FeedbackDisplayOptions(
-                                        thumbsUp="N",
-                                        thumbsDown="N",
-                                        feedbackText="N",
-                                    )
-                                ),
-                            ),
-                        )
-
             # Step 6: Not follow-up – If files, prioritize file-based retrieval
-            elif files:
+            if files:
                 logger.info("190 ▶ Not follow-up but files present – prioritized doc retrieval")
                 try:
                     resp = retrieve_and_generate_prioritized_doc(
@@ -1242,6 +571,15 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     )
                     answer = resp["output"]["text"]
 
+                    # --- Extract token counts from Bedrock response ---
+                    input_tokens = resp.get("usage", {}).get("input_tokens", 0)
+                    output_tokens = resp.get("usage", {}).get("output_tokens", 0)
+                    if input_tokens == 0 and "input_token_count" in resp:
+                        input_tokens = resp.get("input_token_count", 0)
+                    if output_tokens == 0 and "output_token_count" in resp:
+                        output_tokens = resp.get("output_token_count", 0)
+                    # --------------------------------------------------
+
                     if is_invalid_response(answer):
                         citations = []
                     else:
@@ -1249,6 +587,32 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     _bedrock_sessions[ui_session_id] = resp["sessionId"]
                     bedrock_session_id = resp["sessionId"]
                     logger.info("200 ▶ prioritized answer = %.100s", answer)
+                    end_time = datetime.datetime.now().isoformat()
+                    _store_chat_log(
+                        request,
+                        answer,
+                        msg_id,
+                        ui_session_id,
+                        start_time,
+                        end_time,
+                        citations,
+                    )
+                    log_test_metrics(
+                        message_id=msg_id,
+                        user_id=request.user.id,
+                        session_id=ui_session_id,
+                        model_id="SONNET_45",
+                        span_id="Prioritized Doc Answer",
+                        kb_id=kb_id,
+                        kb_path=kb_path,
+                        latency_ms=0,
+                        input_tokens=input_tokens,  # <--- use actual value
+                        output_tokens=output_tokens,  # <--- use actual value
+                        price_per_input_token=1,
+                        price_per_output_token=2,
+                        status="success",
+                        error_message=None,
+                    )
                 except Exception as e:
                     logger.warning("210 ⚠ prioritized retrieval failed: %s", e)
 
@@ -1271,6 +635,30 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 kb_path=kb_path,
                                 files=files,
                             )
+                    # --- Extract token counts from Bedrock response ---
+                    input_tokens = direct_resp.get("usage", {}).get("input_tokens", 0)
+                    output_tokens = direct_resp.get("usage", {}).get("output_tokens", 0)
+                    if input_tokens == 0 and "input_token_count" in direct_resp:
+                        input_tokens = direct_resp.get("input_token_count", 0)
+                    if output_tokens == 0 and "output_token_count" in direct_resp:
+                        output_tokens = direct_resp.get("output_token_count", 0)
+                    # --------------------------------------------------
+                    log_test_metrics(
+                        message_id=msg_id,
+                        user_id=request.user.id,
+                        session_id=ui_session_id,
+                        model_id="SONNET_45",
+                        span_id="Answer with context",
+                        kb_id=kb_id,
+                        kb_path=kb_path,
+                        latency_ms=0,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        price_per_input_token=1,
+                        price_per_output_token=2,
+                        status="success",
+                        error_message=None,
+                    )
                 except Exception as e:
                     logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
@@ -1306,6 +694,32 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             get_knowledge_base_id(detected_unit),
                             session_id=bedrock_session_id,
                             kb_path=kb_path,
+                        )
+                        # --- Extract token counts from Bedrock response ---
+                        input_tokens = resp.get("usage", {}).get("input_tokens")
+                        output_tokens = resp.get("usage", {}).get("output_tokens")
+                        if input_tokens == 0 and "input_token_count" in resp:
+                            input_tokens = resp.get("input_token_count")
+                        if output_tokens == 0 and "output_token_count" in resp:
+                            output_tokens = resp.get("output_token_count")
+                        # --------------------------------------------------
+                        print("Input tokens:", input_tokens)
+                        print("Output tokens:", output_tokens)
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            span_id="RAG Answer",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=0,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=1,
+                            price_per_output_token=2,
+                            status="success",
+                            error_message=None,
                         )
                 logger.info(
                     "306 ▶ Raw KB response (pre-citation extraction): %s",
@@ -1386,18 +800,21 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 citations,
             )
 
-            log_llm_interaction(
+            log_test_metrics(
                 message_id=msg_id,
                 user_id=request.user.id,
                 session_id=ui_session_id,
-                model_name=MODEL_ID,
-                input_token_count=input_tokens,
-                output_token_count=output_tokens,
-                price_per_token=price_per_token,
-                user_message=user_txt,
-                bot_response=answer,
-                start_time=start_time,
-                end_time=end_time,
+                model_id="SONNET_45",
+                span_id="Answer",
+                kb_id=kb_id,
+                kb_path=kb_path,
+                latency_ms=0,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                price_per_input_token=1,
+                price_per_output_token=2,
+                status="success",
+                error_message=None,
             )
 
             logger.info("520 ◀ exit ask_question SUCCESS")

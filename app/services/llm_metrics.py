@@ -12,10 +12,12 @@ from typing import Any, Mapping
 
 import boto3
 from botocore.exceptions import ClientError
+import dotenv
+
+dotenv.load_dotenv()
 
 # Table name for storing LLM metrics; defaults to a specific table if not set in env.
-METRICS_TABLE = os.getenv("LLM_METRICS_TABLE", "azcdi-us-ops-procure-llm-metrics-env")
-
+METRICS_TABLE = os.getenv("LLM_METRICS_TABLE")
 # Reserved keys to prevent user payload from overwriting schema fields.
 _RESERVED_KEYS = {
     "MessageId",
@@ -147,17 +149,15 @@ def put_llm_metrics(
     out_tok = int(output_tokens or 0)
     tokens_available = (input_tokens is not None) or (output_tokens is not None)
 
-    total_cost = _compute_total_cost(
-        in_tok, out_tok, price_per_input_token, price_per_output_token
-    )
+    total_cost = _compute_total_cost(in_tok, out_tok, price_per_input_token, price_per_output_token)
 
     ts_iso = _utc_iso_now()
 
     item: dict[str, Any] = {
-        "MessageId": message_id, # partition key
+        "MessageId": message_id,  # partition key
         "Timestamp": ts_iso,  # sort key: timestamp
         "CallType": call_type,
-        "SpanId": span_id, # Value to identify specific call span
+        "SpanId": span_id,  # Value to identify specific call span
         "UserId": user_id,
         "SessionId": session_id,
         "ModelId": model_id,
