@@ -35,6 +35,7 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
     retrieve_file_chunks,
     session_history,
     store_interaction,
+    extract_token_usage,
 )
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
@@ -401,29 +402,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
                 answer = resp["output"]["text"]
 
-                # --- Extract token counts from Bedrock response ---
-                input_tokens = resp.get("usage", {}).get("input_tokens", 0)
-                output_tokens = resp.get("usage", {}).get("output_tokens", 0)
-                if input_tokens == 0 and "input_token_count" in resp:
-                    input_tokens = resp.get("input_token_count", 0)
-                if output_tokens == 0 and "output_token_count" in resp:
-                    output_tokens = resp.get("output_token_count", 0)
-                # --------------------------------------------------
-
-                citations = extract_file_locations(resp, allowed_files=files if files else None)
-                _bedrock_sessions[ui_session_id] = resp["sessionId"]
-                bedrock_session_id = resp["sessionId"]
-                logger.info("200 ▶ prioritized answer = %.100s", answer)
-                end_time = datetime.datetime.now().isoformat()
-                _store_chat_log(
-                    request,
-                    answer,
-                    msg_id,
-                    ui_session_id,
-                    start_time,
-                    end_time,
-                    citations,
-                )
+                input_tokens, output_tokens = extract_token_usage(resp)
+                logger.info(f"[Prioritized Doc Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                 log_test_metrics(
                     message_id=msg_id,
                     user_id=request.user.id,
@@ -439,6 +419,40 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     price_per_output_token=2,
                     status="success",
                     error_message=None,
+                )
+                guardrail_action = resp.get("guardrailAction")
+                if guardrail_action:
+                    logger.info(f"[Guardrail] Action: {guardrail_action}")
+                    log_test_metrics(
+                        message_id=msg_id,
+                        user_id=request.user.id,
+                        session_id=ui_session_id,
+                        model_id="SONNET_45",
+                        span_id="Guardrail",
+                        kb_id=kb_id,
+                        kb_path=kb_path,
+                        latency_ms=0,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        price_per_input_token=1,
+                        price_per_output_token=2,
+                        status="guardrail",
+                        error_message=guardrail_action,
+                    )
+
+                citations = extract_file_locations(resp, allowed_files=files if files else None)
+                _bedrock_sessions[ui_session_id] = resp["sessionId"]
+                bedrock_session_id = resp["sessionId"]
+                logger.info("200 ▶ prioritized answer = %.100s", answer)
+                end_time = datetime.datetime.now().isoformat()
+                _store_chat_log(
+                    request,
+                    answer,
+                    msg_id,
+                    ui_session_id,
+                    start_time,
+                    end_time,
+                    citations,
                 )
                 return QueryResponse(
                     status="success",
@@ -562,6 +576,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             if files:
                 logger.info("190 ▶ Not follow-up but files present – prioritized doc retrieval")
                 try:
+                    logger.info(">>> Calling retrieve_and_generate_prioritized_doc")
                     resp = retrieve_and_generate_prioritized_doc(
                         prompt,
                         get_knowledge_base_id(request.query.knowledgeType),
@@ -571,14 +586,45 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     )
                     answer = resp["output"]["text"]
 
-                    # --- Extract token counts from Bedrock response ---
-                    input_tokens = resp.get("usage", {}).get("input_tokens", 0)
-                    output_tokens = resp.get("usage", {}).get("output_tokens", 0)
-                    if input_tokens == 0 and "input_token_count" in resp:
-                        input_tokens = resp.get("input_token_count", 0)
-                    if output_tokens == 0 and "output_token_count" in resp:
-                        output_tokens = resp.get("output_token_count", 0)
-                    # --------------------------------------------------
+                    input_tokens, output_tokens = extract_token_usage(resp)
+                    logger.info(
+                        f"[Prioritized Doc Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}"
+                    )
+                    log_test_metrics(
+                        message_id=msg_id,
+                        user_id=request.user.id,
+                        session_id=ui_session_id,
+                        model_id="SONNET_45",
+                        span_id="Prioritized Doc Answer",
+                        kb_id=kb_id,
+                        kb_path=kb_path,
+                        latency_ms=0,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        price_per_input_token=1,
+                        price_per_output_token=2,
+                        status="success",
+                        error_message=None,
+                    )
+                    guardrail_action = resp.get("guardrailAction")
+                    if guardrail_action:
+                        logger.info(f"[Guardrail] Action: {guardrail_action}")
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            span_id="Guardrail",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=0,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=1,
+                            price_per_output_token=2,
+                            status="guardrail",
+                            error_message=guardrail_action,
+                        )
 
                     if is_invalid_response(answer):
                         citations = []
@@ -597,22 +643,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         end_time,
                         citations,
                     )
-                    log_test_metrics(
-                        message_id=msg_id,
-                        user_id=request.user.id,
-                        session_id=ui_session_id,
-                        model_id="SONNET_45",
-                        span_id="Prioritized Doc Answer",
-                        kb_id=kb_id,
-                        kb_path=kb_path,
-                        latency_ms=0,
-                        input_tokens=input_tokens,  # <--- use actual value
-                        output_tokens=output_tokens,  # <--- use actual value
-                        price_per_input_token=1,
-                        price_per_output_token=2,
-                        status="success",
-                        error_message=None,
-                    )
                 except Exception as e:
                     logger.warning("210 ⚠ prioritized retrieval failed: %s", e)
 
@@ -620,6 +650,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             elif not files:
                 logger.info("220 ▶ Not follow-up and no files – using direct LLM")
                 try:
+                    logger.info(">>> Calling generate_answer_with_context")
                     direct_resp = generate_answer_with_context(prompt)
                     logger.debug("221 ▶ LLM raw response: %s", direct_resp)
                     raw_content = direct_resp.get("content", [])
@@ -636,13 +667,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 files=files,
                             )
                     # --- Extract token counts from Bedrock response ---
-                    input_tokens = direct_resp.get("usage", {}).get("input_tokens", 0)
-                    output_tokens = direct_resp.get("usage", {}).get("output_tokens", 0)
-                    if input_tokens == 0 and "input_token_count" in direct_resp:
-                        input_tokens = direct_resp.get("input_token_count", 0)
-                    if output_tokens == 0 and "output_token_count" in direct_resp:
-                        output_tokens = direct_resp.get("output_token_count", 0)
-                    # --------------------------------------------------
+                    input_tokens, output_tokens = extract_token_usage(direct_resp)
+                    logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                     log_test_metrics(
                         message_id=msg_id,
                         user_id=request.user.id,
@@ -659,6 +685,25 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         status="success",
                         error_message=None,
                     )
+                    guardrail_action = direct_resp.get("guardrailAction")
+                    if guardrail_action:
+                        logger.info(f"[Guardrail] Action: {guardrail_action}")
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            span_id="Guardrail",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=0,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=1,
+                            price_per_output_token=2,
+                            status="guardrail",
+                            error_message=guardrail_action,
+                        )
                 except Exception as e:
                     logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
@@ -679,6 +724,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         uri = hit.get("metadata", {}).get("x-amz-bedrock-kb-source-uri", "")
                         if PRIOR_DOC in uri:
                             logger.info("304 ▶ PRIOR_DOC matched in KB retrieval, using prioritized doc")
+                            logger.info(">>> Calling retrieve_and_generate_prioritized_doc")
                             resp = retrieve_and_generate_prioritized_doc(
                                 query=prompt,
                                 kb_id=get_knowledge_base_id(detected_unit),
@@ -689,6 +735,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             break
                     if not resp:
                         logger.info("305 ▶ No PRIOR_DOC found – using standard retrieve_and_generate")
+                        logger.info(">>> Calling retrieve_and_generate (RAG)")
                         resp = retrieve_and_generate(
                             prompt,
                             get_knowledge_base_id(detected_unit),
@@ -696,15 +743,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_path=kb_path,
                         )
                         # --- Extract token counts from Bedrock response ---
-                        input_tokens = resp.get("usage", {}).get("input_tokens")
-                        output_tokens = resp.get("usage", {}).get("output_tokens")
-                        if input_tokens == 0 and "input_token_count" in resp:
-                            input_tokens = resp.get("input_token_count")
-                        if output_tokens == 0 and "output_token_count" in resp:
-                            output_tokens = resp.get("output_token_count")
-                        # --------------------------------------------------
-                        print("Input tokens:", input_tokens)
-                        print("Output tokens:", output_tokens)
+                        input_tokens, output_tokens = extract_token_usage(resp)
+                        logger.info(f"[RAG Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                         log_test_metrics(
                             message_id=msg_id,
                             user_id=request.user.id,
@@ -721,6 +761,25 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             status="success",
                             error_message=None,
                         )
+                        guardrail_action = resp.get("guardrailAction")
+                        if guardrail_action:
+                            logger.info(f"[Guardrail] Action: {guardrail_action}")
+                            log_test_metrics(
+                                message_id=msg_id,
+                                user_id=request.user.id,
+                                session_id=ui_session_id,
+                                model_id="SONNET_45",
+                                span_id="Guardrail",
+                                kb_id=kb_id,
+                                kb_path=kb_path,
+                                latency_ms=0,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                price_per_input_token=1,
+                                price_per_output_token=2,
+                                status="guardrail",
+                                error_message=guardrail_action,
+                            )
                 logger.info(
                     "306 ▶ Raw KB response (pre-citation extraction): %s",
                     json.dumps(resp, indent=2),

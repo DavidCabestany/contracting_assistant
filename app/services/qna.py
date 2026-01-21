@@ -126,9 +126,7 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     def keyword_in_text(keyword: str, text: str) -> bool:
         if keyword.lower() in {"cro", "cros", "gcp"}:
             pattern = rf"\b{re.escape(keyword)}\b"
-            return bool(
-                re.search(pattern, text, flags=re.IGNORECASE | re.ASCII)
-            )
+            return bool(re.search(pattern, text, flags=re.IGNORECASE | re.ASCII))
         return keyword.lower() in text.lower()
 
     if any(keyword_in_text(keyword, query_lc) for keyword in gcp_keywords):
@@ -137,10 +135,13 @@ def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
                 if gcp_file not in matched_files:
                     matched_files.append(gcp_file)
 
-    addendum_keywords = [
-        "addendum"
+    addendum_keywords = ["addendum"]
+    addendum_files = [
+        "California Consumer Privacy Act Addendum to DPA.pdf",
+        "SCCs_Module_1_C2C+_Exhibit_Y_+_Addendums.pdf",
+        "SCCs_Module_2_C2P_+_Exibit_Y_+_Addendums.pdf",
+        "SCCs_Module_4_P2C_+_Exhibit_Y_+_Addendums.pdf",
     ]
-    addendum_files = ["California Consumer Privacy Act Addendum to DPA.pdf", "SCCs_Module_1_C2C+_Exhibit_Y_+_Addendums.pdf","SCCs_Module_2_C2P_+_Exibit_Y_+_Addendums.pdf","SCCs_Module_4_P2C_+_Exhibit_Y_+_Addendums.pdf"]
     if any(keyword in query_lc for keyword in addendum_keywords):
         for addendum_file in addendum_files:
             if addendum_file in known_files and known_files[addendum_file] == kb_path:
@@ -222,9 +223,7 @@ def is_high_priority_query(query: str, category: str) -> bool:
     """Check if teh initial user query is part of the standard queries."""
     normalized_query = query.lower().strip()
     normalized_category = category.strip().title()
-    return normalized_query in HIGH_PRIORITY_QUERIES.get(
-        normalized_category, set()
-    )
+    return normalized_query in HIGH_PRIORITY_QUERIES.get(normalized_category, set())
 
 
 def detect_prior_doc_from_query(query: str) -> str:
@@ -245,9 +244,7 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
     Returns:
         dict: Parsed JSON result from Bedrock's model invocation.
     """
-    logger.info(
-        "[Checkpoint] Step 1: Building request body for Bedrock model..."
-    )
+    logger.info("[Checkpoint] Step 1: Building request body for Bedrock model...")
 
     style_prompt = """
         When generating your response, maintain a clear, professional, and direct tone. Strictly avoid the comenting.
@@ -265,9 +262,7 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
         {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": QNA_MAX_TOKENS_VALUE,
-            "messages": [
-                {"role": "user", "content": style_prompt + formatted_prompt}
-            ],
+            "messages": [{"role": "user", "content": style_prompt + formatted_prompt}],
         },
     )
     logger.info("[Checkpoint] Step 2: Invoking Bedrock model...")
@@ -311,11 +306,7 @@ def _render_prompt(user_query: str, base_prompt: str | None = None) -> str:
     Returns:
         str: A complete prompt ready for LLM ingestion.
     """
-    tmpl = (
-        base_prompt
-        if base_prompt is not None
-        else retrieve_template(user_query)
-    )
+    tmpl = base_prompt if base_prompt is not None else retrieve_template(user_query)
     tmpl = str(tmpl)
     tmpl += "\n\n%ADDITIONAL INSTRUCTIONS%:\nPlease treat suppliers and vendors as aliases in the chunks."
 
@@ -420,24 +411,21 @@ def retrieve_file_chunks(
             },
         }
         try:
-            response = bedrock_agent_runtime.retrieve_and_generate(
-            **request_body
-            )
+            response = bedrock_agent_runtime.retrieve_and_generate(**request_body)
             chunks = response.get("citations", [])
             # Sort by relevanceScore if present, descending
             logger.info("Retrieved %d chunks for %s", len(chunks), doc, "the chunks are", chunks)
             sorted_chunks = sorted(
-            chunks,
-            key=lambda c: c.get("relevanceScore", 0),
-            reverse=True,
+                chunks,
+                key=lambda c: c.get("relevanceScore", 0),
+                reverse=True,
             )
             # Limit to top 3 relevant chunks
             top_chunks = sorted_chunks[:3]
             file_text = "\n\n".join(
-            c["generatedResponsePart"]["textResponsePart"]["text"]
-            for c in top_chunks
-            if "generatedResponsePart" in c
-            and "textResponsePart" in c["generatedResponsePart"]
+                c["generatedResponsePart"]["textResponsePart"]["text"]
+                for c in top_chunks
+                if "generatedResponsePart" in c and "textResponsePart" in c["generatedResponsePart"]
             )
             file_contents[doc] = file_text.strip()
             logger.info("✅ File contents: %s", file_contents)
@@ -561,9 +549,7 @@ def retrieve_and_generate_prioritized_doc(
         prompt_text.replace("\n", " "),
     )
 
-    logger.info(
-        "Step 3 ▶ Resolving allowed file paths from input files: %s", files
-    )
+    logger.info("Step 3 ▶ Resolving allowed file paths from input files: %s", files)
     allowed_paths = add_prefix(files, BUCKET_CONTAINER, knowledge_base_folder)
     logger.info("Step 4 ▶ Allowed S3 paths: %s", allowed_paths)
 
@@ -600,9 +586,7 @@ def retrieve_and_generate_prioritized_doc(
     logger.info("Step 6 ▶ Final request payload ready for Bedrock call.")
     try:
         response = bedrock_agent_runtime.retrieve_and_generate(**request_body)
-        logger.info(
-            "EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESSFUL call"
-        )
+        logger.info("EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESSFUL call")
         if not response or not isinstance(response, dict):
             raise ValueError("Empty or invalid Bedrock response.")
         return response
@@ -653,248 +637,36 @@ def retrieve_citations_from_query(
     return citations
 
 
-# ## TIA Clarification
-# # Triggers and Clarification Questions
-# TIA_PRIMARY_CLARIFICATION_TRIGGERS = {
-#     "TIA",
-#     "Tia assessment",
-#     "tia",
-#     "Transfer Impact Assessment",
-#     "Exhibit",
-#     "exhibit",
-#     "Agreement",
-#     "agreement",
-# }
-# TIA_SECONDARY_CONTEXTUAL_KEYWORDS = {
-#     "vendor",
-#     "institution",
-#     "location",
-#     "database",
-#     "clinical trial",
-#     "clinical trials",
-#     "medical communication",
-#     "Medical Communications",
-#     "publications",
-#     "UK",
-#     "EU",
-# }
+def extract_token_usage(resp):
+    """Extract input/output token counts from any LLM response dict."""
+    input_tokens = 0
+    output_tokens = 0
 
-# # -------------------------
-# # CLARIFICATION LOGIC
-# # -------------------------
-
-
-# def tia_trigger_initial_clarification(query: str) -> bool:
-#     """Determines if the user query contains any initial trigger keywords requiring clarification.
-
-#     Args:
-#         query (str): The user's input query string.
-
-#     Returns:
-#         bool: True if any initial trigger keywords from the question map are found in the query,
-#               indicating that clarification questions should be asked; False otherwise.
-#     """
-#     q = query.lower()
-#     primary_hits = sum(
-#         1
-#         for word in map(str.lower, TIA_PRIMARY_CLARIFICATION_TRIGGERS)
-#         if word in q
-#     )
-#     secondary_hits = sum(
-#         1
-#         for word in map(str.lower, TIA_SECONDARY_CONTEXTUAL_KEYWORDS)
-#         if word in q
-#     )
-#     logger.info(
-#         f"[Trigger Check] Primary hits: {primary_hits}, Secondary hits: {secondary_hits}"
-#     )
-#     return primary_hits >= 2 and secondary_hits >= 2
-
-
-# def detect_present_keywords_for_tia(text: str) -> set[str]:
-#     """Detects which predefined keyword categories are present in the input text.
-
-#     Args:
-#         text (str): The input string to analyze.
-
-#     Returns:
-#         set[str]: A set of keys from FOLLOWUP_KEYWORDS that were detected in the text.
-#     """
-#     text = text.lower()
-#     found = set()
-#     for key, keywords in TIA_FOLLOWUP_KEYWORDS.items():
-#         if any(kw in text for kw in keywords):
-#             found.add(key)
-#     logger.info(f"[Keyword Detection] Found fields: {found}")
-#     return found
-
-
-# def detect_missing_keywords_for_tia(context_text: str) -> list[str]:
-#     """Identifies which required keyword categories are missing from the context text.
-
-#     Args:
-#         context_text (str): The text containing accumulated user input and chat context.
-
-#     Returns:
-#         list[str]: A list of questions (from QUESTION_MAP) that correspond to missing keyword categories.
-#     """
-#     context_lc = context_text.lower()
-#     missing = []
-#     for key, words in TIA_FOLLOWUP_KEYWORDS.items():
-#         if key not in QUESTION_MAP:
-#             continue  # ← avoid KeyError by skipping unmapped keys
-#         if not any(word in context_lc for word in words):
-#             missing.append(QUESTION_MAP[key])
-#     logger.info(f"[Missing Keywords] → {missing}")
-#     return missing
-
-
-# def fallback_final_answer_for_tia(context_text: str) -> str:
-#     """Generates a final fallback answer based on keywords found in the context text.
-
-#     If the context contains sufficient detail about data transfer, returns a definitive
-#     answer about the need for a Transfer Impact Assessment (TIA). Otherwise, requests
-#     additional information.
-
-#     Args:
-#         context_text (str): The full context accumulated from the chat.
-
-#     Returns:
-#         str: A final answer or a request for additional clarification.
-#     """
-#     context = context_text.lower()
-#     if all(
-#         term in context
-#         for term in ["clinical", "patient", "vendor", "on our behalf"]
-#     ):
-#         if "outside" in context or "international" in context:
-#             return "Yes, a Transfer Impact Assessment (TIA) is required because data is being transferred outside the UK or EU."
-#         return (
-#             "A TIA is not required as long as data stays within the UK or EU. "
-#             "Ensure a Data Processing Agreement is still in place."
-#         )
-#     return (
-#         "To answer your question correctly, I need more information:\n"
-#         + "\n".join(
-#             "- " + q for q in detect_missing_keywords_for_tia(context)[:2]
-#         )
-#     )
-
-
-# session_context_memory = defaultdict(set)
-# REQUIRED_KEYS = set(TIA_FOLLOWUP_KEYWORDS.keys())
-
-
-# def build_clarification_prompt_for_tia(
-#     all_user_msgs: list[str], all_bot_msgs: list[str], session_id: str
-# ) -> str:
-#     """Builds a prompt for the LLM to process based on accumulated user and assistant interactions.
-
-#     Args:
-#         all_user_msgs (list[str]): A list of all user messages in the session.
-#         all_bot_msgs (list[str]): A list of all bot messages in the session.
-#         session_id (str): The unique session identifier.
-
-#     Returns:
-#         str: A formatted prompt detailing context and instructions for the LLM.
-#     """
-#     # Construct the history block for the entire conversation
-#     history_block = "\n".join(all_user_msgs + all_bot_msgs)
-
-#     # Update session context with detected keywords
-#     current_context = session_context_memory[session_id]
-#     detected_keywords = detect_present_keywords_for_tia(history_block)
-#     current_context.update(detected_keywords)
-
-#     # Determine missing keywords for the current context
-#     missing_questions = detect_missing_keywords_for_tia(history_block)
-
-#     # Compile the LLM prompt with context and instructions
-#     prompt = f"""
-#     You are a Legal/Contract Assistant specializing in Transfer Impact Assessments (TIAs).
-
-#     Below is the full context of the discussion between the user and assistant. Your primary goal is to synthesize this context
-#     to determine if further clarification is needed or if a final response can be provided.
-
-#     Context:
-#     {history_block}
-
-#     Instructions:
-#     - Use the accumulated session context to inform your response.
-#     - Avoid asking any questions already answered in previous interactions.
-#     - If all of the following are clearly answered:
-#       * Type of data
-#       * Flow of data (shared/received)
-#       * Role of vendor
-#       * Purpose of processing
-#       * Vendor identity
-#       * Location of data
-#     Then return: FINAL_RESPONSE_REQUIRED.
-
-#     - If some aspects are still unclear, ask 1–2 missing clarification questions from: {missing_questions}.
-#     - Ensure the conversation is cohesive and contextually coherent.
-
-#     Your response should seamlessly continue the current conversation without unnecessary repetition.
-#     """.strip()
-
-#     return prompt
-
-
-# def tia_followup_user_query(
-#     user_query: str, tx_count: int, chat_history: list[str], session_id: str
-# ) -> str:
-#     """Processes a user query in the context of a TIA-related session.
-
-#     This function manages user interactions by processing queries related to
-#     Transfer Impact Assessments (TIAs). It determines whether additional
-#     clarification is needed or if a final response can be issued, based on
-#     session-specific context and past interactions.
-
-#     Args:
-#         user_query: The current query provided by the user as a string.
-#         tx_count: An integer representing the number of interactions in the
-#             current session.
-#         chat_history: A list of strings representing prior messages exchanged
-#             between the user and the assistant in the session.
-#         session_id: A string uniquely identifying the session for context tracking.
-
-#     Returns:
-#         A string containing either a request for additional clarification or a
-#         final response to the user's query, depending on the sufficiency of
-#         the gathered information.
-#     """
-#     logger.info(f"[Follow-up Detected] TX={tx_count}, Session={session_id}")
-
-#     all_user_msgs = [
-#         msg for i, msg in enumerate(chat_history) if i % 2 == 0
-#     ] + [user_query]
-#     all_bot_msgs = [msg for i, msg in enumerate(chat_history) if i % 2 == 1]
-
-#     context_block = "\n".join(all_user_msgs + all_bot_msgs)
-
-#     detected = detect_present_keywords_for_tia(context_block)
-#     session_context_memory[session_id].update(detected)
-
-#     missing = detect_missing_keywords_for_tia(context_block)
-
-#     if tx_count == 0 and tia_trigger_initial_clarification(user_query):
-#         logger.info("]Trigger Fired] Asking for initial clarification set")
-#         if len(missing) == 0:
-#             return FINAL_RESPONSE_REQUIRED
-#         return (
-#             "To answer your question correctly, I need more information:\n"
-#             + "\n".join(f"- {q}" for q in missing[:2])
-#         )
-
-#     if tx_count < 3:
-#         if not missing:
-#             logger.info("[Clarification Complete] All required fields found")
-#             return FINAL_RESPONSE_REQUIRED
-#         logger.info(f"[Follow-up] Still missing fields → {missing}")
-#         return (
-#             "To answer your question correctly, I need more information:\n"
-#             + "\n".join(f"- {q}" for q in missing[:2])
-#         )
-
-#     logger.info("[TX >= 3] Fallback final answer logic triggered")
-#     return fallback_final_answer_for_tia(context_block)
+    # Standard Bedrock/Anthropic style
+    if isinstance(resp, dict):
+        usage = resp.get("usage", {})
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
+        # Alternate keys
+        if not input_tokens:
+            input_tokens = resp.get("input_token_count", 0)
+        if not output_tokens:
+            output_tokens = resp.get("output_token_count", 0)
+        # Sometimes tokens are inside citations or output
+        if not input_tokens or not output_tokens:
+            if "citations" in resp and isinstance(resp["citations"], list):
+                for c in resp["citations"]:
+                    ut = c.get("input_tokens") or c.get("input_token_count")
+                    ot = c.get("output_tokens") or c.get("output_token_count")
+                    if ut:
+                        input_tokens = ut
+                    if ot:
+                        output_tokens = ot
+            if "output" in resp and isinstance(resp["output"], dict):
+                ut = resp["output"].get("input_tokens") or resp["output"].get("input_token_count")
+                ot = resp["output"].get("output_tokens") or resp["output"].get("output_token_count")
+                if ut:
+                    input_tokens = ut
+                if ot:
+                    output_tokens = ot
+    return input_tokens, output_tokens

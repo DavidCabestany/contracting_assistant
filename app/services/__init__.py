@@ -25,6 +25,7 @@ from .qna import (  # tia_followup_user_query,; tia_trigger_initial_clarificatio
     retrieve_and_generate_prioritized_doc,
     retrieve_citations_from_query,
     retrieve_file_chunks,
+    extract_token_usage,
 )
 from .templates import retrieve_template
 
@@ -56,6 +57,7 @@ __all__ = [
     "detect_missing_keywords_for_tia",
     "fallback_final_answer_for_tia",
     "build_clarification_prompt_for_tia",
+    "extract_token_usage",
     # chat history
     "store_interaction",
     "session_history",
