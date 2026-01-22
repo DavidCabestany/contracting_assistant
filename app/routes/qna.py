@@ -412,42 +412,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
                 # Always use estimated input tokens, try to extract output tokens
                 _, output_tokens = extract_token_usage(resp)
-                logger.info(f"[Prioritized Doc Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
-                log_test_metrics(
-                    message_id=msg_id,
-                    user_id=request.user.id,
-                    session_id=ui_session_id,
-                    model_id="SONNET_45",
-                    span_id="Prioritized Doc Answer",
-                    kb_id=kb_id,
-                    kb_path=kb_path,
-                    latency_ms=0,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    price_per_input_token=(0.003 / 1000),
-                    price_per_output_token=(0.015 / 1000),
-                    status="success",
-                    error_message=None,
-                )
                 guardrail_action = resp.get("guardrailAction")
                 if guardrail_action:
                     logger.info(f"[Guardrail] Action: {guardrail_action}")
-                    log_test_metrics(
-                        message_id=msg_id,
-                        user_id=request.user.id,
-                        session_id=ui_session_id,
-                        model_id="SONNET_45",
-                        span_id="Guardrail",
-                        kb_id=kb_id,
-                        kb_path=kb_path,
-                        latency_ms=0,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
-                        price_per_input_token=(0.003 / 1000),
-                        price_per_output_token=(0.015 / 1000),
-                        status="guardrail",
-                        error_message=guardrail_action,
-                    )
 
                 citations = extract_file_locations(resp, allowed_files=files if files else None)
                 _bedrock_sessions[ui_session_id] = resp["sessionId"]
@@ -598,44 +565,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     )
                     answer = resp["output"]["text"]
 
-                    # Always use estimated input tokens, try to extract output tokens
-                    _, output_tokens = extract_token_usage(resp)
-                    logger.info(f"[Prioritized Doc Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
-                    log_test_metrics(
-                        message_id=msg_id,
-                        user_id=request.user.id,
-                        session_id=ui_session_id,
-                        model_id="SONNET_45",
-                        span_id="Prioritized Doc Answer",
-                        kb_id=kb_id,
-                        kb_path=kb_path,
-                        latency_ms=0,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
-                        price_per_input_token=(0.003 / 1000),
-                        price_per_output_token=(0.015 / 1000),
-                        status="success",
-                        error_message=None,
-                    )
                     guardrail_action = resp.get("guardrailAction")
                     if guardrail_action:
                         logger.info(f"[Guardrail] Action: {guardrail_action}")
-                        log_test_metrics(
-                            message_id=msg_id,
-                            user_id=request.user.id,
-                            session_id=ui_session_id,
-                            model_id="SONNET_45",
-                            span_id="Guardrail",
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            latency_ms=0,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            price_per_input_token=(0.003 / 1000),
-                            price_per_output_token=(0.015 / 1000),
-                            status="guardrail",
-                            error_message=guardrail_action,
-                        )
 
                     if is_invalid_response(answer):
                         citations = []
@@ -700,22 +632,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     guardrail_action = direct_resp.get("guardrailAction")
                     if guardrail_action:
                         logger.info(f"[Guardrail] Action: {guardrail_action}")
-                        log_test_metrics(
-                            message_id=msg_id,
-                            user_id=request.user.id,
-                            session_id=ui_session_id,
-                            model_id="SONNET_45",
-                            span_id="Guardrail",
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            latency_ms=0,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            price_per_input_token=(0.003 / 1000),
-                            price_per_output_token=(0.015 / 1000),
-                            status="guardrail",
-                            error_message=guardrail_action,
-                        )
                 except Exception as e:
                     logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
@@ -754,44 +670,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             session_id=bedrock_session_id,
                             kb_path=kb_path,
                         )
-                        # Always use estimated input tokens, try to extract output tokens
-                        _, output_tokens = extract_token_usage(resp)
-                        logger.info(f"[RAG Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
-                        log_test_metrics(
-                            message_id=msg_id,
-                            user_id=request.user.id,
-                            session_id=ui_session_id,
-                            model_id="SONNET_45",
-                            span_id="RAG Answer",
-                            kb_id=kb_id,
-                            kb_path=kb_path,
-                            latency_ms=0,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            price_per_input_token=(0.003 / 1000),
-                            price_per_output_token=(0.015 / 1000),
-                            status="success",
-                            error_message=None,
-                        )
                         guardrail_action = resp.get("guardrailAction")
                         if guardrail_action:
                             logger.info(f"[Guardrail] Action: {guardrail_action}")
-                            log_test_metrics(
-                                message_id=msg_id,
-                                user_id=request.user.id,
-                                session_id=ui_session_id,
-                                model_id="SONNET_45",
-                                span_id="Guardrail",
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                latency_ms=0,
-                                input_tokens=input_tokens,
-                                output_tokens=output_tokens,
-                                price_per_input_token=(0.003 / 1000),
-                                price_per_output_token=(0.015 / 1000),
-                                status="guardrail",
-                                error_message=guardrail_action,
-                            )
                 logger.info(
                     "306 ▶ Raw KB response (pre-citation extraction): %s",
                     json.dumps(resp, indent=2),
@@ -869,24 +750,6 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 start_time,
                 end_time,
                 citations,
-            )
-
-            # Always use estimated input tokens for final metrics
-            log_test_metrics(
-                message_id=msg_id,
-                user_id=request.user.id,
-                session_id=ui_session_id,
-                model_id="SONNET_45",
-                span_id="Final",
-                kb_id=kb_id,
-                kb_path=kb_path,
-                latency_ms=0,
-                input_tokens=input_tokens,
-                output_tokens=None,
-                price_per_input_token=(0.003 / 1000),
-                price_per_output_token=(0.015 / 1000),
-                status="success",
-                error_message=None,
             )
 
             logger.info("520 ◀ exit ask_question SUCCESS")
