@@ -409,8 +409,8 @@ async def test_metrics():
         latency_ms=456,
         input_tokens=20,
         output_tokens=8,
-        price_per_input_token=0.00001,
-        price_per_output_token=0.00002,
+        price_per_input_token=(0.003/1000),
+        price_per_output_token=(0.015/1000),
         status="success",
         error_message=None,
     )

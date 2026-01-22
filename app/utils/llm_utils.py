@@ -21,7 +21,7 @@ from prompts import CLASSIFY_PROMPT, STYLE_PROMPT, TOPIC_CHECKER
 from pydantic import ValidationError
 
 from .constants import DOCS_DIR, HAIKU, MODEL_ID, SONNET_V1, SONNET_45
-
+from services.token_usage import extract_token_usage
 logger = logging.getLogger(__name__)
 
 # Lightweight model for fast classification and keyword extraction
@@ -54,28 +54,28 @@ cleaner_llm = ChatBedrock(
     model_kwargs={"temperature": 0},
 )
 
-def get_claude_response(query: str) -> str:
-    """Sanitize LLM-style answer using Claude to remove filler and irrelevant content."""
+def get_claude_response(query: str) -> tuple[str, int | None, int | None]:
     prompt = f"""<system>\n{STYLE_PROMPT}\n</system>\n\nAnswer: {query}"""
 
     try:
-        response = cleaner_llm.invoke(prompt)
-        return response.content.strip()
+        resp = cleaner_llm.invoke(prompt)
+        it, ot = extract_token_usage(resp)
+        return resp.content.strip(), it, ot
     except Exception:
         logger.exception("Error in getting sanitized response from Claude")
-        return query
+        return query, None, None
 
 
-def response_sanitizer(answer: str) -> str:
-    """Sanitize an LLM-generated answer using Claude to strip apologies and filler."""
+def response_sanitizer(answer: str) -> tuple[str, int | None, int | None]:
     try:
         if not answer.strip():
-            return answer
-        cleaned = get_claude_response(answer)
-        return cleaned.strip()
+            return answer, None, None
+        cleaned, it, ot = get_claude_response(answer)
+        return cleaned.strip(), it, ot
     except Exception as e:
         logger.warning(f"Failed to sanitize answer: {e}")
-        return answer
+        return answer, None, None
+
 
 
 def needs_summary(query: str) -> bool:
@@ -91,13 +91,11 @@ def needs_summary(query: str) -> bool:
         resp = ChatBedrock(model_id=MODEL_ID).invoke(
             CLASSIFY_PROMPT.format(query=query.strip()),
         )
-        return resp.content.strip().upper()
+        it, ot = extract_token_usage(resp)
+        return resp.content.strip().upper(), it, ot
     except Exception as exc:
-        logger.warning(
-            "LLM classification failed, defaulting to QUESTION: %r",
-            exc,
-        )
-        return "QUESTION"
+        logger.warning("LLM classification failed, defaulting to QUESTION: %r", exc)
+        return "QUESTION", None, None
 
 
 async def db_tab_checker(query: str) -> tuple[str, str]:
@@ -108,20 +106,22 @@ async def db_tab_checker(query: str) -> tuple[str, str]:
     )
     try:
         resp = await ChatBedrock(model_id=MODEL_ID).ainvoke(prompt)
+        it, ot = extract_token_usage(resp)
         result = json.loads(resp.content)
         tab = result["tab"].lower()
         topic = result["topic"]
+
         if tab not in TOPICS_JSON:
             logger.warning(
                 f"Tab '{tab}' not in allowed tabs, defaulting to 'general'."
             )
             return "general", topic
-        return tab, topic
+        return tab, topic, it, ot
     except Exception as exc:
         logger.warning(
             "Tab classification failed, defaulting to 'general': %r", exc
         )
-        return "general", "Unknown"
+        return "general", "Unknown", None, None
 
 
 def llm_summarise(text: str) -> str:
@@ -197,9 +197,10 @@ def extract_keywords_from_query(query: str, *, max_char: int = 2_000) -> str:
 
     try:
         response = _KEYWORD_LLM.invoke(prompt)
+        it, ot = extract_token_usage(response)
         content = (response.content or "").strip().lower()
         # Ensure we never exceed max_char
-        return content[:max_char]
+        return content[:max_char], it, ot
     except Exception as exc:
         logger.warning("[Keyword Extractor] LLM fallback – %r", exc)
         # Simple regex fallback: alphanumeric words only, unique, comma-joined
@@ -208,4 +209,4 @@ def extract_keywords_from_query(query: str, *, max_char: int = 2_000) -> str:
         seen = set()
         keywords = [w for w in words if not (w in seen or seen.add(w))]
         fallback = ",".join(keywords)
-        return fallback[:max_char]
+        return fallback[:max_char], None, None

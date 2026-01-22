@@ -13,7 +13,7 @@ import re
 from collections.abc import Sequence
 
 from utils import extract_file_locations
-
+from services.token_usage import extract_token_usage
 from .clients import (
     bedrock_agent_runtime,
     bedrock_client,
@@ -287,6 +287,13 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
         raw_response = response["body"].read().decode()
 
         result = json.loads(raw_response)
+        it, ot = extract_token_usage(result)
+        result.setdefault("usage", {})
+        if it is not None:
+            result["usage"]["input_tokens"] = it
+        if ot is not None:
+            result["usage"]["output_tokens"] = ot
+ 
         logger.info("[Checkpoint] JSON parsed successfully.")
         return result
     except Exception as e:
@@ -635,38 +642,3 @@ def retrieve_citations_from_query(
 
     citations = extract_file_locations(resp)
     return citations
-
-
-def extract_token_usage(resp):
-    """Extract input/output token counts from any LLM response dict."""
-    input_tokens = 0
-    output_tokens = 0
-
-    # Standard Bedrock/Anthropic style
-    if isinstance(resp, dict):
-        usage = resp.get("usage", {})
-        input_tokens = usage.get("input_tokens", 0)
-        output_tokens = usage.get("output_tokens", 0)
-        # Alternate keys
-        if not input_tokens:
-            input_tokens = resp.get("input_token_count", 0)
-        if not output_tokens:
-            output_tokens = resp.get("output_token_count", 0)
-        # Sometimes tokens are inside citations or output
-        if not input_tokens or not output_tokens:
-            if "citations" in resp and isinstance(resp["citations"], list):
-                for c in resp["citations"]:
-                    ut = c.get("input_tokens") or c.get("input_token_count")
-                    ot = c.get("output_tokens") or c.get("output_token_count")
-                    if ut:
-                        input_tokens = ut
-                    if ot:
-                        output_tokens = ot
-            if "output" in resp and isinstance(resp["output"], dict):
-                ut = resp["output"].get("input_tokens") or resp["output"].get("input_token_count")
-                ot = resp["output"].get("output_tokens") or resp["output"].get("output_token_count")
-                if ut:
-                    input_tokens = ut
-                if ot:
-                    output_tokens = ot
-    return input_tokens, output_tokens
