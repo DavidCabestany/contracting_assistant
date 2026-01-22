@@ -61,3 +61,8 @@ def extract_token_usage(obj: Any) -> Tuple[int | None, int | None]:
                 return int(it or 0), int(ot or 0)
 
     return None, None
+
+
+def estimate_haiku_tokens(prompt: str) -> int:
+    """Estimate token count for Haiku model (simple word count proxy)."""
+    return len(prompt.split())
