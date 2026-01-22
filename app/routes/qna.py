@@ -36,7 +36,7 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
     session_history,
     store_interaction,
 )
-from services.token_usage import extract_token_usage
+from services.token_usage import extract_token_usage, estimate_haiku_tokens
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
     extract_keywords_from_query,
@@ -321,7 +321,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         logger.info("081 ▶ files after compliance merge = %s", files)
 
         # Step 3: Handle summary requests first
-        label, it, ot  = needs_summary(user_txt)
+        label, it, ot = needs_summary(user_txt)
         logger.info(f"the label {label}")
         if label == "IRRELEVANT":
             logger.info("080 ▶ Irrelevant query detected – returning default help response")
@@ -393,6 +393,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
         if reset_history_for_backdating:
             logger.info("Backdating detected. Prompt will be built without previous history/context.")
             try:
+                prompt = user_txt_lower
+                input_tokens = estimate_haiku_tokens(prompt)
+                logger.info(f"[Prompt Token Estimation] Estimated input tokens: {input_tokens}")
+
                 resp = retrieve_and_generate_prioritized_doc(
                     user_txt_lower,
                     get_knowledge_base_id(request.query.knowledgeType),
@@ -402,8 +406,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
                 answer = resp["output"]["text"]
 
-                it, ot = extract_token_usage(resp)
-                logger.info(f"[Prioritized Doc Answer] Input tokens: {ot}, Output tokens: {ot}")
+                # Print or log the raw LLM response
+                print("RAW LLM RESPONSE:", json.dumps(resp, indent=2))  # For console
+                logger.info("RAW LLM RESPONSE: %s", json.dumps(resp, indent=2))  # For logs
+
+                # Always use estimated input tokens, try to extract output tokens
+                _, output_tokens = extract_token_usage(resp)
+                logger.info(f"[Prioritized Doc Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                 log_test_metrics(
                     message_id=msg_id,
                     user_id=request.user.id,
@@ -413,10 +422,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     kb_id=kb_id,
                     kb_path=kb_path,
                     latency_ms=0,
-                    input_tokens=it,
-                    output_tokens=ot,
-                    price_per_input_token=(0.003/1000),
-                    price_per_output_token=(0.015/1000),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    price_per_input_token=(0.003 / 1000),
+                    price_per_output_token=(0.015 / 1000),
                     status="success",
                     error_message=None,
                 )
@@ -432,10 +441,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         kb_id=kb_id,
                         kb_path=kb_path,
                         latency_ms=0,
-                        input_tokens=it,
-                        output_tokens=ot,
-                        price_per_input_token=(0.003/1000),
-                        price_per_output_token=(0.015/1000),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        price_per_input_token=(0.003 / 1000),
+                        price_per_output_token=(0.015 / 1000),
                         status="guardrail",
                         error_message=guardrail_action,
                     )
@@ -486,6 +495,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             prompt, history_txt, is_follow_up = _build_prompt_with_optional_history(
                 user_txt, tx_count, ui_session_id, files
             )
+            input_tokens = estimate_haiku_tokens(prompt)
+            logger.info(f"[Prompt Token Estimation] Estimated input tokens: {input_tokens}")
             first_user_msg = _get_session_chat_history(ui_session_id).split("\n")[0].removeprefix("User: ").strip()
             # After is_follow_up == True, kb_path == "privacy", and files == [], files needs to be repeated
             repeat_keywords = ["consent", "warrant", "clause"]
@@ -532,6 +543,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 )
                 is_follow_up = False  # To avoid more follow-up processing in re-entrant logic
                 # Continue as with a non-follow-up, downstream code will handle with just this file and prompt.
+
             else:
                 logger.info("106 ▶ Specialized followup NOT activated, use default history logic.")
                 prompt, history_txt, _ = _build_prompt_with_optional_history(user_txt, tx_count, ui_session_id, files)
@@ -586,10 +598,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     )
                     answer = resp["output"]["text"]
 
-                    it, ot = extract_token_usage(resp)
-                    logger.info(
-                        f"[Prioritized Doc Answer] Input tokens: {ot}, Output tokens: {ot}"
-                    )
+                    # Always use estimated input tokens, try to extract output tokens
+                    _, output_tokens = extract_token_usage(resp)
+                    logger.info(f"[Prioritized Doc Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                     log_test_metrics(
                         message_id=msg_id,
                         user_id=request.user.id,
@@ -599,10 +610,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         kb_id=kb_id,
                         kb_path=kb_path,
                         latency_ms=0,
-                        input_tokens=it,
-                        output_tokens=ot,
-                        price_per_input_token=(0.003/1000),
-                        price_per_output_token=(0.015/1000),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        price_per_input_token=(0.003 / 1000),
+                        price_per_output_token=(0.015 / 1000),
                         status="success",
                         error_message=None,
                     )
@@ -618,10 +629,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_id=kb_id,
                             kb_path=kb_path,
                             latency_ms=0,
-                            input_tokens=it,
-                            output_tokens=ot,
-                            price_per_input_token=(0.003/1000),
-                            price_per_output_token=(0.015/1000),
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=(0.003 / 1000),
+                            price_per_output_token=(0.015 / 1000),
                             status="guardrail",
                             error_message=guardrail_action,
                         )
@@ -667,9 +678,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 kb_path=kb_path,
                                 files=files,
                             )
-                    # --- Extract token counts from Bedrock response ---
-                    it, ot = extract_token_usage(direct_resp)
-                    logger.info(f"[Answer with context] Input tokens: {it}, Output tokens: {ot}")
+                    # Always use estimated input tokens, try to extract output tokens
+                    _, output_tokens = extract_token_usage(direct_resp)
+                    logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                     log_test_metrics(
                         message_id=msg_id,
                         user_id=request.user.id,
@@ -679,10 +690,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         kb_id=kb_id,
                         kb_path=kb_path,
                         latency_ms=0,
-                        input_tokens=it,
-                        output_tokens=ot,
-                        price_per_input_token=(0.003/1000),
-                        price_per_output_token=(0.015/1000),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        price_per_input_token=(0.003 / 1000),
+                        price_per_output_token=(0.015 / 1000),
                         status="success",
                         error_message=None,
                     )
@@ -698,10 +709,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_id=kb_id,
                             kb_path=kb_path,
                             latency_ms=0,
-                            input_tokens=it,
-                            output_tokens=ot,
-                            price_per_input_token=(0.003/1000),
-                            price_per_output_token=(0.015/1000),
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=(0.003 / 1000),
+                            price_per_output_token=(0.015 / 1000),
                             status="guardrail",
                             error_message=guardrail_action,
                         )
@@ -743,9 +754,9 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             session_id=bedrock_session_id,
                             kb_path=kb_path,
                         )
-                        # --- Extract token counts from Bedrock response ---
-                        it, ot = extract_token_usage(resp)
-                        logger.info(f"[RAG Answer] Input tokens: {ot}, Output tokens: {ot}")
+                        # Always use estimated input tokens, try to extract output tokens
+                        _, output_tokens = extract_token_usage(resp)
+                        logger.info(f"[RAG Answer] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                         log_test_metrics(
                             message_id=msg_id,
                             user_id=request.user.id,
@@ -755,10 +766,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             kb_id=kb_id,
                             kb_path=kb_path,
                             latency_ms=0,
-                            input_tokens=it,
-                            output_tokens=ot,
-                            price_per_input_token=(0.003/1000),
-                            price_per_output_token=(0.015/1000),
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=(0.003 / 1000),
+                            price_per_output_token=(0.015 / 1000),
                             status="success",
                             error_message=None,
                         )
@@ -774,10 +785,10 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 kb_id=kb_id,
                                 kb_path=kb_path,
                                 latency_ms=0,
-                                input_tokens=it,
-                                output_tokens=ot,
-                                price_per_input_token=(0.003/1000),
-                                price_per_output_token=(0.015/1000),
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                price_per_input_token=(0.003 / 1000),
+                                price_per_output_token=(0.015 / 1000),
                                 status="guardrail",
                                 error_message=guardrail_action,
                             )
@@ -860,19 +871,20 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 citations,
             )
 
+            # Always use estimated input tokens for final metrics
             log_test_metrics(
                 message_id=msg_id,
                 user_id=request.user.id,
                 session_id=ui_session_id,
                 model_id="SONNET_45",
-                span_id="Answer",
+                span_id="Final",
                 kb_id=kb_id,
                 kb_path=kb_path,
                 latency_ms=0,
-                input_tokens=it,
-                output_tokens=ot,
-                price_per_input_token=(0.003/1000),
-                price_per_output_token=(0.015/1000),
+                input_tokens=input_tokens,
+                output_tokens=None,
+                price_per_input_token=(0.003 / 1000),
+                price_per_output_token=(0.015 / 1000),
                 status="success",
                 error_message=None,
             )
