@@ -9,15 +9,19 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Mapping
-
+import logging
 import boto3
 from botocore.exceptions import ClientError
 import dotenv
 
+
+logger = logging.getLogger(__name__)
 dotenv.load_dotenv()
 
 # Table name for storing LLM metrics; defaults to a specific table if not set in env.
-METRICS_TABLE = os.getenv("LLM_METRICS_TABLE")
+METRICS_TABLE = os.getenv("METRICS_TABLE")
+
+print(f"METRICS_TABLE: {METRICS_TABLE}")
 # Reserved keys to prevent user payload from overwriting schema fields.
 _RESERVED_KEYS = {
     "MessageId",
@@ -140,13 +144,17 @@ def put_llm_metrics(
     error_message: str | None = None,
 ) -> None:
     """Write one LLM metrics record to DynamoDB."""
-    table = _get_table()
+    try:
+        table = _get_table()
+    except Exception as e:
+        logger.warning("LLM metrics disabled (table not configured): %s", e)
+        return
 
     # Use provided SpanId or generate a new one.
     span_id = payload.get("SpanId") or str(uuid.uuid4())
 
-    in_tok = int(input_tokens or 0)
-    out_tok = int(output_tokens or 0)
+    in_tok = int(input_tokens) if input_tokens is not None else 0
+    out_tok = int(output_tokens) if output_tokens is not None else 0
     tokens_available = (input_tokens is not None) or (output_tokens is not None)
 
     total_cost = _compute_total_cost(in_tok, out_tok, price_per_input_token, price_per_output_token)
@@ -166,7 +174,7 @@ def put_llm_metrics(
         "LatencyMs": latency_ms,
         "InputTokenCount": in_tok,
         "OutputTokenCount": out_tok,
-        "TotalTokenCount": in_tok + out_tok,
+        "TotalTokenCount": (in_tok + out_tok) if tokens_available else None,
         "TokenCountsAvailable": bool(tokens_available),
         "PricePerInputToken": price_per_input_token,
         "PricePerOutputToken": price_per_output_token,
