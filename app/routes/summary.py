@@ -56,6 +56,7 @@ from utils import (
     prompt_query_cat,
 )
 from services.llm_metrics import put_llm_metrics
+from services.token_usage import estimate_haiku_tokens, extract_token_usage
 
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
@@ -139,6 +140,10 @@ async def generate_summary(
 
     file_bytes_to_process = None
     file_name_to_process = None
+
+    input_tokens = 0
+    output_tokens = 0
+    price_per_token = 0.003 / 1000  # Example price, adjust as needed
 
     if file is not None:
         try:
@@ -259,6 +264,13 @@ async def generate_summary(
             else:
                 body_prompt = generate_prompt(content, queryText, BASE_PROMPT)
             logger.debug(f"[{msg_id}] Prompt built for LLM.")
+            # After building the prompt, estimate input tokens
+            if "body_prompt" in locals():
+                prompt_for_tokens = f"{history_block}{body_prompt}"
+            else:
+                prompt_for_tokens = queryText
+            input_tokens = estimate_haiku_tokens(prompt_for_tokens)
+            logger.info(f"[{msg_id}] [Prompt Token Estimation] Estimated input tokens: {input_tokens}")
         except Exception as exc:
             logger.exception(f"[{msg_id}] Failed to generate body prompt")
             raise HTTPException(500, f"Prompt generation failed: {exc}") from exc
@@ -377,19 +389,24 @@ async def generate_summary(
         )
         logger.info(f"[{msg_id}] Interaction stored for userId={userId}")
 
-    # Log LLM interaction
-    log_llm_interaction(
+    # Always use estimated input tokens, try to extract output tokens
+    _, output_tokens = extract_token_usage(answer)
+    logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+    put_llm_metrics(
         message_id=msg_id,
-        user_id=request.user.id,
-        session_id=ui_session_id,
-        model_name=MODEL_ID,
-        input_token_count=input_tokens,
-        output_token_count=output_tokens,
-        price_per_token=price_per_token,
-        user_message=user_txt,
-        bot_response=answer,
-        start_time=start_time,
-        end_time=now,
+        user_id=userId,
+        session_id=session_id,
+        model_id="SONNET_45",
+        span_id="Summary Answer",
+        kb_id=kb_id,
+        kb_path=kb_path,
+        latency_ms=0,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        price_per_input_token=(0.003 / 1000),
+        price_per_output_token=(0.015 / 1000),
+        status="success",
+        error_message=None,
     )
 
     return api_resp
@@ -409,8 +426,8 @@ async def test_metrics():
         latency_ms=456,
         input_tokens=20,
         output_tokens=8,
-        price_per_input_token=(0.003/1000),
-        price_per_output_token=(0.015/1000),
+        price_per_input_token=(0.003 / 1000),
+        price_per_output_token=(0.015 / 1000),
         status="success",
         error_message=None,
     )
