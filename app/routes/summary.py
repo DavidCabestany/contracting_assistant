@@ -56,7 +56,7 @@ from utils import (
     prompt_query_cat,
 )
 from services.llm_metrics import put_llm_metrics
-from services.token_usage import estimate_haiku_tokens, extract_token_usage
+from services.token_usage import estimate_input_tokens, extract_token_usage, estimate_output_tokens
 
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
@@ -232,6 +232,12 @@ async def generate_summary(
                         clause_prompt = get_clauses(queryText, clauses_lst)
                         try:
                             llm_resp = ChatBedrock(model_id=MODEL_ID, max_tokens=4000).invoke(clause_prompt)
+                            print(f"[{msg_id}] LLM response for clauses: {llm_resp.content}")
+                            try:
+                                output_tokens = llm_resp.usage["output_tokens"]
+                            except (AttributeError, KeyError, TypeError):
+                                output_tokens = estimate_output_tokens(llm_resp.content)
+                                print(f"[{msg_id}] Output tokens estimated: {output_tokens}")
                             clauses_identified = llm_resp.content.strip()  ##list
                             logger.info(f"Clauses asked by user: {clauses_identified}")
                         except Exception as exc:
@@ -244,6 +250,8 @@ async def generate_summary(
                     if category == "2":
                         answer = get_all_clauses_froms3(payload_json2)
                         raw_answer = json.dumps(answer)
+                        # Estimate output tokens since get_all_clauses_froms3 doesn't provide usage info
+                        output_tokens = estimate_output_tokens(raw_answer)
                     else:
                         logger.info(f"Loading risk matrix file")
                         risk_rules = get_risk_matrix_details()
@@ -254,6 +262,8 @@ async def generate_summary(
                             clauses_identified = llm_resp.content.strip()  ##list
                             answer = get_risks_from_query(clauses_identified, payload_json2)
                             raw_answer = json.dumps(answer)
+                            # Estimate output tokens since get_risks_from_query doesn't provide usage info
+                            output_tokens = estimate_output_tokens(raw_answer)
                         except Exception as exc:
                             logger.exception(f"[{msg_id}] LLM call failed for returning the relevant clauses")
                             raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
@@ -269,7 +279,7 @@ async def generate_summary(
                 prompt_for_tokens = f"{history_block}{body_prompt}"
             else:
                 prompt_for_tokens = queryText
-            input_tokens = estimate_haiku_tokens(prompt_for_tokens)
+            input_tokens = estimate_input_tokens(prompt_for_tokens)
             logger.info(f"[{msg_id}] [Prompt Token Estimation] Estimated input tokens: {input_tokens}")
         except Exception as exc:
             logger.exception(f"[{msg_id}] Failed to generate body prompt")
@@ -294,11 +304,16 @@ async def generate_summary(
                 else:
                     answer = _wrap_plain(raw_answer)
                 logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
+                # Estimate output tokens for category 4 fallback
+                output_tokens = estimate_output_tokens(raw_answer)
             elif "response" in payload:
                 answer = _wrap_plain(payload["response"])
                 logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
+                # Estimate output tokens for category 4 template
+                output_tokens = estimate_output_tokens(payload["response"])
             else:
                 answer = payload.model_dump()
+                output_tokens = estimate_output_tokens(raw_answer)
                 # answer.setdefault("similarities", [])
                 # answer.setdefault("differences", [])
                 logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
@@ -343,6 +358,11 @@ async def generate_summary(
 
     # Step 10: Build API response
     feedback = Feedback(feedbackDisplayOptions=FeedbackDisplayOptions(thumbsUp="N", thumbsDown="N", feedbackText="N"))
+    if isinstance(answer, dict):
+        output_tokens = answer.get("output_tokens", output_tokens)
+    else:
+        output_tokens = estimate_output_tokens(answer.get("ans", ""))
+        print(f"answer output tokens estimated: {output_tokens}, answer: {answer}")
     result = Result(
         messageId=msg_id,
         answer=answer,
@@ -390,14 +410,18 @@ async def generate_summary(
         logger.info(f"[{msg_id}] Interaction stored for userId={userId}")
 
     # Always use estimated input tokens, try to extract output tokens
-    _, output_tokens = extract_token_usage(answer)
+    # If output_tokens is still zero, try to extract from answer, otherwise estimate
+    if output_tokens == 0:
+        _, output_tokens = extract_token_usage(answer)
+        if output_tokens == 0 and raw_answer:
+            output_tokens = estimate_output_tokens(raw_answer)
     logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
     put_llm_metrics(
         message_id=msg_id,
+        call_type="summary", 
         user_id=userId,
         session_id=session_id,
         model_id="SONNET_45",
-        span_id="Summary Answer",
         kb_id="summary-kb",
         kb_path="summary",
         latency_ms=0,
@@ -407,6 +431,7 @@ async def generate_summary(
         price_per_output_token=(0.015 / 1000),
         status="success",
         error_message=None,
+        payload={"SpanId": "Summary Answer"},
     )
 
     return api_resp
