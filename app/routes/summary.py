@@ -56,7 +56,7 @@ from utils import (
     prompt_query_cat,
 )
 from services.llm_metrics import put_llm_metrics
-from services.token_usage import estimate_input_tokens, extract_token_usage, estimate_output_tokens
+from services.token_usage import estimate_input_tokens, extract_token_usage, estimate_output_tokens_tiktoken
 
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
@@ -143,9 +143,9 @@ async def generate_summary(
 
     input_tokens = 0
     output_tokens = 0
-    price_per_token = 0.003 / 1000  # Example price, adjust as needed
-
-    if file is not None:
+    price_per_input_token = 0.003 / 1000
+    price_per_output_token = 0.015 / 1000
+    if file is not None and hasattr(file, "read"):
         try:
             file_bytes_to_process = await file.read()
             file_name_to_process = file.filename
@@ -158,7 +158,7 @@ async def generate_summary(
                 Bucket=BUCKET_CONTAINER,
                 Key=s3_key,
                 Body=file_bytes_to_process,
-                ContentType=file.content_type,
+                ContentType=file.content_type or "application/octet-stream",
             )
             logger.info(f"[{msg_id}] File uploaded to S3: {s3_key}")
 
@@ -175,8 +175,9 @@ async def generate_summary(
             s3, BUCKET_CONTAINER, userId, session_id, msg_id
         )
 
-    if file_bytes_to_process and file_name_to_process:
+    if file_bytes_to_process is not None and file_name_to_process is not None:
         content = _extract_content_from_bytes(file_bytes_to_process, file_name_to_process, msg_id)
+        file_input_tokens = estimate_input_tokens(content)
         logger.debug(f"[{msg_id}] Successfully extracted content from {file_name_to_process}")
     else:
         logger.info(f"[{msg_id}] No file provided or found for this session.")
@@ -236,7 +237,7 @@ async def generate_summary(
                             try:
                                 output_tokens = llm_resp.usage["output_tokens"]
                             except (AttributeError, KeyError, TypeError):
-                                output_tokens = estimate_output_tokens(llm_resp.content)
+                                output_tokens = estimate_output_tokens_tiktoken(llm_resp.content)
                                 print(f"[{msg_id}] Output tokens estimated: {output_tokens}")
                             clauses_identified = llm_resp.content.strip()  ##list
                             logger.info(f"Clauses asked by user: {clauses_identified}")
@@ -251,7 +252,7 @@ async def generate_summary(
                         answer = get_all_clauses_froms3(payload_json2)
                         raw_answer = json.dumps(answer)
                         # Estimate output tokens since get_all_clauses_froms3 doesn't provide usage info
-                        output_tokens = estimate_output_tokens(raw_answer)
+                        output_tokens = estimate_output_tokens_tiktoken(raw_answer)
                     else:
                         logger.info(f"Loading risk matrix file")
                         risk_rules = get_risk_matrix_details()
@@ -263,7 +264,7 @@ async def generate_summary(
                             answer = get_risks_from_query(clauses_identified, payload_json2)
                             raw_answer = json.dumps(answer)
                             # Estimate output tokens since get_risks_from_query doesn't provide usage info
-                            output_tokens = estimate_output_tokens(raw_answer)
+                            output_tokens = estimate_output_tokens_tiktoken(raw_answer)
                         except Exception as exc:
                             logger.exception(f"[{msg_id}] LLM call failed for returning the relevant clauses")
                             raise HTTPException(500, f"Error invoking LLM: {exc}") from exc
@@ -279,7 +280,8 @@ async def generate_summary(
                 prompt_for_tokens = f"{history_block}{body_prompt}"
             else:
                 prompt_for_tokens = queryText
-            input_tokens = estimate_input_tokens(prompt_for_tokens)
+            has_doc = bool(content)
+            input_tokens = estimate_input_tokens(prompt_for_tokens) + (file_input_tokens if has_doc else 0)
             logger.info(f"[{msg_id}] [Prompt Token Estimation] Estimated input tokens: {input_tokens}")
         except Exception as exc:
             logger.exception(f"[{msg_id}] Failed to generate body prompt")
@@ -305,15 +307,15 @@ async def generate_summary(
                     answer = _wrap_plain(raw_answer)
                 logger.debug(f"[{msg_id}] Applied fallback JSON normalization")
                 # Estimate output tokens for category 4 fallback
-                output_tokens = estimate_output_tokens(raw_answer)
+                output_tokens = estimate_output_tokens_tiktoken(raw_answer)
             elif "response" in payload:
                 answer = _wrap_plain(payload["response"])
                 logger.debug(f"[{msg_id}] Parsed from TEMPLATE scaffold")
                 # Estimate output tokens for category 4 template
-                output_tokens = estimate_output_tokens(payload["response"])
+                output_tokens = estimate_output_tokens_tiktoken(payload["response"])
             else:
                 answer = payload.model_dump()
-                output_tokens = estimate_output_tokens(raw_answer)
+                output_tokens = estimate_output_tokens_tiktoken(raw_answer)
                 # answer.setdefault("similarities", [])
                 # answer.setdefault("differences", [])
                 logger.debug(f"[{msg_id}] Used raw parsed JSON directly")
@@ -361,7 +363,7 @@ async def generate_summary(
     if isinstance(answer, dict):
         output_tokens = answer.get("output_tokens", output_tokens)
     else:
-        output_tokens = estimate_output_tokens(answer.get("ans", ""))
+        output_tokens = estimate_output_tokens_tiktoken(answer.get("ans", ""))
         print(f"answer output tokens estimated: {output_tokens}, answer: {answer}")
     result = Result(
         messageId=msg_id,
@@ -414,7 +416,7 @@ async def generate_summary(
     if output_tokens == 0:
         _, output_tokens = extract_token_usage(answer)
         if output_tokens == 0 and raw_answer:
-            output_tokens = estimate_output_tokens(raw_answer)
+            output_tokens = estimate_output_tokens_tiktoken(raw_answer)
     logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
     put_llm_metrics(
         message_id=msg_id,
