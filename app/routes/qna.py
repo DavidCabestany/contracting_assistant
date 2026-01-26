@@ -36,7 +36,7 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
     session_history,
     store_interaction,
 )
-from services.token_usage import extract_token_usage, estimate_haiku_tokens
+from services.token_usage import extract_token_usage, estimate_input_tokens
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from utils import (
     extract_keywords_from_query,
@@ -394,7 +394,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             logger.info("Backdating detected. Prompt will be built without previous history/context.")
             try:
                 prompt = user_txt_lower
-                input_tokens = estimate_haiku_tokens(prompt)
+                input_tokens = estimate_input_tokens(prompt)
                 logger.info(f"[Prompt Token Estimation] Estimated input tokens: {input_tokens}")
 
                 resp = retrieve_and_generate_prioritized_doc(
@@ -462,7 +462,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             prompt, history_txt, is_follow_up = _build_prompt_with_optional_history(
                 user_txt, tx_count, ui_session_id, files
             )
-            input_tokens = estimate_haiku_tokens(prompt)
+            input_tokens = estimate_input_tokens(prompt)
             logger.info(f"[Prompt Token Estimation] Estimated input tokens: {input_tokens}")
             first_user_msg = _get_session_chat_history(ui_session_id).split("\n")[0].removeprefix("User: ").strip()
             # After is_follow_up == True, kb_path == "privacy", and files == [], files needs to be repeated

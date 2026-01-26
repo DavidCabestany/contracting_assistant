@@ -150,7 +150,6 @@ def put_llm_metrics(
         logger.warning("LLM metrics disabled (table not configured): %s", e)
         return
 
-    # Use provided SpanId or generate a new one.
     span_id = payload.get("SpanId") or str(uuid.uuid4())
 
     in_tok = int(input_tokens) if input_tokens is not None else 0
