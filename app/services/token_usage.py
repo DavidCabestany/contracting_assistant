@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Tuple
+import tiktoken
 
 
 def extract_token_usage(obj: Any) -> Tuple[int | None, int | None]:
@@ -68,9 +69,23 @@ def estimate_input_tokens(prompt: str) -> int:
     return len(prompt.split())
 
 
-def estimate_output_tokens(text: str) -> int:
+def estimate_output_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
     """Estimate output token count from model output text (simple word count proxy)."""
     if not text:
         return 0
-    # You can adjust this logic if you want a more accurate estimate
-    return len(text.split())
+    try:
+        enc = tiktoken.encoding_for_model(model)
+    except Exception:
+        enc = tiktoken.get_encoding("cl100k_base")
+    return len(enc.encode(text))
+
+
+def estimate_output_tokens_tiktoken(text: str, model: str = "gpt-3.5-turbo") -> int:
+    """Estimate output token count using tiktoken for a given model."""
+    if not text:
+        return 0
+    try:
+        enc = tiktoken.encoding_for_model(model)
+    except Exception:
+        enc = tiktoken.get_encoding("cl100k_base")
+    return len(enc.encode(text))
