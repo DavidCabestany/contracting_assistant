@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Optional
 
@@ -57,6 +58,8 @@ from utils import (
 )
 from services.llm_metrics import put_llm_metrics
 from services.token_usage import estimate_input_tokens, extract_token_usage, estimate_output_tokens_tiktoken
+
+import time
 
 # Logger and configuration constants.
 logger = logging.getLogger(__name__)
@@ -137,6 +140,7 @@ async def generate_summary(
     answer = ""
     raw_answer = None
     start_time = datetime.datetime.now().isoformat()
+    start_perf = time.perf_counter()
 
     file_bytes_to_process = None
     file_name_to_process = None
@@ -418,15 +422,17 @@ async def generate_summary(
         if output_tokens == 0 and raw_answer:
             output_tokens = estimate_output_tokens_tiktoken(raw_answer)
     logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+    end_perf = time.perf_counter()
+    latency_ms = int((end_perf - start_perf) * 1000)
     put_llm_metrics(
         message_id=msg_id,
-        call_type="summary", 
+        call_type="summary",
         user_id=userId,
         session_id=session_id,
         model_id="SONNET_45",
         kb_id="summary-kb",
         kb_path="summary",
-        latency_ms=0,
+        latency_ms=latency_ms,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         price_per_input_token=(0.003 / 1000),
