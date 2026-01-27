@@ -25,7 +25,7 @@ auth_router = APIRouter()
 # dotenv.load_dotenv()
 
 # Table name for storing LLM metrics; defaults to a specific table if not set in env.
-METRICS_TABLE = get_secret("SECRET_KEY")
+METRICS_TABLE = get_secret("METRICS_TABLE")
 
 print(f"METRICS_TABLE: {METRICS_TABLE}")
 # Reserved keys to prevent user payload from overwriting schema fields.
