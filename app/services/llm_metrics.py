@@ -13,13 +13,19 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 import dotenv
-
+from config import get_secret
+from fastapi import APIRouter, Header, HTTPException
 
 logger = logging.getLogger(__name__)
-dotenv.load_dotenv()
+
+auth_router = APIRouter()
+
+
+# logger = logging.getLogger(__name__)
+# dotenv.load_dotenv()
 
 # Table name for storing LLM metrics; defaults to a specific table if not set in env.
-METRICS_TABLE = os.getenv("METRICS_TABLE")
+METRICS_TABLE = get_secret("SECRET_KEY")
 
 print(f"METRICS_TABLE: {METRICS_TABLE}")
 # Reserved keys to prevent user payload from overwriting schema fields.
