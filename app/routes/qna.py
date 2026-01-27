@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import re
+import time
 import uuid
 
 from auth.utils import verify_token
@@ -276,6 +277,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
     try:
         # Step 1: Generate message/session IDs
         start_time = datetime.datetime.now().isoformat()
+        start_perf = time.perf_counter()  # <-- Add this line
         msg_id = str(uuid.uuid4())
         logger.info("010 ▶ msg_id = %s", msg_id)
 
@@ -330,6 +332,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "However, I can assist you with Contracting Clauses, confidentiality agreements, and payment terms."
             )
             end_time = datetime.datetime.now().isoformat()
+            end_perf = time.perf_counter()
+            latency_ms = int((end_perf - start_perf) * 1000)
             _store_chat_log(
                 request,
                 default_msg,
@@ -351,13 +355,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 span_id="Guardrail",
                 kb_id=kb_id,
                 kb_path=kb_path,
-                latency_ms=0,
+                latency_ms=latency_ms,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 price_per_input_token=(0.003 / 1000),
                 price_per_output_token=(0.015 / 1000),
                 status="guardrail",
-                error_message="IRRELEVANT",
+                error_message="Guardrail/Irrelevant",
             )
             logger.info("090 ◀ returning IRRELEVANT response")
             return QueryResponse(
@@ -633,6 +637,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     # Always use estimated input tokens, try to extract output tokens
                     _, output_tokens = extract_token_usage(direct_resp)
                     logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+                    end_perf = time.perf_counter()
+                    latency_ms = int((end_perf - start_perf) * 1000)
                     log_test_metrics(
                         message_id=msg_id,
                         user_id=request.user.id,
@@ -641,7 +647,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         span_id="Answer with context",
                         kb_id=kb_id,
                         kb_path=kb_path,
-                        latency_ms=0,
+                        latency_ms=latency_ms,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
                         price_per_input_token=(0.003 / 1000),
@@ -652,6 +658,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     guardrail_action = direct_resp.get("guardrailAction")
                     if guardrail_action:
                         logger.info(f"[Guardrail] Action: {guardrail_action}")
+                        end_perf = time.perf_counter()
+                        latency_ms = int((end_perf - start_perf) * 1000)
                         # Always log guardrail token usage
                         log_test_metrics(
                             message_id=msg_id,
@@ -661,7 +669,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             span_id="Guardrail",
                             kb_id=kb_id,
                             kb_path=kb_path,
-                            latency_ms=0,
+                            latency_ms=latency_ms,
                             input_tokens=input_tokens,
                             output_tokens=output_tokens,
                             price_per_input_token=(0.003 / 1000),
@@ -710,6 +718,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         guardrail_action = resp.get("guardrailAction")
                         if guardrail_action:
                             logger.info(f"[Guardrail] Action: {guardrail_action}")
+                            end_perf = time.perf_counter()
+                            latency_ms = int((end_perf - start_perf) * 1000)
                             # Always log guardrail token usage
                             log_test_metrics(
                                 message_id=msg_id,
@@ -719,7 +729,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                                 span_id="Guardrail",
                                 kb_id=kb_id,
                                 kb_path=kb_path,
-                                latency_ms=0,
+                                latency_ms=latency_ms,
                                 input_tokens=input_tokens,
                                 output_tokens=output_tokens,
                                 price_per_input_token=(0.003 / 1000),
