@@ -94,9 +94,7 @@ def parse_all_citations(item) -> Optional[List[RetrievedCitationModel]]:
                 except Exception:
                     page_num = None
                 if fname and page_num is not None:
-                    citations.append(
-                        RetrievedCitationModel(document=fname, page=page_num)
-                    )
+                    citations.append(RetrievedCitationModel(document=fname, page=page_num))
     elif isinstance(fileName_data, list):
         for fentry in fileName_data:
             if isinstance(fentry, dict):
@@ -104,20 +102,14 @@ def parse_all_citations(item) -> Optional[List[RetrievedCitationModel]]:
                 page_num = fentry.get("pageNumber")
                 if fname and (page_num is not None):
                     try:
-                        citations.append(
-                            RetrievedCitationModel(
-                                document=fname, page=int(page_num)
-                            )
-                        )
+                        citations.append(RetrievedCitationModel(document=fname, page=int(page_num)))
                     except Exception:
                         continue
     # logger.info(f"parse_all_citations: citations={citations}")
     return citations or None
 
 
-@feedbackdetails_router.post(
-    "/getFeedbackDetails", response_model=FeedbackDetailsResponse
-)
+@feedbackdetails_router.post("/getFeedbackDetails", response_model=FeedbackDetailsResponse)
 async def get_feedback_details(request: FeedbackDetailsRequest):
     """Admin endpoint for feedback details. Filters by feedbackType, timeframe (including custom), queryType (KbType), and UserId (prid). Returns all document/page citations as a list."""
     # === CHANGED LOGIC: ADD "ALL" FILTER OPTION ===
@@ -128,12 +120,15 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
     elif ft == "negative feedback":
         is_positive = False
         filter_on_feedback = True
+    elif ft == "no feedback":
+        is_no_feedback = True
+        filter_on_feedback = True
     elif ft == "all":
         filter_on_feedback = False
     else:
         raise HTTPException(
             400,
-            "Invalid feedbackType. Use 'Positive Feedback', 'Negative Feedback', or 'All'.",
+            "Invalid feedbackType. Use 'Positive Feedback', 'Negative Feedback', 'No Feedback', or 'All'.",
         )
 
     query_type_filter = (request.queryType or "").strip().lower()
@@ -145,40 +140,26 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
     if request.timeframe.strip().lower() == "custom":
         try:
             if not request.start_date or not request.end_date:
-                raise ValueError(
-                    "start_date and end_date must be provided for custom timeframe."
-                )
+                raise ValueError("start_date and end_date must be provided for custom timeframe.")
             # Accept both with/without Z by parsing
-            start_dt = datetime.fromisoformat(
-                request.start_date.replace("Z", "+00:00")
-            )
-            end_dt = datetime.fromisoformat(
-                request.end_date.replace("Z", "+00:00")
-            )
+            start_dt = datetime.fromisoformat(request.start_date.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(request.end_date.replace("Z", "+00:00"))
 
             if start_dt.tzinfo is None:
                 start_dt = start_dt.replace(tzinfo=timezone.utc)
             if end_dt.tzinfo is None:
                 end_dt = end_dt.replace(tzinfo=timezone.utc)
             # Expand end_dt to include full ending day
-            end_dt = end_dt.replace(
-                hour=23, minute=59, second=59, microsecond=999999
-            )
+            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
         except Exception as ex:
             raise HTTPException(400, f"Invalid custom date: {ex}")
     else:
         current_time = datetime.now(timezone.utc)
         try:
-            start_dt, end_dt, *_ = calculate_timeframe(
-                request.timeframe, current_time
-            )
+            start_dt, end_dt, *_ = calculate_timeframe(request.timeframe, current_time)
             # Fix: adjust boundaries to full days
-            start_dt = start_dt.replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            end_dt = end_dt.replace(
-                hour=23, minute=59, second=59, microsecond=999999
-            )
+            start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
         except Exception:
             raise HTTPException(
                 400,
@@ -207,9 +188,7 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
                 m = m.replace(month=m.month + 1)
         for year, month in months:
             days_in_month = calendar.monthrange(year, month)[1]
-            for widx, (low, high) in enumerate(
-                [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
-            ):
+            for widx, (low, high) in enumerate([(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1):
                 wk_start = datetime(year, month, low, tzinfo=timezone.utc)
                 wk_end = datetime(year, month, high, tzinfo=timezone.utc)
                 if wk_end < start_dt or wk_start > end_dt:
@@ -249,14 +228,24 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
         val = str(feedback_raw).strip().lower()
         if val in ("true", "1", "yes", "y", "t"):
             item_positive = True
+            item_no_feedback = False
         elif val in ("false", "0", "no", "n", "f"):
             item_positive = False
+            item_no_feedback = False
+        elif val == "no_feedback":
+            item_no_feedback = True
+            item_positive = None
         else:
             continue
 
-        # === CHANGED LOGIC: Only filter if not "All" ===
-        if filter_on_feedback and (item_positive != is_positive):
-            continue
+        # Only filter if not "All"
+        if filter_on_feedback:
+            if ft == "no feedback" and not item_no_feedback:
+                continue
+            elif ft == "positive feedback" and not item_positive:
+                continue
+            elif ft == "negative feedback" and (item_positive or item_no_feedback):
+                continue
 
         # ---- Filter by queryType/KbType
         kbtype = parse_kbtype(item)
@@ -272,9 +261,7 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             if prid.strip().lower() != prid_filter:
                 continue
 
-        user_message = item.get("UserMessage", "") or item.get(
-            "UserMessageSearch", ""
-        )
+        user_message = item.get("UserMessage", "") or item.get("UserMessageSearch", "")
         citations = parse_all_citations(item)
         # logger.info("User %s citations: %s", prid, citations)
         feedback_comment = item.get("FeedbackComment", "")
@@ -285,11 +272,7 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
         # Get timestamp for sorting; fallback to epoch if not present
         timestamp_str = item.get("Timestamp")
         try:
-            timestamp_val = (
-                datetime.fromisoformat(timestamp_str)
-                if timestamp_str
-                else datetime.min
-            )
+            timestamp_val = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.min
             if timestamp_val.tzinfo is None:
                 timestamp_val = timestamp_val.replace(tzinfo=timezone.utc)
         except Exception:
@@ -301,6 +284,7 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
             feedbackResponse=feedback_response,  # <-- added field!
             retrievedCitations=citations,
             feedbackComment=feedback_comment,
+            date=timestamp_val.strftime("%Y-%m-%d %H:%M:%S"),
         )
         rows_with_time.append((timestamp_val, row_obj))
 
