@@ -258,6 +258,7 @@ class FeedbackDetailsRow(BaseModel):
     feedbackResponse: Optional[str] = None
     retrievedCitations: Optional[List[RetrievedCitationModel]] = None
     feedbackComment: str
+    date: str
 
 
 class FeedbackDetailsFilters(BaseModel):
