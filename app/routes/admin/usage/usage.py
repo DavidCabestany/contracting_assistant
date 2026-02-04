@@ -24,6 +24,4 @@ async def get_usage_by_time_period(payload: QueryCountPayload):
             raise e
         except Exception as e:
             logger.exception(f"Error processing request: {e}")
-            raise HTTPException(
-                status_code=500, detail=f"Internal Server Error: {e}"
-            )
+            raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")

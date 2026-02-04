@@ -166,13 +166,11 @@ class FeedbackTrendResponse(BaseModel):
 
 
 class SiteUsageRequest(BaseModel):
-    """Model for site usage request.
+    """Model for site usage request."""
 
-    Attributes:
-        timeframe (Literal): The requested timeframe for site usage - 'monthly', 'quarterly', 'yearly', or 'weekly'.
-    """
-
-    timeframe: Literal["monthly", "quarterly", "yearly", "weekly"]
+    timeframe: Literal[
+        "monthly", "quarterly", "yearly", "weekly", "last7days", "last30days", "last90days", "last365days"
+    ]
 
 
 class SiteUsageData(BaseModel):
@@ -211,10 +209,10 @@ class QueryCountPayload(BaseModel):
     """Model for User count request.
 
     Attributes:
-        timeframe (Literal): The timeframe for the User count - 'last7days', 'last30days', 'last90days', or 'last365days'.
+        timeframe (Literal): The timeframe for the User count - 'last7days', 'last30days', 'last90days', 'last365days', or 'yearly'.
     """
 
-    timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days", "yearly"]
 
 
 class FeedbackDetailsRequest(BaseModel):
