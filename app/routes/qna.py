@@ -411,7 +411,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         # Step 4: Prompt construction and follow-up detection
 
-        ## Backdating temporary fix
+        ## Backdating fix
         user_txt_lower = user_txt.lower()
         reset_history_for_backdating = any(kw in user_txt_lower for kw in ["backdating", "backdate", "backdated"])
         if reset_history_for_backdating:
@@ -439,6 +439,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 guardrail_action = resp.get("guardrailAction")
                 if guardrail_action:
                     logger.info(f"[Guardrail] Action: {guardrail_action}")
+                    # now misconduct (guardrail action) has been deactivated because of the 'backdating' issues.
 
                 citations = extract_file_locations(resp, allowed_files=files if files else None)
                 _bedrock_sessions[ui_session_id] = resp["sessionId"]
