@@ -32,6 +32,11 @@ class ResponseTimeLogic:
             end_date = now.date()
             start_date = end_date - timedelta(days=364)
             return start_date, end_date
+        elif timeframe == "yearly":
+            # Return a very wide range to include all data
+            start_date = datetime(1970, 1, 1).date()
+            end_date = now.date()
+            return start_date, end_date
         else:
             raise ValueError(f"Invalid timeframe: {timeframe}")
 
@@ -42,12 +47,8 @@ class ResponseTimeLogic:
             logger.info(f"No data available for timeframe: {timeframe}")
             now = datetime.now()
             if timeframe == "last7days":
-                days = [
-                    now.date() - timedelta(days=i) for i in reversed(range(7))
-                ]
-                return [
-                    {"label": d.strftime("%d-%b"), "value": 0} for d in days
-                ]
+                days = [now.date() - timedelta(days=i) for i in reversed(range(7))]
+                return [{"label": d.strftime("%d-%b"), "value": 0} for d in days]
             elif timeframe == "last30days":
                 labels = ResponseTimeLogic._trend_week_labels(now)
                 return [{"label": lbl, "value": 0} for lbl in labels]
@@ -57,8 +58,17 @@ class ResponseTimeLogic:
             elif timeframe == "last365days":
                 labels = ResponseTimeLogic._trend_quarter_labels(now)
                 return [{"label": lbl, "value": 0} for lbl in labels]
+            elif timeframe == "yearly":
+                # No data, but return last 5 years as labels for consistency
+                current_year = now.year
+                years = [current_year - i for i in reversed(range(5))]
+                return [{"label": str(y), "value": 0} for y in years]
             else:
                 return []
+
+        # Ensure timestamp is datetime
+        if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
 
         now = datetime.now()
 
@@ -66,26 +76,13 @@ class ResponseTimeLogic:
             df = df.copy()
             df["date"] = df["timestamp"].dt.date
             # Oldest (today-7) to newest (today-1), left to right
-            date_range = [
-                (now.date() - timedelta(days=i)) for i in range(7, 0, -1)
-            ]
-            res = (
-                df.groupby("date")["duration_s"]
-                .mean()
-                .reset_index()
-                .sort_values("date", ascending=True)
-            )
-            avg_map = {
-                row["date"]: row["duration_s"] for _, row in res.iterrows()
-            }
+            date_range = [(now.date() - timedelta(days=i)) for i in range(7, 0, -1)]
+            res = df.groupby("date")["duration_s"].mean().reset_index().sort_values("date", ascending=True)
+            avg_map = {row["date"]: row["duration_s"] for _, row in res.iterrows()}
             return [
                 {
                     "label": d.strftime("%d-%b"),
-                    "value": (
-                        round(avg_map[d], 2)
-                        if d in avg_map and pd.notnull(avg_map[d])
-                        else 0
-                    ),
+                    "value": (round(avg_map[d], 2) if d in avg_map and pd.notnull(avg_map[d]) else 0),
                 }
                 for d in date_range
             ]
@@ -94,10 +91,7 @@ class ResponseTimeLogic:
             now_ = now
             start = now_ - timedelta(days=29)
             df = df.copy()
-            df = df[
-                (df["timestamp"].dt.date >= start.date())
-                & (df["timestamp"].dt.date <= now_.date())
-            ]
+            df = df[(df["timestamp"].dt.date >= start.date()) & (df["timestamp"].dt.date <= now_.date())]
 
             # Assign week label
             def assign_week_label(date):
@@ -112,25 +106,14 @@ class ResponseTimeLogic:
                 else:
                     return f"W4 {month}"
 
-            df["week_label"] = df["timestamp"].dt.date.apply(
-                lambda dt: assign_week_label(dt)
-            )
-            avg_per_week = (
-                df.groupby("week_label")["duration_s"].mean().reset_index()
-            )
+            df["week_label"] = df["timestamp"].dt.date.apply(lambda dt: assign_week_label(dt))
+            avg_per_week = df.groupby("week_label")["duration_s"].mean().reset_index()
             week_labels = ResponseTimeLogic._trend_week_labels(now_)
-            avg_map = {
-                row["week_label"]: row["duration_s"]
-                for _, row in avg_per_week.iterrows()
-            }
+            avg_map = {row["week_label"]: row["duration_s"] for _, row in avg_per_week.iterrows()}
             return [
                 {
                     "label": label,
-                    "value": (
-                        round(avg_map[label], 2)
-                        if label in avg_map and pd.notnull(avg_map[label])
-                        else 0
-                    ),
+                    "value": (round(avg_map[label], 2) if label in avg_map and pd.notnull(avg_map[label]) else 0),
                 }
                 for label in week_labels
             ]
@@ -139,27 +122,15 @@ class ResponseTimeLogic:
             now_ = now
             start = now_ - timedelta(days=89)
             df = df.copy()
-            df = df[
-                (df["timestamp"].dt.date >= start.date())
-                & (df["timestamp"].dt.date <= now_.date())
-            ]
+            df = df[(df["timestamp"].dt.date >= start.date()) & (df["timestamp"].dt.date <= now_.date())]
             df["month_label"] = df["timestamp"].dt.strftime("%b %Y")
-            avg_per_month = (
-                df.groupby("month_label")["duration_s"].mean().reset_index()
-            )
+            avg_per_month = df.groupby("month_label")["duration_s"].mean().reset_index()
             month_labels = ResponseTimeLogic._trend_month_labels(now_)
-            avg_map = {
-                row["month_label"]: row["duration_s"]
-                for _, row in avg_per_month.iterrows()
-            }
+            avg_map = {row["month_label"]: row["duration_s"] for _, row in avg_per_month.iterrows()}
             return [
                 {
                     "label": label,
-                    "value": (
-                        round(avg_map[label], 2)
-                        if label in avg_map and pd.notnull(avg_map[label])
-                        else 0
-                    ),
+                    "value": (round(avg_map[label], 2) if label in avg_map and pd.notnull(avg_map[label]) else 0),
                 }
                 for label in month_labels
             ]
@@ -168,37 +139,38 @@ class ResponseTimeLogic:
             now_ = now
             start = now_ - timedelta(days=364)
             df = df.copy()
-            df = df[
-                (df["timestamp"].dt.date >= start.date())
-                & (df["timestamp"].dt.date <= now_.date())
-            ]
+            df = df[(df["timestamp"].dt.date >= start.date()) & (df["timestamp"].dt.date <= now_.date())]
 
             # Quarter as "Qn YYYY"
             def quarter_label(dt):
                 q = ((dt.month - 1) // 3) + 1
                 return f"Q{q} {dt.year}"
 
-            df["quarter_label"] = df["timestamp"].dt.date.apply(
-                lambda d: quarter_label(d)
-            )
-            avg_per_quarter = (
-                df.groupby("quarter_label")["duration_s"].mean().reset_index()
-            )
+            df["quarter_label"] = df["timestamp"].dt.date.apply(lambda d: quarter_label(d))
+            avg_per_quarter = df.groupby("quarter_label")["duration_s"].mean().reset_index()
             quarter_labels = ResponseTimeLogic._trend_quarter_labels(now_)
-            avg_map = {
-                row["quarter_label"]: row["duration_s"]
-                for _, row in avg_per_quarter.iterrows()
-            }
+            avg_map = {row["quarter_label"]: row["duration_s"] for _, row in avg_per_quarter.iterrows()}
             return [
                 {
                     "label": label,
-                    "value": (
-                        round(avg_map[label], 2)
-                        if label in avg_map and pd.notnull(avg_map[label])
-                        else 0
-                    ),
+                    "value": (round(avg_map[label], 2) if label in avg_map and pd.notnull(avg_map[label]) else 0),
                 }
                 for label in quarter_labels
+            ]
+
+        elif timeframe == "yearly":
+            df = df.copy()
+            df["year_label"] = df["timestamp"].dt.year
+            avg_per_year = df.groupby("year_label")["duration_s"].mean().reset_index()
+            # Get all years present in the data, sorted
+            years = sorted(df["year_label"].unique())
+            avg_map = {row["year_label"]: row["duration_s"] for _, row in avg_per_year.iterrows()}
+            return [
+                {
+                    "label": str(year),
+                    "value": (round(avg_map[year], 2) if year in avg_map and pd.notnull(avg_map[year]) else 0),
+                }
+                for year in years
             ]
 
         else:
@@ -221,15 +193,10 @@ class ResponseTimeLogic:
         week_labels = []
         for year, month in months:
             days_in_month = calendar.monthrange(year, month)[1]
-            for widx, (low, high) in enumerate(
-                [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
-            ):
+            for widx, (low, high) in enumerate([(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1):
                 wk_start = datetime(year, month, low)
                 wk_end = datetime(year, month, high)
-                if (
-                    wk_end.date() < start.date()
-                    or wk_start.date() > end.date()
-                ):
+                if wk_end.date() < start.date() or wk_start.date() > end.date():
                     continue
                 label = f"W{widx} {calendar.month_abbr[month]}"
                 week_labels.append(label)
