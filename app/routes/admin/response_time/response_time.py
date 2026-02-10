@@ -22,11 +22,12 @@ async def get_average_response_time(payload: TimeframePayload):
         "last30days",
         "last90days",
         "last365days",
+        "yearly",
     ]:
         logger.error(f"Invalid timeframe: {timeframe}")
         raise HTTPException(
             status_code=400,
-            detail="Invalid timeframe. Allowed values: last7days, last30days, last90days, last365days",
+            detail="Invalid timeframe. Allowed values: last7days, last30days, last90days, last365days, yearly",
         )
 
     start_date, end_date = ResponseTimeLogic.calculate_date_range(timeframe)
@@ -34,9 +35,7 @@ async def get_average_response_time(payload: TimeframePayload):
     #     f"Fetching records between {start_date} and {end_date} for {timeframe}"
     # )
 
-    records = AggregatedResponse.get_instance().get_by_date_range(
-        start_date, end_date
-    )
+    records = AggregatedResponse.get_instance().get_by_date_range(start_date, end_date)
     result = ResponseTimeLogic.filter_and_calculate(records, timeframe)
 
     # logger.info(f"Response result for {timeframe}: {result}")

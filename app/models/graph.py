@@ -43,11 +43,14 @@ class FeedbackDataRequest(BaseModel):
     """Model for feedback data request.
 
     Attributes:
-        isPositive (bool): Indicates if the feedback type filter is positive (legacy field, not used in new logic).
-        timeframe (str): The timeframe for the feedback data ('last7days', 'last30days', etc.).
+        timeframe (Literal): The timeframe for the feedback data ('last7days', 'last30days', etc.).
     """
 
-    timeframe: str
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days", "yearly"]
+
+    def validate_timeframe(self):
+        if self.timeframe not in ["last7days", "last30days", "last90days", "last365days", "yearly"]:
+            raise HTTPException(...)
 
 
 class FeedbackDataItem(BaseModel):
@@ -136,7 +139,7 @@ class FeedbackTrendRequest(BaseModel):
         timeframe (Literal): The timeframe for the feedback trend - 'lastYear', 'last30days', or 'lastQuarter'.
     """
 
-    timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days", "yearly"]
 
 
 class TrendData(BaseModel):

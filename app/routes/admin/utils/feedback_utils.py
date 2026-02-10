@@ -57,7 +57,7 @@ def feedback_class(val):
 def calculate_timeframe(
     timeframe: str, current_time: datetime, include_previous: bool = False
 ) -> Tuple[datetime, datetime, Optional[datetime], Optional[datetime]]:
-    """Calculate the start and end times for a given timeframe, optionally including the previous period.Always returns UTC (offset-aware) datetimes."""
+    """Calculate the start and end times for a given timeframe, optionally including the previous period. Always returns UTC (offset-aware) datetimes."""
     # Ensure current_time is UTC-aware
     if current_time.tzinfo is None:
         current_time = current_time.replace(tzinfo=timezone.utc)
@@ -81,15 +81,18 @@ def calculate_timeframe(
         end_time = current_time
         prev_start_time = start_time - timedelta(days=365)
         prev_end_time = start_time
+    elif timeframe == "yearly":
+        # For yearly, include all data from a very early date
+        start_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        end_time = current_time
+        prev_start_time = None
+        prev_end_time = None
     else:
         raise ValueError("Invalid timeframe")
     # Force window to be UTC-aware
     for var in [start_time, end_time, prev_start_time, prev_end_time]:
         if var is not None and var.tzinfo is None:
             var = var.replace(tzinfo=timezone.utc)
-    # logger.info(
-    #     f"Calculated timeframe for {timeframe}: start={start_time}, end={end_time}"
-    # )
     return start_time, end_time, prev_start_time, prev_end_time
 
 
@@ -203,9 +206,7 @@ def fetch_feedback_trends_data(
     return trend_data
 
 
-def fetch_feedbackdetails_items_in_timewindow(
-    start_time, end_time
-) -> List[dict]:
+def fetch_feedbackdetails_items_in_timewindow(start_time, end_time) -> List[dict]:
     """Fetch all feedback items (all fields) in the time window."""
     items = scan_table(
         table=table,

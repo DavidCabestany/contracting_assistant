@@ -156,14 +156,17 @@ async def get_feedback_details(request: FeedbackDetailsRequest):
     else:
         current_time = datetime.now(timezone.utc)
         try:
-            start_dt, end_dt, *_ = calculate_timeframe(request.timeframe, current_time)
-            # Fix: adjust boundaries to full days
-            start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            if request.timeframe.strip().lower() == "yearly":
+                start_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
+                end_dt = current_time
+            else:
+                start_dt, end_dt, *_ = calculate_timeframe(request.timeframe, current_time)
+                start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
         except Exception:
             raise HTTPException(
                 400,
-                "Invalid timeframe: use last7days, last30days, last90days, last365days, or custom.",
+                "Invalid timeframe: use last7days, last30days, last90days, last365days, yearly, or custom.",
             )
 
     db_items = fetch_feedbackdetails_items_in_timewindow(start_dt, end_dt)
