@@ -167,6 +167,40 @@ DOCUMENT_TOPICS = [
     },
 ]
 
+DPA_DEFINITION_TERMS = [
+    "adequacy decision",
+    "anonymised data",
+    "anonymized data",
+    "anonymised data purposes",
+    "automated decision making",
+    "controller",
+    "controller personal data",
+    "controller purposes",
+    "customer",
+    "data protection legislation",
+    "data protection supervisory authority",
+    "data record",
+    "data subject",
+    "data subject request",
+    "in scope personal data",
+    "international transfer",
+    "processor purpose",
+    "personal data",
+    "personal data breach",
+    "prc",
+    "prc important data",
+    "processor",
+    "processor personal data",
+    "relevant controller",
+    "standard contractual clauses",
+    "sccs",
+    "special category data",
+    "sub-processor",
+    "third country",
+    "transfer safeguard",
+    "underlying identifiable data",
+]
+
 # TIA Clarification Constants
 
 ## TIA Clarification ───────

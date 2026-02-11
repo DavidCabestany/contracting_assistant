@@ -36,6 +36,7 @@ from services import (  # tia_followup_user_query,; tia_trigger_initial_clarific
     retrieve_file_chunks,
     session_history,
     store_interaction,
+    is_dpa_definition_query,
 )
 from services.token_usage import extract_token_usage, estimate_input_tokens
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
@@ -55,6 +56,7 @@ from .constants import (
 )
 
 from services.llm_metrics import put_llm_metrics
+from services.constants import DPA_DEFINITION_TERMS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["QnA"], dependencies=[Depends(verify_token)])
@@ -575,6 +577,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             answer = ""
             resp = None
             excluded = ["database", "standard", "standards", "backend"]
+
+        # Enforce DPA  file for definition queries right before retrieval
+        if is_dpa_definition_query(user_txt):
+            files = ["Data Protection Appendix - Definitions.pdf"]
+            logger.info(
+                "Final override: Only 'Data Protection Appendix - Definitions.pdf' will be used for definition query."
+            )
 
             # Step 6: Not follow-up – If files, prioritize file-based retrieval
             if files:

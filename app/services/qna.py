@@ -22,6 +22,7 @@ from .clients import (
 from .constants import (
     BUCKET_CONTAINER,
     DOCUMENT_TOPICS,
+    DPA_DEFINITION_TERMS,
     GUARDRAIL_ID,
     GUARDRAIL_VERSION_ID,
     HIGH_PRIORITY_QUERIES,
@@ -293,7 +294,7 @@ def generate_answer_with_context(formatted_prompt: str) -> dict:
             result["usage"]["input_tokens"] = it
         if ot is not None:
             result["usage"]["output_tokens"] = ot
- 
+
         logger.info("[Checkpoint] JSON parsed successfully.")
         return result
     except Exception as e:
@@ -642,3 +643,28 @@ def retrieve_citations_from_query(
 
     citations = extract_file_locations(resp)
     return citations
+
+
+def is_dpa_definition_query(user_txt: str) -> bool:
+    user_txt_lc = user_txt.lower()
+    for term in DPA_DEFINITION_TERMS:
+        patterns = [
+            rf"\bdefine {re.escape(term)}\b",
+            rf"\bdefinition of {re.escape(term)}\b",
+            rf"\bdefine of {re.escape(term)}\b",
+            rf"\bstate the {re.escape(term)}\b",
+            rf"\bwhat is {re.escape(term)}\b",
+            rf"\b{re.escape(term)} definition\b",
+            rf"\bdefinition for {re.escape(term)}\b",
+            rf"\bmeaning of {re.escape(term)}\b",
+            rf"\bexplain {re.escape(term)}\b",
+            rf"\bdescribe {re.escape(term)}\b",
+            rf"\bhow is {re.escape(term)} defined\b",
+            rf"\bdefinition under dpa for {re.escape(term)}\b",
+            rf"\bdpa definition of {re.escape(term)}\b",
+            rf"\bdefinition in dpa of {re.escape(term)}\b",
+            rf"\bdefinition in dpa for {re.escape(term)}\b",
+        ]
+        if any(re.search(pat, user_txt_lc) for pat in patterns):
+            return True
+    return False
