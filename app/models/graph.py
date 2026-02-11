@@ -43,11 +43,14 @@ class FeedbackDataRequest(BaseModel):
     """Model for feedback data request.
 
     Attributes:
-        isPositive (bool): Indicates if the feedback type filter is positive (legacy field, not used in new logic).
-        timeframe (str): The timeframe for the feedback data ('last7days', 'last30days', etc.).
+        timeframe (Literal): The timeframe for the feedback data ('last7days', 'last30days', etc.).
     """
 
-    timeframe: str
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days", "yearly"]
+
+    def validate_timeframe(self):
+        if self.timeframe not in ["last7days", "last30days", "last90days", "last365days", "yearly"]:
+            raise HTTPException(...)
 
 
 class FeedbackDataItem(BaseModel):
@@ -136,7 +139,7 @@ class FeedbackTrendRequest(BaseModel):
         timeframe (Literal): The timeframe for the feedback trend - 'lastYear', 'last30days', or 'lastQuarter'.
     """
 
-    timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days", "yearly"]
 
 
 class TrendData(BaseModel):
@@ -166,13 +169,11 @@ class FeedbackTrendResponse(BaseModel):
 
 
 class SiteUsageRequest(BaseModel):
-    """Model for site usage request.
+    """Model for site usage request."""
 
-    Attributes:
-        timeframe (Literal): The requested timeframe for site usage - 'monthly', 'quarterly', 'yearly', or 'weekly'.
-    """
-
-    timeframe: Literal["monthly", "quarterly", "yearly", "weekly"]
+    timeframe: Literal[
+        "monthly", "quarterly", "yearly", "weekly", "last7days", "last30days", "last90days", "last365days"
+    ]
 
 
 class SiteUsageData(BaseModel):
@@ -211,10 +212,10 @@ class QueryCountPayload(BaseModel):
     """Model for User count request.
 
     Attributes:
-        timeframe (Literal): The timeframe for the User count - 'last7days', 'last30days', 'last90days', or 'last365days'.
+        timeframe (Literal): The timeframe for the User count - 'last7days', 'last30days', 'last90days', 'last365days', or 'yearly'.
     """
 
-    timeframe: Literal["last7days", "last30days", "last90days", "last365days"]
+    timeframe: Literal["last7days", "last30days", "last90days", "last365days", "yearly"]
 
 
 class FeedbackDetailsRequest(BaseModel):
@@ -258,6 +259,7 @@ class FeedbackDetailsRow(BaseModel):
     feedbackResponse: Optional[str] = None
     retrievedCitations: Optional[List[RetrievedCitationModel]] = None
     feedbackComment: str
+    date: str
 
 
 class FeedbackDetailsFilters(BaseModel):

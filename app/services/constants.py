@@ -80,15 +80,11 @@ HIGH_PRIORITY_QUERIES = {
 ## Documentation Topics for detect_prior_doc_from_query
 DOCUMENT_TOPICS = [
     {
-        "file": [
-            "Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"
-        ],
+        "file": ["Playbook_Data Protection Appendix - AZ Controller to Supplier Processor.pdf"],
         "keywords": ["data protection appendix", "controller", "processor"],
     },
     {
-        "file": [
-            "Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"
-        ],
+        "file": ["Playbook_Data Protection Appendix – Controller to Dual Role Processor.pdf"],
         "keywords": ["supplier", "controller", "processor"],
     },
     {
@@ -123,6 +119,7 @@ DOCUMENT_TOPICS = [
     },
     {
         "file": [
+            "Data Protection Appendix - Definitions.pdf",
             "Data Protection Appendix - Sharing Anonymised Data.pdf",
             "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
             "Data Protection Appendix – Receiving Anonymised Data.pdf",
@@ -132,6 +129,7 @@ DOCUMENT_TOPICS = [
     },
     {
         "file": [
+            "Data Protection Appendix - Definitions.pdf",
             "Data Protection Appendix - Sharing Anonymised Data.pdf",
             "Playbook_Data Protection Appendix – receiving Anonymised Data.pdf",
             "Data Protection Appendix – Receiving Anonymised Data.pdf",

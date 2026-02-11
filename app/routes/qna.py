@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import re
+import time
 import uuid
 
 from auth.utils import verify_token
@@ -276,6 +277,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
     try:
         # Step 1: Generate message/session IDs
         start_time = datetime.datetime.now().isoformat()
+        start_perf = time.perf_counter()  # <-- Add this line
         msg_id = str(uuid.uuid4())
         logger.info("010 ▶ msg_id = %s", msg_id)
 
@@ -330,6 +332,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "However, I can assist you with Contracting Clauses, confidentiality agreements, and payment terms."
             )
             end_time = datetime.datetime.now().isoformat()
+            end_perf = time.perf_counter()
+            latency_ms = int((end_perf - start_perf) * 1000)
             _store_chat_log(
                 request,
                 default_msg,
@@ -338,6 +342,26 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 start_time,
                 end_time,
                 citations=[],
+            )
+            # Estimate input tokens for the irrelevant query
+            input_tokens = estimate_input_tokens(user_txt)
+            output_tokens = estimate_input_tokens(default_msg)
+            logger.info(f"[Guardrail/Irrelevant] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+            log_test_metrics(
+                message_id=msg_id,
+                user_id=request.user.id,
+                session_id=ui_session_id,
+                model_id="SONNET_45",
+                span_id="Guardrail",
+                kb_id=kb_id,
+                kb_path=kb_path,
+                latency_ms=latency_ms,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                price_per_input_token=(0.003 / 1000),
+                price_per_output_token=(0.015 / 1000),
+                status="guardrail",
+                error_message="Guardrail/Irrelevant",
             )
             logger.info("090 ◀ returning IRRELEVANT response")
             return QueryResponse(
@@ -387,7 +411,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
 
         # Step 4: Prompt construction and follow-up detection
 
-        ## Backdating temporary fix
+        ## Backdating fix
         user_txt_lower = user_txt.lower()
         reset_history_for_backdating = any(kw in user_txt_lower for kw in ["backdating", "backdate", "backdated"])
         if reset_history_for_backdating:
@@ -415,6 +439,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 guardrail_action = resp.get("guardrailAction")
                 if guardrail_action:
                     logger.info(f"[Guardrail] Action: {guardrail_action}")
+                    # now misconduct (guardrail action) has been deactivated because of the 'backdating' issues.
 
                 citations = extract_file_locations(resp, allowed_files=files if files else None)
                 _bedrock_sessions[ui_session_id] = resp["sessionId"]
@@ -613,6 +638,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     # Always use estimated input tokens, try to extract output tokens
                     _, output_tokens = extract_token_usage(direct_resp)
                     logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+                    end_perf = time.perf_counter()
+                    latency_ms = int((end_perf - start_perf) * 1000)
                     log_test_metrics(
                         message_id=msg_id,
                         user_id=request.user.id,
@@ -621,7 +648,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         span_id="Answer with context",
                         kb_id=kb_id,
                         kb_path=kb_path,
-                        latency_ms=0,
+                        latency_ms=latency_ms,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
                         price_per_input_token=(0.003 / 1000),
@@ -632,6 +659,25 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     guardrail_action = direct_resp.get("guardrailAction")
                     if guardrail_action:
                         logger.info(f"[Guardrail] Action: {guardrail_action}")
+                        end_perf = time.perf_counter()
+                        latency_ms = int((end_perf - start_perf) * 1000)
+                        # Always log guardrail token usage
+                        log_test_metrics(
+                            message_id=msg_id,
+                            user_id=request.user.id,
+                            session_id=ui_session_id,
+                            model_id="SONNET_45",
+                            span_id="Guardrail",
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            latency_ms=latency_ms,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            price_per_input_token=(0.003 / 1000),
+                            price_per_output_token=(0.015 / 1000),
+                            status="guardrail",
+                            error_message=guardrail_action,
+                        )
                 except Exception as e:
                     logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
 
@@ -673,6 +719,25 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         guardrail_action = resp.get("guardrailAction")
                         if guardrail_action:
                             logger.info(f"[Guardrail] Action: {guardrail_action}")
+                            end_perf = time.perf_counter()
+                            latency_ms = int((end_perf - start_perf) * 1000)
+                            # Always log guardrail token usage
+                            log_test_metrics(
+                                message_id=msg_id,
+                                user_id=request.user.id,
+                                session_id=ui_session_id,
+                                model_id="SONNET_45",
+                                span_id="Guardrail",
+                                kb_id=kb_id,
+                                kb_path=kb_path,
+                                latency_ms=latency_ms,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                price_per_input_token=(0.003 / 1000),
+                                price_per_output_token=(0.015 / 1000),
+                                status="guardrail",
+                                error_message=guardrail_action,
+                            )
                 logger.info(
                     "306 ▶ Raw KB response (pre-citation extraction): %s",
                     json.dumps(resp, indent=2),

@@ -62,11 +62,7 @@ def week_sortkey(label: str) -> tuple:
     """Returns a sort key tuple for week labels (e.g., W2 Feb) to enable chronological sorting."""
     week, month_abbr = label.split()
     today = datetime.now()
-    year = (
-        today.year
-        if (month_abbr != "Dec" or today.month >= 12)
-        else today.year - 1
-    )
+    year = today.year if (month_abbr != "Dec" or today.month >= 12) else today.year - 1
     try:
         month = list(calendar.month_abbr).index(month_abbr)
     except Exception:
@@ -126,9 +122,7 @@ def week_bucket_ranges_for_30day_window(start_dt, end_dt):
             m = m.replace(month=m.month + 1)
     for year, month in months:
         days_in_month = calendar.monthrange(year, month)[1]
-        for widx, (low, high) in enumerate(
-            [(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1
-        ):
+        for widx, (low, high) in enumerate([(1, 7), (8, 14), (15, 21), (22, days_in_month)], 1):
             wk_start = datetime(year, month, low, tzinfo=timezone.utc)
             wk_end = datetime(year, month, high, tzinfo=timezone.utc)
             if wk_end < start_dt or wk_start > end_dt:
@@ -166,14 +160,12 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
     # ----7days: date
     # ----30days: W1–W4 per calendar month (like usage graph)
     # ----90days: month
-    # ----365days: quarter
+    # ----365days: quarter/month
+    # ----yearly: year on year data
 
     if timeframe == "last30days":
         bucket_ranges = week_bucket_ranges_for_30day_window(start_dt, end_dt)
-        label_to_counts = {
-            label: {"positive": 0, "negative": 0}
-            for label, _, _ in bucket_ranges
-        }
+        label_to_counts = {label: {"positive": 0, "negative": 0} for label, _, _ in bucket_ranges}
 
         for item in items:
             dt = parse_date_flexible(item["Timestamp"])
@@ -196,6 +188,38 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
                     "value": bucket_label,
                     "positive": data["positive"],
                     "negative": data["negative"],
+                }
+            )
+        return out
+
+    if timeframe == "yearly":
+        from collections import defaultdict
+
+        yearly_buckets = defaultdict(lambda: {"positive": 0, "negative": 0, "no_feedback": 0})
+        for item in items:
+            dt = parse_date_flexible(item["Timestamp"])
+            val = item.get("IsFeedbackPositive")
+            label = feedback_class(val)
+            if not dt or label not in ("positive", "negative", "no_feedback"):
+                continue
+            year = dt.year
+            if year >= 2024:
+                yearly_buckets[year][label] += 1
+
+        out = []
+        for year in sorted(yearly_buckets.keys()):
+            data = yearly_buckets[year]
+            total = data["positive"] + data["negative"] + data["no_feedback"]
+            out.append(
+                {
+                    "label": str(year),  # <-- use label/value for TrendData
+                    "value": str(year),
+                    "positive": data["positive"],
+                    "negative": data["negative"],
+                    "no_feedback": data["no_feedback"],
+                    "positive_pct": round((data["positive"] / total * 100), 2) if total else 0.0,
+                    "negative_pct": round((data["negative"] / total * 100), 2) if total else 0.0,
+                    "no_feedback_pct": round((data["no_feedback"] / total * 100), 2) if total else 0.0,
                 }
             )
         return out
@@ -303,48 +327,32 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
         return out
 
 
-@feedback_data_router.post(
-    "/getFeedbackTrend", response_model=FeedbackTrendResponse
-)
+@feedback_data_router.post("/getFeedbackTrend", response_model=FeedbackTrendResponse)
 async def get_feedback_trend(request: FeedbackTrendRequest):
     """Fetch feedback trend data grouped for visualization."""
     try:
         current_time = datetime.now()
-        start_time, end_time, _, _ = calculate_timeframe(
-            request.timeframe, current_time, include_previous=False
-        )
-        start_time = start_time.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        end_time = end_time.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
+        start_time, end_time, _, _ = calculate_timeframe(request.timeframe, current_time, include_previous=False)
+        start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_time = end_time.replace(hour=23, minute=59, second=59, microsecond=999999)
         # Unified fetch!
         items = fetch_feedback_items_in_timewindow(start_time, end_time)
         # logger.info(
         #    f"Fetched feedback items for trend ({request.timeframe}): {items}"
         # )
-        trend_data = aggregate_trend(
-            items, request.timeframe, start_time, end_time
-        )
+        trend_data = aggregate_trend(items, request.timeframe, start_time, end_time)
         # logger.info(
         #    f"Feedback trend data fetched for {request.timeframe}: {len(trend_data)} items "
         #    f"(sum positive={sum(x['positive'] for x in trend_data)}, "
         #    f"sum negative={sum(x['negative'] for x in trend_data)})"
         # )
-        return FeedbackTrendResponse(
-            data=[TrendData(**item) for item in trend_data]
-        )
+        return FeedbackTrendResponse(data=[TrendData(**item) for item in trend_data])
     except Exception as e:
         # logger.error(f"Error fetching feedback trend: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch feedback trend: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch feedback trend: {str(e)}")
 
 
-@feedback_data_router.post(
-    "/getFeedbackData", response_model=FeedbackDataResponse
-)
+@feedback_data_router.post("/getFeedbackData", response_model=FeedbackDataResponse)
 async def get_feedback_data(request: FeedbackDataRequest):
     """Fetch aggregated feedback statistics (counts, percentages, changes)."""
     try:
@@ -352,21 +360,18 @@ async def get_feedback_data(request: FeedbackDataRequest):
         start_time, end_time, prev_start, prev_end = calculate_timeframe(
             request.timeframe, current_time, include_previous=True
         )
-        start_time = start_time.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        end_time = end_time.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
+        start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_time = end_time.replace(hour=23, minute=59, second=59, microsecond=999999)
         items = fetch_feedback_items_in_timewindow(start_time, end_time)
-        prev_items = fetch_feedback_items_in_timewindow(prev_start, prev_end)
+
+        prev_items = []
+        if prev_start is not None and prev_end is not None:
+            prev_items = fetch_feedback_items_in_timewindow(prev_start, prev_end)
 
         # -------- PATCH: For last30days, include only items that fall in any valid W1–W4 week bucket --------
         if request.timeframe == "last30days":
             items = filter_items_to_weeks_window(items, start_time, end_time)
-            prev_items = filter_items_to_weeks_window(
-                prev_items, prev_start, prev_end
-            )
+            prev_items = filter_items_to_weeks_window(prev_items, prev_start, prev_end)
         # -----------------------------------------------------------------------------------------------
 
         pos, neg, nofb = aggregate_stats(items)
@@ -405,6 +410,4 @@ async def get_feedback_data(request: FeedbackDataRequest):
 
     except Exception as e:
         logger.error(f"Error fetching feedback data: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch feedback data: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch feedback data: {str(e)}")
