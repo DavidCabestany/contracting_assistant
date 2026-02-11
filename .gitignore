@@ -71,3 +71,6 @@ build/
 
 # Type hinting stubs
 *.pyi
+
+# ignore scripts
+scripts/
