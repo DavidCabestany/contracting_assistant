@@ -26,6 +26,7 @@ from .qna import (  # tia_followup_user_query,; tia_trigger_initial_clarificatio
     retrieve_citations_from_query,
     retrieve_file_chunks,
     extract_token_usage,
+    is_dpa_definition_query,
 )
 from .templates import retrieve_template
 
@@ -51,6 +52,7 @@ __all__ = [
     "get_knowledge_base_id",
     "extract_file_locations",
     "llm_summarise",
+    "DPA_DEFINITION_TERMS",
     "tia_followup_user_query",
     "tia_trigger_initial_clarification",
     "detect_present_keywords_for_tia",
@@ -58,6 +60,7 @@ __all__ = [
     "fallback_final_answer_for_tia",
     "build_clarification_prompt_for_tia",
     "extract_token_usage",
+    "is_dpa_definition_query",
     # chat history
     "store_interaction",
     "session_history",
