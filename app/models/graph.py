@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from .site import Language

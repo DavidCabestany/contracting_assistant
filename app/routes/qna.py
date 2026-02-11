@@ -67,7 +67,7 @@ _bedrock_sessions: dict[str, str] = {}
 
 def _build_prompt_with_optional_history(
     user_txt: str, tx_count: int, ui_session_id: str, files: list
-) -> tuple[str, str]:
+) -> tuple[str, str, bool]:
     logger.info(
         "ENTER ▶ _build_prompt_with_optional_history(user_txt=%.100s, tx_count=%d, ui_session_id=%s)",
         user_txt,
@@ -481,6 +481,7 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                     "130 EXCEPTION: Direct LLM with KB context failed: %s",
                     e,
                 )
+                logger.error("BACKDATING FAILED - answer='%s' (type: %s)", answer, type(answer)) 
             pass
         else:
             # Usual followup flow
@@ -585,76 +586,98 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                 "Final override: Only 'Data Protection Appendix - Definitions.pdf' will be used for definition query."
             )
 
-            # Step 6: Not follow-up – If files, prioritize file-based retrieval
-            if files:
-                logger.info("190 ▶ Not follow-up but files present – prioritized doc retrieval")
-                try:
-                    logger.info(">>> Calling retrieve_and_generate_prioritized_doc")
-                    resp = retrieve_and_generate_prioritized_doc(
-                        prompt,
-                        get_knowledge_base_id(request.query.knowledgeType),
-                        kb_path,
-                        files,
-                        session_id=bedrock_session_id,
-                    )
-                    answer = resp["output"]["text"]
+        # Step 6: Not follow-up – If files, prioritize file-based retrieval
+        if files:
+            logger.info("190 ▶ Not follow-up but files present – prioritized doc retrieval")
+            try:
+                logger.info(">>> Calling retrieve_and_generate_prioritized_doc")
+                resp = retrieve_and_generate_prioritized_doc(
+                    prompt,
+                    get_knowledge_base_id(request.query.knowledgeType),
+                    kb_path,
+                    files,
+                    session_id=bedrock_session_id,
+                )
+                answer = resp["output"]["text"]
 
-                    guardrail_action = resp.get("guardrailAction")
-                    if guardrail_action:
-                        logger.info(f"[Guardrail] Action: {guardrail_action}")
+                guardrail_action = resp.get("guardrailAction")
+                if guardrail_action:
+                    logger.info(f"[Guardrail] Action: {guardrail_action}")
 
+                if is_invalid_response(answer):
+                    citations = []
+                else:
+                    citations = extract_file_locations(resp, allowed_files=files if files else [])
+                _bedrock_sessions[ui_session_id] = resp["sessionId"]
+                bedrock_session_id = resp["sessionId"]
+                logger.info("200 ▶ prioritized answer = %.100s", answer)
+                end_time = datetime.datetime.now().isoformat()
+                _store_chat_log(
+                    request,
+                    answer,
+                    msg_id,
+                    ui_session_id,
+                    start_time,
+                    end_time,
+                    citations,
+                )
+            except Exception as e:
+                logger.warning("210 ⚠ prioritized retrieval failed: %s", e)
+
+        # Step 7: Not follow-up and no files – use direct LLM
+        elif not files:
+            logger.info("220 ▶ Not follow-up and no files – using direct LLM")
+            try:
+                logger.info(">>> Calling generate_answer_with_context")
+                direct_resp = generate_answer_with_context(prompt)
+
+                logger.debug("221 ▶ LLM raw response: %s", direct_resp)
+                raw_content = direct_resp.get("content", [])
+                if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
+                    answer = raw_content[0].get("text", "").strip()
+                    logger.info("222 ▶ Direct LLM answer retrieved")
                     if is_invalid_response(answer):
                         citations = []
                     else:
-                        citations = extract_file_locations(resp, allowed_files=files if files else None)
-                    _bedrock_sessions[ui_session_id] = resp["sessionId"]
-                    bedrock_session_id = resp["sessionId"]
-                    logger.info("200 ▶ prioritized answer = %.100s", answer)
-                    end_time = datetime.datetime.now().isoformat()
-                    _store_chat_log(
-                        request,
-                        answer,
-                        msg_id,
-                        ui_session_id,
-                        start_time,
-                        end_time,
-                        citations,
-                    )
-                except Exception as e:
-                    logger.warning("210 ⚠ prioritized retrieval failed: %s", e)
-
-            # Step 7: Not follow-up and no files – use direct LLM
-            elif not files:
-                logger.info("220 ▶ Not follow-up and no files – using direct LLM")
-                try:
-                    logger.info(">>> Calling generate_answer_with_context")
-                    direct_resp = generate_answer_with_context(prompt)
-
-                    logger.debug("221 ▶ LLM raw response: %s", direct_resp)
-                    raw_content = direct_resp.get("content", [])
-                    if isinstance(raw_content, list) and raw_content and isinstance(raw_content[0], dict):
-                        answer = raw_content[0].get("text", "").strip()
-                        logger.info("222 ▶ Direct LLM answer retrieved")
-                        if is_invalid_response(answer):
-                            citations = []
-                        else:
-                            citations = retrieve_citations_from_query(
-                                query=answer,
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                files=files,
-                            )
-                    # Always use estimated input tokens, try to extract output tokens
-                    _, output_tokens = extract_token_usage(direct_resp)
-                    logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+                        citations = retrieve_citations_from_query(
+                            query=answer,
+                            kb_id=kb_id,
+                            kb_path=kb_path,
+                            files=files,
+                        )
+                # Always use estimated input tokens, try to extract output tokens
+                _, output_tokens = extract_token_usage(direct_resp)
+                logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
+                end_perf = time.perf_counter()
+                latency_ms = int((end_perf - start_perf) * 1000)
+                log_test_metrics(
+                    message_id=msg_id,
+                    user_id=request.user.id,
+                    session_id=ui_session_id,
+                    model_id="SONNET_45",
+                    span_id="Answer with context",
+                    kb_id=kb_id,
+                    kb_path=kb_path,
+                    latency_ms=latency_ms,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    price_per_input_token=(0.003 / 1000),
+                    price_per_output_token=(0.015 / 1000),
+                    status="success",
+                    error_message=None,
+                )
+                guardrail_action = direct_resp.get("guardrailAction")
+                if guardrail_action:
+                    logger.info(f"[Guardrail] Action: {guardrail_action}")
                     end_perf = time.perf_counter()
                     latency_ms = int((end_perf - start_perf) * 1000)
+                    # Always log guardrail token usage
                     log_test_metrics(
                         message_id=msg_id,
                         user_id=request.user.id,
                         session_id=ui_session_id,
                         model_id="SONNET_45",
-                        span_id="Answer with context",
+                        span_id="Guardrail",
                         kb_id=kb_id,
                         kb_path=kb_path,
                         latency_ms=latency_ms,
@@ -662,10 +685,48 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                         output_tokens=output_tokens,
                         price_per_input_token=(0.003 / 1000),
                         price_per_output_token=(0.015 / 1000),
-                        status="success",
-                        error_message=None,
+                        status="guardrail",
+                        error_message=guardrail_action,
                     )
-                    guardrail_action = direct_resp.get("guardrailAction")
+            except Exception as e:
+                logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
+
+        # Step 8: Always try KB retrieval for citation and answer upgrade
+        try:
+            doc = {}
+            logger.info("300 ▶ Entering KB retrieval for citations and answer refinement")
+            if not files:
+                logger.info("302 ▶ No files for KB retrieval – full KB search")
+                doc = retrieve_documents(
+                    prompt,
+                    get_knowledge_base_id(detected_unit),
+                    REGION_ID,
+                )
+                hits = doc.get("retrievalResults", [])
+                logger.info("303 ▶ KB search returned %d documents", len(hits))
+                for hit in hits:
+                    uri = hit.get("metadata", {}).get("x-amz-bedrock-kb-source-uri", "")
+                    if PRIOR_DOC in uri:
+                        logger.info("304 ▶ PRIOR_DOC matched in KB retrieval, using prioritized doc")
+                        logger.info(">>> Calling retrieve_and_generate_prioritized_doc")
+                        resp = retrieve_and_generate_prioritized_doc(
+                            query=prompt,
+                            kb_id=get_knowledge_base_id(detected_unit),
+                            knowledge_base_folder=kb_path,
+                            files=[PRIOR_DOC],
+                            session_id=bedrock_session_id,
+                        )
+                        break
+                if not resp:
+                    logger.info("305 ▶ No PRIOR_DOC found – using standard retrieve_and_generate")
+                    logger.info(">>> Calling retrieve_and_generate (RAG)")
+                    resp = retrieve_and_generate(
+                        prompt,
+                        get_knowledge_base_id(detected_unit),
+                        session_id=bedrock_session_id,
+                        kb_path=kb_path,
+                    )
+                    guardrail_action = resp.get("guardrailAction")
                     if guardrail_action:
                         logger.info(f"[Guardrail] Action: {guardrail_action}")
                         end_perf = time.perf_counter()
@@ -687,165 +748,105 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             status="guardrail",
                             error_message=guardrail_action,
                         )
-                except Exception as e:
-                    logger.warning("223 EXCEPTION:  Direct LLM failed: %s", e)
+            logger.info(
+                "306 ▶ Raw KB response (pre-citation extraction): %s",
+                json.dumps(resp, indent=2),
+            )
 
-            # Step 8: Always try KB retrieval for citation and answer upgrade
-            try:
-                doc = {}
-                logger.info("300 ▶ Entering KB retrieval for citations and answer refinement")
-                if not files:
-                    logger.info("302 ▶ No files for KB retrieval – full KB search")
-                    doc = retrieve_documents(
-                        prompt,
-                        get_knowledge_base_id(detected_unit),
-                        REGION_ID,
-                    )
-                    hits = doc.get("retrievalResults", [])
-                    logger.info("303 ▶ KB search returned %d documents", len(hits))
-                    for hit in hits:
-                        uri = hit.get("metadata", {}).get("x-amz-bedrock-kb-source-uri", "")
-                        if PRIOR_DOC in uri:
-                            logger.info("304 ▶ PRIOR_DOC matched in KB retrieval, using prioritized doc")
-                            logger.info(">>> Calling retrieve_and_generate_prioritized_doc")
-                            resp = retrieve_and_generate_prioritized_doc(
-                                query=prompt,
-                                kb_id=get_knowledge_base_id(detected_unit),
-                                knowledge_base_folder=kb_path,
-                                files=[PRIOR_DOC],
-                                session_id=bedrock_session_id,
-                            )
-                            break
-                    if not resp:
-                        logger.info("305 ▶ No PRIOR_DOC found – using standard retrieve_and_generate")
-                        logger.info(">>> Calling retrieve_and_generate (RAG)")
-                        resp = retrieve_and_generate(
-                            prompt,
-                            get_knowledge_base_id(detected_unit),
-                            session_id=bedrock_session_id,
-                            kb_path=kb_path,
-                        )
-                        guardrail_action = resp.get("guardrailAction")
-                        if guardrail_action:
-                            logger.info(f"[Guardrail] Action: {guardrail_action}")
-                            end_perf = time.perf_counter()
-                            latency_ms = int((end_perf - start_perf) * 1000)
-                            # Always log guardrail token usage
-                            log_test_metrics(
-                                message_id=msg_id,
-                                user_id=request.user.id,
-                                session_id=ui_session_id,
-                                model_id="SONNET_45",
-                                span_id="Guardrail",
-                                kb_id=kb_id,
-                                kb_path=kb_path,
-                                latency_ms=latency_ms,
-                                input_tokens=input_tokens,
-                                output_tokens=output_tokens,
-                                price_per_input_token=(0.003 / 1000),
-                                price_per_output_token=(0.015 / 1000),
-                                status="guardrail",
-                                error_message=guardrail_action,
-                            )
-                logger.info(
-                    "306 ▶ Raw KB response (pre-citation extraction): %s",
-                    json.dumps(resp, indent=2),
-                )
+            _bedrock_sessions[ui_session_id] = resp.get("sessionId", bedrock_session_id)
+            kb_answer = resp.get("output", {}).get("text", "").strip()
+            if is_invalid_response(kb_answer):
+                kb_citations = []
+            else:
+                kb_citations = extract_file_locations(resp, allowed_files=files if files else None)
 
-                _bedrock_sessions[ui_session_id] = resp.get("sessionId", bedrock_session_id)
-                kb_answer = resp.get("output", {}).get("text", "").strip()
-                if is_invalid_response(kb_answer):
-                    kb_citations = []
-                else:
-                    kb_citations = extract_file_locations(resp, allowed_files=files if files else None)
+            if kb_answer and not is_invalid_response(kb_answer):
+                logger.info("307 ▶ KB answer deemed valid, will overwrite previous LLM answer")
+                answer = kb_answer
+                citations = kb_citations
+            else:
+                logger.warning("308 ⚠ KB retrieval returned invalid/empty response – keeping prior answer")
 
-                if kb_answer and not is_invalid_response(kb_answer):
-                    logger.info("307 ▶ KB answer deemed valid, will overwrite previous LLM answer")
-                    answer = kb_answer
-                    citations = kb_citations
-                else:
-                    logger.warning("308 ⚠ KB retrieval returned invalid/empty response – keeping prior answer")
-
-            except Exception as e:
-                logger.warning("309 ⚠ KB retrieval failed: %s", e)
-                if not answer:
-                    logger.error("310 ▶ No answer after KB failure – raising HTTPException")
-                    raise HTTPException(
-                        HTTP_500_INTERNAL_SERVER_ERROR,
-                        f"Doc retrieval failed: {e}",
-                    )
-
+        except Exception as e:
+            logger.warning("309 ⚠ KB retrieval failed: %s", e)
             if not answer:
-                logger.error("320 ▶ No answer generated – aborting (HTTP 500)")
+                logger.error("310 ▶ No answer after KB failure – raising HTTPException")
                 raise HTTPException(
                     HTTP_500_INTERNAL_SERVER_ERROR,
-                    "Unable to generate an answer.",
+                    f"Doc retrieval failed: {e}",
                 )
 
-            # Step 9: Fallback QnA logic and logging
-            try:
-                if answer and not is_invalid_response(answer):
-                    logger.info(
-                        "400 ▶ Valid answer present, skipping further fallback. Answer = %.100s",
-                        answer,
+        if not answer:
+            logger.error("320 ▶ No answer generated – aborting (HTTP 500)")
+            raise HTTPException(
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "Unable to generate an answer.",
+            )
+
+        # Step 9: Fallback QnA logic and logging
+        try:
+            if answer and not is_invalid_response(answer):
+                logger.info(
+                    "400 ▶ Valid answer present, skipping further fallback. Answer = %.100s",
+                    answer,
+                )
+                if not citations:
+                    citations = extract_file_locations(resp, allowed_files=files if files else None)
+                    logger.info("401 ▶ No citations on valid answer, extracting from resp.")
+            else:
+                logger.info(f"402 ▶ Answer is invalid/empty, would be falling in FALLBACK QNA: {answer}")
+        except Exception as e:
+            logger.warning("403 EXCEPTION: fallback QnA failed: %s", e)
+
+        if not citations and "retrievalResults" in doc:
+            logger.info("410 ▶ Citations empty, attaching fallback citations from doc retrieval.")
+            for hit in doc["retrievalResults"]:
+                uri = hit.get("metadata", {}).get("x-amz-bedrock-kb-source-uri", "")
+                page = hit.get("metadata", {}).get("x-amz-bedrock-kb-document-page-number", 0)
+                if uri:
+                    citations.append(
+                        {
+                            "filePath": uri,
+                            "pageNumber": int(page),
+                            "fileName": uri.split("/")[-1],
+                        }
                     )
-                    if not citations:
-                        citations = extract_file_locations(resp, allowed_files=files if files else None)
-                        logger.info("401 ▶ No citations on valid answer, extracting from resp.")
-                else:
-                    logger.info(f"402 ▶ Answer is invalid/empty, would be falling in FALLBACK QNA: {answer}")
-            except Exception as e:
-                logger.warning("403 EXCEPTION: fallback QnA failed: %s", e)
 
-            if not citations and "retrievalResults" in doc:
-                logger.info("410 ▶ Citations empty, attaching fallback citations from doc retrieval.")
-                for hit in doc["retrievalResults"]:
-                    uri = hit.get("metadata", {}).get("x-amz-bedrock-kb-source-uri", "")
-                    page = hit.get("metadata", {}).get("x-amz-bedrock-kb-document-page-number", 0)
-                    if uri:
-                        citations.append(
-                            {
-                                "filePath": uri,
-                                "pageNumber": int(page),
-                                "fileName": uri.split("/")[-1],
-                            }
-                        )
+        logger.info("500 ▶ Final Citations to Results: %s", citations)
+        logger.info("510 ▶ Storing chat log")
+        answer = re.split(r"\nUser:\s", answer)[0].strip()
 
-            logger.info("500 ▶ Final Citations to Results: %s", citations)
-            logger.info("510 ▶ Storing chat log")
-            answer = re.split(r"\nUser:\s", answer)[0].strip()
+        end_time = datetime.datetime.now().isoformat()
+        _store_chat_log(
+            request,
+            answer,
+            msg_id,
+            ui_session_id,
+            start_time,
+            end_time,
+            citations,
+        )
 
-            end_time = datetime.datetime.now().isoformat()
-            _store_chat_log(
-                request,
-                answer,
-                msg_id,
-                ui_session_id,
-                start_time,
-                end_time,
-                citations,
-            )
+        logger.info("520 ◀ exit ask_question SUCCESS")
 
-            logger.info("520 ◀ exit ask_question SUCCESS")
-
-            return QueryResponse(
-                status="success",
-                sessionId=ui_session_id,
-                userQuery=user_txt,
-                result=Result(
-                    messageId=msg_id,
-                    answer=QnAAnswer(ans=answer),
-                    transactionCount=tx_count,
-                    citations=citations,
-                    feedback=Feedback(
-                        feedbackDisplayOptions=FeedbackDisplayOptions(
-                            thumbsUp="N",
-                            thumbsDown="N",
-                            feedbackText="N",
-                        )
-                    ),
+        return QueryResponse(
+            status="success",
+            sessionId=ui_session_id,
+            userQuery=user_txt,
+            result=Result(
+                messageId=msg_id,
+                answer=QnAAnswer(ans=answer),
+                transactionCount=tx_count,
+                citations=citations,
+                feedback=Feedback(
+                    feedbackDisplayOptions=FeedbackDisplayOptions(
+                        thumbsUp="N",
+                        thumbsDown="N",
+                        feedbackText="N",
+                    )
                 ),
-            )
+            ),
+        )
 
     except HTTPException as http_exc:
         logger.info("600 ◀ exit ask_question HTTPException: %s", http_exc)
