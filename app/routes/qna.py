@@ -580,7 +580,13 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
             excluded = ["database", "standard", "standards", "backend"]
 
         # Enforce DPA  file for definition queries right before retrieval
-        if is_dpa_definition_query(user_txt):
+        try:
+            is_dpa_query = is_dpa_definition_query(user_txt)
+        except Exception as e:
+            logger.warning("Failed to determine if the query is a DPA definition query: %s", e)
+            is_dpa_query = False
+
+        if is_dpa_query:
             files = ["Data Protection Appendix - Definitions.pdf"]
             logger.info(
                 "Final override: Only 'Data Protection Appendix - Definitions.pdf' will be used for definition query."
@@ -646,7 +652,8 @@ async def ask_question(request: RequestQuery) -> QueryResponse:
                             files=files,
                         )
                 # Always use estimated input tokens, try to extract output tokens
-                _, output_tokens = extract_token_usage(direct_resp)
+                token_usage = extract_token_usage(direct_resp)
+                _, output_tokens = token_usage
                 logger.info(f"[Answer with context] Input tokens: {input_tokens}, Output tokens: {output_tokens}")
                 end_perf = time.perf_counter()
                 latency_ms = int((end_perf - start_perf) * 1000)
