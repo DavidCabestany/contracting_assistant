@@ -88,6 +88,13 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
                 matched_files.append(file_name)
                 break
     # Add CAN handbook only as an extra when there are already matches
+    print(user_txt)
+    if "CDA" in user_txt and kb_path == "general":
+        for file_name, file_kb_path in known_files.items():
+            if file_kb_path == kb_path and "cda playbook" in file_name.lower():
+                if file_name not in matched_files:
+                    matched_files.append(file_name)
+                break
     if matched_files and kb_path == "general":
         for file_name, file_kb_path in known_files.items():
             if file_kb_path == kb_path and "can handbook" in file_name.lower():
@@ -95,6 +102,7 @@ def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
                     matched_files.append(file_name)
                 break
     return matched_files
+
 
 def auto_attach_files_gxp_citation(user_txt: str, kb_path: str) -> list[str]:
     """Return all compliance files clearly needed for GxP scenarios."""
@@ -539,7 +547,6 @@ def retrieve_and_generate(
         raise
 
 
-
 def retrieve_and_generate_prioritized_doc(
     query: str,
     kb_id: str,
@@ -689,10 +696,7 @@ def retrieve_and_generate_prioritized_doc(
     final_prompt = (
         "Answer the QUESTION using ONLY the CONTEXT. "
         "Select the most relevant chunk(s). Do not mention other documents unless needed.\n\n"
-        "CONTEXT:\n"
-        + "\n\n".join(context_blocks)
-        + "\n\nQUESTION:\n"
-        + query
+        "CONTEXT:\n" + "\n\n".join(context_blocks) + "\n\nQUESTION:\n" + query
     )
 
     llm_resp = generate_answer_with_context(final_prompt)
@@ -718,6 +722,7 @@ def retrieve_and_generate_prioritized_doc(
 
     logger.info("EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESS (balanced multi-file)")
     return synthetic
+
 
 def retrieve_citations_from_query(
     query: str,
