@@ -35,6 +35,8 @@ from .constants import (
 )
 from .storage import add_prefix
 from .templates import retrieve_template
+import math
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -451,7 +453,7 @@ def retrieve_file_chunks(
             logger.warning("❌ Failed to retrieve %s: %s", doc, e)
             file_contents[doc] = f"[Error: {e}]"
 
-        return file_contents
+    return file_contents
 
 
 def retrieve_and_generate(
@@ -537,6 +539,7 @@ def retrieve_and_generate(
         raise
 
 
+
 def retrieve_and_generate_prioritized_doc(
     query: str,
     kb_id: str,
@@ -558,62 +561,163 @@ def retrieve_and_generate_prioritized_doc(
         dict: Retrieved and generated output limited to selected files.
     """
     logger.info("ENTER ▶ retrieve_and_generate_prioritized_doc")
-    logger.info("Step 1 ▶ Building prompt for query: %.100s", query)
     prompt_text = _render_prompt(query)
+
+    files = list(files or [])
+    logger.info("Step A ▶ files=%s (count=%d)", files, len(files))
+
+    if not files:
+        raise ValueError("No files provided")
+
+    # Single-file path (keep your current behavior)
+    if len(files) == 1:
+        allowed_paths = add_prefix(files, BUCKET_CONTAINER, knowledge_base_folder)
+        request_body = {
+            "input": {"text": prompt_text},
+            "retrieveAndGenerateConfiguration": {
+                "knowledgeBaseConfiguration": {
+                    "knowledgeBaseId": kb_id,
+                    "modelArn": MODEL_ARN,
+                    "retrievalConfiguration": {
+                        "vectorSearchConfiguration": {
+                            "overrideSearchType": QNA_SEARCH_TYPE,
+                            "filter": {
+                                "in": {
+                                    "key": "x-amz-bedrock-kb-source-uri",
+                                    "value": allowed_paths,
+                                },
+                            },
+                            "numberOfResults": QNA_MAX_RESULTS,
+                        },
+                    },
+                    "generationConfiguration": _build_gen_cfg(),
+                },
+                "type": "KNOWLEDGE_BASE",
+            },
+        }
+        if session_id:
+            request_body["sessionId"] = session_id
+
+        resp = bedrock_agent_runtime.retrieve_and_generate(**request_body)
+        return resp
+
+    # Multi-file path: force coverage
+    per_doc_k = max(3, math.ceil(QNA_MAX_RESULTS / len(files)))
+    logger.info("Step B ▶ balanced multi-doc retrieval per_doc_k=%d", per_doc_k)
+
+    all_refs: list[dict] = []
+    present_uris: set[str] = set()
+    expected_uris = [f"s3://{BUCKET_CONTAINER}/{knowledge_base_folder}/{f}" for f in files]
+
+    session_id_out = session_id
+
+    for f in files:
+        s3_uri = f"s3://{BUCKET_CONTAINER}/{knowledge_base_folder}/{f}"
+        logger.info("Step B1 ▶ per-doc retrieve: %s", s3_uri)
+
+        req = {
+            "input": {"text": prompt_text},
+            "retrieveAndGenerateConfiguration": {
+                "knowledgeBaseConfiguration": {
+                    "knowledgeBaseId": kb_id,
+                    "modelArn": MODEL_ARN,
+                    "retrievalConfiguration": {
+                        "vectorSearchConfiguration": {
+                            "overrideSearchType": QNA_SEARCH_TYPE,
+                            "numberOfResults": per_doc_k,
+                            "filter": {
+                                "equals": {
+                                    "key": "x-amz-bedrock-kb-source-uri",
+                                    "value": s3_uri,
+                                }
+                            },
+                        }
+                    },
+                    "generationConfiguration": _build_gen_cfg(),
+                },
+                "type": "KNOWLEDGE_BASE",
+            },
+        }
+        if session_id:
+            req["sessionId"] = session_id
+
+        resp_i = bedrock_agent_runtime.retrieve_and_generate(**req)
+
+        if not session_id_out:
+            session_id_out = resp_i.get("sessionId")
+
+        # Collect retrievedReferences
+        citations = resp_i.get("citations", []) or []
+        refs_count = 0
+        for cit in citations:
+            for rr in cit.get("retrievedReferences", []) or []:
+                md = rr.get("metadata", {}) or {}
+                uri = md.get("x-amz-bedrock-kb-source-uri")
+                if uri:
+                    present_uris.add(uri)
+                all_refs.append(rr)
+                refs_count += 1
+
+        logger.info("Step B2 ▶ %s refs_collected=%d", f, refs_count)
+
+    missing = [u for u in expected_uris if u not in present_uris]
     logger.info(
-        "Step 2 ▶ Prompt built (length=%d): %.200s",
-        len(prompt_text),
-        prompt_text.replace("\n", " "),
+        "Step B3 ▶ expected=%d present=%d missing=%d",
+        len(expected_uris),
+        len(present_uris),
+        len(missing),
+    )
+    if missing:
+        logger.warning("Step B4 ▶ missing URIs (no chunks retrieved): %s", missing)
+
+    # Build a strict “choose the best chunk” context
+    # Keep it small to avoid token explosion
+    max_refs = 18
+    all_refs = all_refs[:max_refs]
+
+    context_blocks = []
+    for i, rr in enumerate(all_refs, start=1):
+        md = rr.get("metadata", {}) or {}
+        uri = md.get("x-amz-bedrock-kb-source-uri", "")
+        page = md.get("x-amz-bedrock-kb-document-page-number", "")
+        txt = (rr.get("content", {}) or {}).get("text", "") or ""
+        txt = txt.strip()
+        if not txt:
+            continue
+        context_blocks.append(f"[Chunk {i}] SOURCE={uri} PAGE={page}\n{txt}")
+
+    final_prompt = (
+        "Answer the QUESTION using ONLY the CONTEXT. "
+        "Select the most relevant chunk(s). Do not mention other documents unless needed.\n\n"
+        "CONTEXT:\n"
+        + "\n\n".join(context_blocks)
+        + "\n\nQUESTION:\n"
+        + query
     )
 
-    logger.info("Step 3 ▶ Resolving allowed file paths from input files: %s", files)
-    allowed_paths = add_prefix(files, BUCKET_CONTAINER, knowledge_base_folder)
-    logger.info("Step 4 ▶ Allowed S3 paths: %s", allowed_paths)
+    llm_resp = generate_answer_with_context(final_prompt)
+    answer = (llm_resp.get("content", [{}])[0].get("text", "") or "").strip()
 
-    request_body = {
-        "input": {"text": prompt_text},
-        "retrieveAndGenerateConfiguration": {
-            "knowledgeBaseConfiguration": {
-                "knowledgeBaseId": kb_id,
-                "modelArn": MODEL_ARN,
-                "retrievalConfiguration": {
-                    "vectorSearchConfiguration": {
-                        "overrideSearchType": QNA_SEARCH_TYPE,
-                        "filter": {
-                            "in": {
-                                "key": "x-amz-bedrock-kb-source-uri",
-                                "value": allowed_paths,
-                            },
-                        },
-                        "numberOfResults": QNA_MAX_RESULTS,
-                    },
+    # Return a response shaped like Bedrock retrieve_and_generate so downstream code works
+    synthetic = {
+        "output": {"text": answer},
+        "guardrailAction": llm_resp.get("guardrailAction", "NONE"),
+        "sessionId": session_id_out or str(uuid.uuid4()),
+        "citations": [
+            {
+                "generatedResponsePart": {
+                    "textResponsePart": {
+                        "span": {"start": 0, "end": len(answer)},
+                        "text": answer,
+                    }
                 },
-                "generationConfiguration": _build_gen_cfg(),
-            },
-            "type": "KNOWLEDGE_BASE",
-        },
+                "retrievedReferences": all_refs,
+            }
+        ],
     }
 
-    if session_id:
-        request_body["sessionId"] = session_id
-        logger.info("Step 5 ▶ Using existing session_id: %s", session_id)
-    else:
-        logger.info("Step 5 ▶ No session_id provided — starting new session")
-
-    logger.info("Step 6 ▶ Final request payload ready for Bedrock call.")
-    try:
-        response = bedrock_agent_runtime.retrieve_and_generate(**request_body)
-        logger.info("EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESSFUL call")
-        if not response or not isinstance(response, dict):
-            raise ValueError("Empty or invalid Bedrock response.")
-        return response
-    except Exception as e:
-        logger.error(
-            "EXIT  ◀ retrieve_and_generate_prioritized_doc — FAILED call: %s",
-            str(e),
-        )
-        raise
-
+    logger.info("EXIT  ◀ retrieve_and_generate_prioritized_doc — SUCCESS (balanced multi-file)")
+    return synthetic
 
 def retrieve_citations_from_query(
     query: str,
