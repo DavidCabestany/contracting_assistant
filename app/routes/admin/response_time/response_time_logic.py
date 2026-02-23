@@ -33,8 +33,7 @@ class ResponseTimeLogic:
             start_date = end_date - timedelta(days=364)
             return start_date, end_date
         elif timeframe == "yearly":
-            # Return a very wide range to include all data
-            start_date = datetime(1970, 1, 1).date()
+            start_date = datetime(now.year - 2, 1, 1).date()  # last 3 years
             end_date = now.date()
             return start_date, end_date
         else:
