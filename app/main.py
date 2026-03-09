@@ -11,6 +11,11 @@ from routes.admin.feedback.feedback import feedback_data_router
 from routes.admin.feedback.feedbackdetails import feedbackdetails_router
 from routes.admin.response_time.response_time import responseTime_router
 from routes.admin.usage.usage import usage_router
+from routes.kb_manager.list_docs import doc_manager_router
+from routes.kb_manager.upload_doc import upload_router
+from routes.kb_manager.update_doc import update_router
+from routes.kb_manager.delete_docs import delete_router
+
 
 # Configure root logger
 logging.basicConfig(
@@ -81,6 +86,12 @@ app.include_router(
     prefix="/admin/feedback",
     tags=["Admin only tracking"],
 )
+
+# Document Manager endpoints
+app.include_router(doc_manager_router, prefix="", tags=["Documents"])
+app.include_router(upload_router, prefix="", tags=["Documents"])
+app.include_router(update_router, prefix="", tags=["Documents"])
+app.include_router(delete_router, prefix="", tags=["Documents"])
 
 
 @app.get("/")
