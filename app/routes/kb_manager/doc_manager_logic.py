@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import os
-from tempfile import NamedTemporaryFile
-from typing import Any, BinaryIO
+from typing import  BinaryIO
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, UploadFile
 
-import shutil
-import subprocess
+
 
 ALLOWED_FOLDERS = {"general", "privacy"}
 
