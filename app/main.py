@@ -11,10 +11,7 @@ from routes.admin.feedback.feedback import feedback_data_router
 from routes.admin.feedback.feedbackdetails import feedbackdetails_router
 from routes.admin.response_time.response_time import responseTime_router
 from routes.admin.usage.usage import usage_router
-from routes.kb_manager.list_docs import doc_manager_router
-from routes.kb_manager.upload_doc import upload_router
-from routes.kb_manager.update_doc import update_router
-from routes.kb_manager.delete_docs import delete_router
+from routes.kb_manager.router import doc_manager_router, upload_router, update_router, delete_router
 
 
 # Configure root logger
