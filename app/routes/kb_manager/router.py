@@ -7,11 +7,13 @@ from models.kb_manager import (
     FileOperationResponse,
     FileOperationResult,
     ListDocumentsResponse,
+    DocumentInfo,
 )
 from routes.constants import BUCKET_CONTAINER
 from routes.kb_manager.doc_manager_logic import DocumentManager
 
 doc_manager_router = APIRouter()
+
 
 @doc_manager_router.get(
     "/admin/kb-documents/",
@@ -20,16 +22,18 @@ doc_manager_router = APIRouter()
 def list_kb_documents(
     folder: str = Query(..., description="Folder name: 'general' or 'privacy'"),
 ) -> ListDocumentsResponse:
-    """List all files in the selected folder.
+    """
+    List all files in the selected folder, including creation timestamp and count.
 
     Args:
         folder: Folder name.
 
     Returns:
-        Response containing the list of document names.
+        Response containing the list of document names, timestamps, and count.
     """
     manager = DocumentManager(BUCKET_CONTAINER)
-    return ListDocumentsResponse(documents=manager.list_documents(folder))
+    docs = manager.list_documents(folder)
+    return ListDocumentsResponse(documents=[DocumentInfo(**doc) for doc in docs], count=len(docs))
 
 
 @doc_manager_router.post(
@@ -51,10 +55,7 @@ async def upload_kb_documents(
     """
     manager = DocumentManager(BUCKET_CONTAINER)
     return FileOperationResponse(
-        results=[
-            FileOperationResult(**result)
-            for result in manager.upload_documents(folder, files)
-        ]
+        results=[FileOperationResult(**result) for result in manager.upload_documents(folder, files)]
     )
 
 
@@ -77,10 +78,7 @@ async def update_kb_documents(
     """
     manager = DocumentManager(BUCKET_CONTAINER)
     return FileOperationResponse(
-        results=[
-            FileOperationResult(**result)
-            for result in manager.update_documents(folder, files)
-        ]
+        results=[FileOperationResult(**result) for result in manager.update_documents(folder, files)]
     )
 
 
@@ -103,9 +101,30 @@ def delete_kb_documents(
     """
     manager = DocumentManager(BUCKET_CONTAINER)
     return FileOperationResponse(
-        results=[
-            FileOperationResult(**result)
-            for result in manager.delete_documents(folder, filenames)
-        ]
+        results=[FileOperationResult(**result) for result in manager.delete_documents(folder, filenames)]
     )
 
+
+@doc_manager_router.post(
+    "/admin/kb-documents/rename/",
+    response_model=FileOperationResult,
+)
+def rename_kb_document(
+    folder: str = Query(..., description="Folder name: 'general' or 'privacy'"),
+    old_filename: str = Query(..., description="Current filename"),
+    new_filename: str = Query(..., description="New filename"),
+) -> FileOperationResult:
+    """
+    Rename a file in the selected folder.
+
+    Args:
+        folder: Folder name.
+        old_filename: Current file name.
+        new_filename: New file name.
+
+    Returns:
+        Result of the rename operation.
+    """
+    manager = DocumentManager(BUCKET_CONTAINER)
+    result = manager.rename_document(folder, old_filename, new_filename)
+    return FileOperationResult(**result)
