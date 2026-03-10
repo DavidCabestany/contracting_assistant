@@ -12,11 +12,6 @@ from routes.constants import BUCKET_CONTAINER
 from routes.kb_manager.doc_manager_logic import DocumentManager
 
 doc_manager_router = APIRouter()
-doc_manager_router = APIRouter()
-upload_router = APIRouter()
-update_router = APIRouter()
-delete_router = APIRouter()
-
 
 @doc_manager_router.get(
     "/admin/kb-documents/",
@@ -114,23 +109,3 @@ def delete_kb_documents(
         ]
     )
 
-
-# @doc_manager_router.post(
-#     "/admin/kb-documents/upload-as-pdf/",
-#     response_model=FileOperationResult,
-# )
-# async def upload_kb_document_as_pdf(
-#     folder: str = Query(..., description="Folder name: 'general' or 'privacy'"),
-#     file: UploadFile = File(...),
-# ) -> FileOperationResult:
-#     """Convert a DOCX file to PDF and upload the PDF to S3.
-
-#     Args:
-#         folder: Folder name.
-#         file: DOCX file to convert.
-
-#     Returns:
-#         Result containing filename and status.
-#     """
-#     manager = DocumentManager(BUCKET_CONTAINER)
-#     return FileOperationResult(**manager.upload_document_as_pdf(folder, file))

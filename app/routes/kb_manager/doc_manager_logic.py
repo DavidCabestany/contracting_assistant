@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import  BinaryIO
+from typing import BinaryIO
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError

@@ -11,8 +11,7 @@ from routes.admin.feedback.feedback import feedback_data_router
 from routes.admin.feedback.feedbackdetails import feedbackdetails_router
 from routes.admin.response_time.response_time import responseTime_router
 from routes.admin.usage.usage import usage_router
-from routes.kb_manager.router import doc_manager_router, upload_router, update_router, delete_router
-
+from routes.kb_manager.router import doc_manager_router
 
 # Configure root logger
 logging.basicConfig(
@@ -85,11 +84,7 @@ app.include_router(
 )
 
 # Document Manager endpoints
-app.include_router(doc_manager_router, prefix="", tags=["Documents"])
-app.include_router(upload_router, prefix="", tags=["Documents"])
-app.include_router(update_router, prefix="", tags=["Documents"])
-app.include_router(delete_router, prefix="", tags=["Documents"])
-
+app.include_router(doc_manager_router, tags=["Documents"])
 
 @app.get("/")
 def alive():
