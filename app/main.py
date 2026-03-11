@@ -84,7 +84,7 @@ app.include_router(
 )
 
 # Document Manager endpoints
-app.include_router(doc_manager_router, tags=["Documents"])
+app.include_router(doc_manager_router, prefix="/admin/kb", tags=["Documents"])
 
 @app.get("/")
 def alive():

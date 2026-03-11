@@ -7,9 +7,11 @@ from typing import BinaryIO
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, UploadFile
+from config import get_secret
 
+s3 = boto3.client("s3")
 
-
+BUCKET_CONTAINER = get_secret("BUCKET_CONTAINER")
 ALLOWED_FOLDERS = {"general", "privacy"}
 
 

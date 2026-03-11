@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from models.kb_manager import (
     FileOperationResponse,
     FileOperationResult,
@@ -17,6 +17,8 @@ doc_manager_router = APIRouter()
     "/admin/kb-documents/",
     response_model=ListDocumentsResponse,
 )
+
+
 def list_kb_documents(
     folder: str = Query(..., description="Folder name: 'general' or 'privacy'"),
 ) -> ListDocumentsResponse:
@@ -28,7 +30,10 @@ def list_kb_documents(
     Returns:
         Response containing the list of document names.
     """
-    manager = DocumentManager(BUCKET_CONTAINER)
+    try:
+        manager = DocumentManager(BUCKET_CONTAINER)
+    except Exception as e:
+        raise HTTPException(500, f"Error init manager: {e}")
     return ListDocumentsResponse(documents=manager.list_documents(folder))
 
 
@@ -36,6 +41,8 @@ def list_kb_documents(
     "/admin/kb-documents/upload/",
     response_model=FileOperationResponse,
 )
+
+
 async def upload_kb_documents(
     folder: str = Query(..., description="Folder name: 'general' or 'privacy'"),
     files: list[UploadFile] = File(...),
@@ -62,6 +69,8 @@ async def upload_kb_documents(
     "/admin/kb-documents/update/",
     response_model=FileOperationResponse,
 )
+
+
 async def update_kb_documents(
     folder: str = Query(..., description="Folder name: 'general' or 'privacy'"),
     files: list[UploadFile] = File(...),
