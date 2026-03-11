@@ -1,21 +1,23 @@
+from typing import List, Optional
+
 from pydantic import BaseModel
 
 
 class FileOperationResult(BaseModel):
     filename: str
     status: str
-    detail: str | None = None
+    detail: Optional[str] = None
 
 
 class FileOperationResponse(BaseModel):
-    results: list[FileOperationResult]
+    results: List[FileOperationResult]
 
 
 class DocumentInfo(BaseModel):
     filename: str
-    timestamp: str | None = None
+    timestamp: Optional[str] = None
 
 
 class ListDocumentsResponse(BaseModel):
-    documents: list[DocumentInfo]
+    documents: List[DocumentInfo]
     count: int
