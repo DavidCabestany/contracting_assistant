@@ -51,10 +51,7 @@ class DocumentManager:
         if folder not in ALLOWED_FOLDERS:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"Invalid folder '{folder}'. "
-                    f"Allowed folders: {sorted(ALLOWED_FOLDERS)}."
-                ),
+                detail=(f"Invalid folder '{folder}'. " f"Allowed folders: {sorted(ALLOWED_FOLDERS)}."),
             )
 
     def _get_prefix(self, folder: str) -> str:
@@ -78,7 +75,7 @@ class DocumentManager:
         Returns:
             Set of file names present in the folder.
         """
-        return set(self.list_documents(folder))
+        return set(doc["filename"] for doc in self.list_documents(folder))
 
     def _seek_to_start(self, file_obj: BinaryIO) -> None:
         """Move a file-like object cursor to the start when possible.
@@ -185,28 +182,33 @@ class DocumentManager:
 
         return results
 
-    def list_documents(self, folder: str) -> list[str]:
-        """List all files in the selected folder.
+    def list_documents(self, folder: str) -> list[dict]:
+        """List all files in the selected folder, including creation timestamp.
 
         Args:
             folder: Folder name, such as 'general' or 'privacy'.
 
         Returns:
-            List of file names stored under the folder.
+            List of dictionaries with file name and creation timestamp.
 
         Raises:
             HTTPException: If S3 listing fails.
         """
         prefix = self._get_prefix(folder)
         paginator = self.s3.get_paginator("list_objects_v2")
-        documents: list[str] = []
+        documents: list[dict] = []
 
         try:
             for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
                 for obj in page.get("Contents", []):
                     key = obj["Key"]
                     if key != prefix:
-                        documents.append(key.replace(prefix, "", 1))
+                        documents.append(
+                            {
+                                "filename": key.replace(prefix, "", 1),
+                                "timestamp": obj.get("LastModified").isoformat() if obj.get("LastModified") else None,
+                            }
+                        )
         except (ClientError, BotoCoreError) as exc:
             raise HTTPException(
                 status_code=500,
@@ -288,120 +290,32 @@ class DocumentManager:
                 )
 
         return results
-    
 
+    def rename_document(self, folder: str, old_filename: str, new_filename: str) -> dict:
+        """Rename a file in the selected folder.
 
+        Args:
+            folder: Folder name.
+            old_filename: Current file name.
+            new_filename: New file name.
 
+        Returns:
+            Result dictionary with status and detail.
+        """
+        prefix = self._get_prefix(folder)
+        old_key = prefix + old_filename
+        new_key = prefix + new_filename
 
+        existing_files = self._list_existing_files(folder)
+        if old_filename not in existing_files:
+            return self._build_result(old_filename, "not_found", "File to rename does not exist.")
 
+        if new_filename in existing_files:
+            return self._build_result(new_filename, "exists", "Target filename already exists.")
 
-
-    # def upload_document_as_pdf(self, folder: str, file: UploadFile) -> dict[str, str]:
-    #     """Convert an uploaded DOCX file to PDF and upload it to S3.
-
-    #     The resulting object name uses the original base name with a `.pdf`
-    #     extension. If the PDF already exists in the target folder, the upload is
-    #     skipped.
-
-    #     Args:
-    #         folder: Target folder.
-    #         file: DOCX file to convert and upload.
-
-    #     Returns:
-    #         Result dictionary with filename and status.
-
-    #     Raises:
-    #         HTTPException: If validation, conversion, or upload fails.
-    #     """
-
-
-    #     prefix = self._get_prefix(folder)
-
-    #     if not file.filename:
-    #         raise HTTPException(
-    #             status_code=400,
-    #             detail="Uploaded file must have a filename.",
-    #         )
-
-    #     if not file.filename.lower().endswith(".docx"):
-    #         raise HTTPException(
-    #             status_code=400,
-    #             detail="Only .docx files are supported for PDF conversion.",
-    #         )
-
-    #     libreoffice_cmd = shutil.which("libreoffice") or shutil.which("soffice")
-    #     if libreoffice_cmd is None:
-    #         raise HTTPException(
-    #             status_code=500,
-    #             detail="LibreOffice is not installed or not available in PATH.",
-    #         )
-
-    #     pdf_filename = f"{os.path.splitext(file.filename)[0]}.pdf"
-    #     key = prefix + pdf_filename
-    #     existing_files = self._list_existing_files(folder)
-
-    #     if pdf_filename in existing_files:
-    #         return self._build_result(pdf_filename, "exists")
-
-    #     tmp_docx_path: str | None = None
-    #     tmp_pdf_path: str | None = None
-
-    #     try:
-    #         with NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
-    #             tmp_docx_path = tmp_docx.name
-    #             self._seek_to_start(file.file)
-    #             tmp_docx.write(file.file.read())
-    #             tmp_docx.flush()
-
-    #         output_dir = os.path.dirname(tmp_docx_path)
-    #         expected_pdf_name = f"{os.path.splitext(os.path.basename(tmp_docx_path))[0]}.pdf"
-    #         tmp_pdf_path = os.path.join(output_dir, expected_pdf_name)
-
-    #         process = subprocess.run(
-    #             [
-    #                 libreoffice_cmd,
-    #                 "--headless",
-    #                 "--convert-to",
-    #                 "pdf",
-    #                 "--outdir",
-    #                 output_dir,
-    #                 tmp_docx_path,
-    #             ],
-    #             capture_output=True,
-    #             text=True,
-    #             check=False,
-    #         )
-
-    #         if process.returncode != 0:
-    #             raise HTTPException(
-    #                 status_code=500,
-    #                 detail=(
-    #                     "LibreOffice conversion failed. "
-    #                     f"stdout: {process.stdout.strip()} "
-    #                     f"stderr: {process.stderr.strip()}"
-    #                 ),
-    #             )
-
-    #         if not os.path.exists(tmp_pdf_path):
-    #             raise HTTPException(
-    #                 status_code=500,
-    #                 detail="LibreOffice did not generate the expected PDF file.",
-    #             )
-
-    #         with open(tmp_pdf_path, "rb") as pdf_file:
-    #             self._upload_stream(pdf_file, key)
-
-    #     except HTTPException:
-    #         raise
-    #     except Exception as exc:
-    #         raise HTTPException(
-    #             status_code=500,
-    #             detail=f"Failed to convert DOCX to PDF and upload it: {exc}",
-    #         ) from exc
-    #     finally:
-    #         if tmp_docx_path and os.path.exists(tmp_docx_path):
-    #             os.remove(tmp_docx_path)
-    #         if tmp_pdf_path and os.path.exists(tmp_pdf_path):
-    #             os.remove(tmp_pdf_path)
-
-    #     return self._build_result(pdf_filename, "uploaded")
+        try:
+            self.s3.copy_object(Bucket=self.bucket, CopySource={"Bucket": self.bucket, "Key": old_key}, Key=new_key)
+            self.s3.delete_object(Bucket=self.bucket, Key=old_key)
+            return self._build_result(old_filename, "renamed", f"Renamed to {new_filename}")
+        except (ClientError, BotoCoreError) as exc:
+            return self._build_result(old_filename, "error", str(exc))

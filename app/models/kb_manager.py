@@ -11,5 +11,11 @@ class FileOperationResponse(BaseModel):
     results: list[FileOperationResult]
 
 
+class DocumentInfo(BaseModel):
+    filename: str
+    timestamp: str | None = None
+
+
 class ListDocumentsResponse(BaseModel):
-    documents: list[str]
+    documents: list[DocumentInfo]
+    count: int
