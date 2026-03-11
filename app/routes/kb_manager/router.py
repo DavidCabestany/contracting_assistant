@@ -16,7 +16,7 @@ doc_manager_router = APIRouter()
 
 
 @doc_manager_router.get(
-    "/admin/kb-documents/",
+    "/manager/",
     response_model=ListDocumentsResponse,
 )
 
@@ -41,7 +41,7 @@ def list_kb_documents(
 
 
 @doc_manager_router.post(
-    "/admin/kb-documents/upload/",
+    "/manager/upload/",
     response_model=FileOperationResponse,
 )
 
@@ -66,7 +66,7 @@ async def upload_kb_documents(
 
 
 @doc_manager_router.post(
-    "/admin/kb-documents/update/",
+    "/manager/update/",
     response_model=FileOperationResponse,
 )
 
@@ -91,7 +91,7 @@ async def update_kb_documents(
 
 
 @doc_manager_router.delete(
-    "/admin/kb-documents/delete/",
+    "/manager/delete/",
     response_model=FileOperationResponse,
 )
 def delete_kb_documents(
@@ -114,7 +114,7 @@ def delete_kb_documents(
 
 
 @doc_manager_router.post(
-    "/admin/kb-documents/rename/",
+    "/manager/rename/",
     response_model=FileOperationResult,
 )
 def rename_kb_document(
@@ -122,8 +122,7 @@ def rename_kb_document(
     old_filename: str = Query(..., description="Current filename"),
     new_filename: str = Query(..., description="New filename"),
 ) -> FileOperationResult:
-    """
-    Rename a file in the selected folder.
+    """Rename a file in the selected folder.
 
     Args:
         folder: Folder name.
