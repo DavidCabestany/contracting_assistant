@@ -193,8 +193,6 @@ def aggregate_trend(items, timeframe, start_dt, end_dt):
         return out
 
     if timeframe == "yearly":
-        from collections import defaultdict
-
         yearly_buckets = defaultdict(lambda: {"positive": 0, "negative": 0, "no_feedback": 0})
         for item in items:
             dt = parse_date_flexible(item["Timestamp"])
