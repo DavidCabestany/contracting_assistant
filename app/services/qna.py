@@ -29,7 +29,6 @@ from .constants import (
     IRRELEVANT,
     MODEL_ARN,
     MODEL_ID,
-    PRIOR_DOC,
     QNA_MAX_TOKENS_VALUE,
     QNA_SEARCH_TYPE,
 )
@@ -62,6 +61,26 @@ def load_known_files_from_s3() -> dict[str, str]:
                     known_files[file_name] = kb_path
 
     return known_files
+
+def set_prior_doc_can_handbook() -> str | None:
+    """Find highest-version 'CAN HANDBOOK X.Y*' in known_files and set PRIOR_DOC."""
+    global PRIOR_DOC
+    known_files = load_known_files_from_s3()
+    
+    def parse_version(name: str) -> float:
+        match = re.search(r'can handbook\s+(\d+(?:\.\d+)?)', name.lower())
+        return float(match.group(1)) if match else -1
+    
+    candidates = [(name, parse_version(name)) for name in known_files if parse_version(name) > 0]
+    if candidates:
+        latest_name = max(candidates, key=lambda x: x[1])[0]
+        PRIOR_DOC = latest_name
+        return latest_name
+    return None
+
+print("Setting PRIOR_DOC based on available CAN HANDBOOK versions...")
+print("PRIOR_DOC set to:", set_prior_doc_can_handbook())
+print("PRIOR_DOC is now:", PRIOR_DOC)
 
 
 def auto_attach_files(user_txt: str, kb_path: str) -> list[str]:
@@ -240,7 +259,7 @@ def is_invalid_response(text: str) -> bool:
 
 
 def is_high_priority_query(query: str, category: str) -> bool:
-    """Check if teh initial user query is part of the standard queries."""
+    """Check if the initial user query is part of the standard queries."""
     normalized_query = query.lower().strip()
     normalized_category = category.strip().title()
     return normalized_query in HIGH_PRIORITY_QUERIES.get(normalized_category, set())
